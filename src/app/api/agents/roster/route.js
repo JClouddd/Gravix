@@ -1,39 +1,23 @@
 import { generate, structuredGenerate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
+import registry from "@/../agents/registry.json";
 
-/**
- * Agent registry — defines all 7 Gravix agents with their current deployment status.
- * Scholar is active via Discovery Engine. Conductor routes via Gemini.
- * Others will be activated as their backends are wired.
- */
-const AGENT_REGISTRY = [
-  {
-    id: "conductor",
-    name: "Conductor",
-    role: "Orchestrator — routes requests to the right agent",
-    status: "active",
+const AGENT_EXTRAS = {
+  conductor: {
     selfImprove: "Meta-Agent: creates new agents when gaps found",
     color: "#6C5CE7",
     icon: "🎯",
     backend: "gemini",
     model: "gemini-2.5-flash",
   },
-  {
-    id: "forge",
-    name: "Forge",
-    role: "DevOps — MCP, secrets, IAM, APIs, health checks",
-    status: "standby",
+  forge: {
     selfImprove: "Auto-Config: updates on API changes",
     color: "#E17055",
     icon: "🔧",
     backend: "pending",
     model: "gemini-2.5-flash",
   },
-  {
-    id: "scholar",
-    name: "Scholar",
-    role: "Knowledge — ingestion, research, documentation",
-    status: "active",
+  scholar: {
     selfImprove: "Self-Indexing: auto cross-references",
     color: "#00B894",
     icon: "📚",
@@ -42,51 +26,47 @@ const AGENT_REGISTRY = [
     dataStoreId: "gravix-knowledge",
     engineId: "gravix-scholar",
   },
-  {
-    id: "analyst",
-    name: "Analyst",
-    role: "Data science — Colab, analysis, ML, charts",
-    status: "standby",
+  analyst: {
     selfImprove: "Notebook Factory: drafts new notebooks",
     color: "#A29BFE",
     icon: "📈",
     backend: "pending",
     model: "gemini-2.5-pro",
   },
-  {
-    id: "courier",
-    name: "Courier",
-    role: "Communications — email, calendar, tasks, Meet, notifications",
-    status: "standby",
+  courier: {
     selfImprove: "Template Learning: auto-creates templates",
     color: "#4299E1",
     icon: "📨",
     backend: "pending",
     model: "gemini-2.5-flash",
   },
-  {
-    id: "sentinel",
-    name: "Sentinel",
-    role: "Security — costs, monitoring, agent health, rules",
-    status: "active",
+  sentinel: {
     selfImprove: "Rule Generation: proposes from anomalies",
     color: "#E74C3C",
     icon: "🛡️",
     backend: "gemini",
     model: "gemini-2.5-flash",
   },
-  {
-    id: "builder",
-    name: "Builder",
-    role: "Code — branches, generation, Jules integration, patterns",
-    status: "standby",
+  builder: {
     selfImprove: "Pattern Library: extracts reusable patterns",
     color: "#F1C40F",
     icon: "🏗️",
     backend: "pending",
     model: "gemini-2.5-pro",
   },
-];
+};
+
+/**
+ * Agent registry — dynamically built from registry.json
+ */
+const AGENT_REGISTRY = Object.entries(registry.agents).map(([id, data]) => ({
+  id,
+  name: data.displayName,
+  role: data.role,
+  status: "active",
+  dialogflowCxId: data.id,
+  ...AGENT_EXTRAS[id],
+}));
 
 /**
  * GET /api/agents/roster
