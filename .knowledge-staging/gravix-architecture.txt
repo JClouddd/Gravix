@@ -1,0 +1,64 @@
+# Gravix Architecture Reference
+
+## Overview
+Gravix is a Google-native AI operating system built with Next.js 16, Firebase, and Vertex AI.
+
+## Tech Stack
+- Frontend: Next.js 16 (App Router, JavaScript, no TypeScript)
+- UI: Dark mode glassmorphic design, Inter font, CSS variables
+- Auth: Firebase Authentication  
+- Database: Cloud Firestore
+- AI: Gemini API via @google/generative-ai SDK
+- Knowledge: Vertex AI Discovery Engine (Data Store: gravix-knowledge, Engine: gravix-scholar)
+- Storage: Google Cloud Storage (gs://gravix-knowledge-docs)
+- Deployment: Vercel (auto-deploy from GitHub)
+- CI/CD: Jules (automated PRs) + GitHub Actions (auto-merge)
+
+## Agent Architecture
+7 agents, each with a specific role:
+1. Conductor - Orchestrator, routes requests via Gemini structured output
+2. Forge - DevOps, infrastructure, secrets, IAM
+3. Scholar - Knowledge, research, documentation (uses Discovery Engine)
+4. Analyst - Data science, Colab notebooks, ML
+5. Courier - Email, calendar, tasks, Meet (needs OAuth)
+6. Sentinel - Security monitoring, cost tracking, anomalies
+7. Builder - Code generation, Jules integration, patterns
+
+## API Routes
+- /api/gemini/chat - General chat with auto-complexity routing
+- /api/gemini/grounded - Google Search grounded queries
+- /api/gemini/research - Deep research with extended thinking
+- /api/knowledge/query - Search Discovery Engine Data Store
+- /api/knowledge/ingest - Submit content for classification and staging
+- /api/knowledge/status - System health and ingestion stats
+- /api/knowledge/review - Scholar chat for reviewing staged content
+- /api/agents/roster - GET: list agents, POST: orchestrate requests
+- /api/agents/route - Conductor routing endpoint
+- /api/costs/summary - Cost dashboard data from Firestore
+- /api/costs/breakdown - Per-model/agent cost breakdown
+- /api/email/inbox - Gmail integration (pending OAuth)
+- /api/email/compose - Email composition (pending OAuth)
+- /api/colab/execute - Notebook execution (pending GCS setup)
+- /api/jules/tasks - Jules task management
+- /api/settings/route - User preferences
+
+## Firestore Collections
+- api_usage: Cost tracking per API call (route, model, tokens, cost, timestamp, agent)
+- ingestion: Staged knowledge entries pending review
+- clients: Client profiles and project data
+- settings: User preferences
+- activity: System event log
+
+## Security Model
+- Firebase Auth for user authentication
+- GCP Service Account: gravix-hub@antigravity-hub-jcloud.iam.gserviceaccount.com
+- Secret Manager: gemini-api-key, jules-api-key
+- Sentinel agent monitors all costs and health independently
+
+## Design System
+- Colors: HSL-based tokens (--bg-primary through --bg-elevated)
+- Accent: Electric Indigo (hsl 245, 80%, 62%)
+- Agent colors: Each agent has a unique HSL color
+- Components: .card, .card-glass, .btn-*, .badge-*, .input, .status-dot
+- Animations: fadeInUp, shimmer, pulse, scaleIn
+- Responsive: Desktop sidebar → Mobile bottom nav at 768px

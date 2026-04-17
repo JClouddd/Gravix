@@ -1,0 +1,32 @@
+# Firebase Integration Patterns for Gravix
+
+## Authentication
+- Using Firebase Auth with Google provider
+- Client-side auth via firebase/auth SDK
+- Auth state managed by authProvider.js
+
+## Firestore Usage
+- Client SDK used in both client components and API routes
+- Collections: api_usage, ingestion, clients, settings, activity
+- Queries use composite indexes for date range + field filters
+- Cost tracking uses serverTimestamp() for consistency
+
+## Security Rules (recommended)
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // API usage - server-written, read by authenticated users
+    match /api_usage/{doc} {
+      allow read: if request.auth != null;
+      allow write: if true; // Server-side writes
+    }
+    // Ingestion - any authenticated user can read/write
+    match /ingestion/{doc} {
+      allow read, write: if request.auth != null;
+    }
+    // Settings - user-specific
+    match /settings/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+  }
+}
