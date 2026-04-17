@@ -5,7 +5,7 @@ import { db } from "@/lib/firebase";
 /**
  * GET /api/email/inbox — Fetch real Gmail inbox or return not-connected status
  */
-export async function GET() {
+export async function GET(request) {
   try {
     // Check if OAuth tokens exist
     const tokensDoc = await getDoc(doc(db, "settings", "google_oauth"));
@@ -49,14 +49,54 @@ export async function GET() {
     const messages = await getGmailInbox(accessToken, 20);
     const unread = messages.filter((m) => !m.isRead).length;
 
+    let classifiedMessages = messages;
+    let actionRequired = 0;
+    let clientEmails = 0;
+
+    if (messages.length > 0) {
+      try {
+        const origin = new URL(request.url).origin;
+        // Classify emails
+        const classifyRes = await fetch(`${origin}/api/email/classify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ emails: messages })
+        });
+
+        if (classifyRes.ok) {
+          const { classifications } = await classifyRes.json();
+          if (classifications && Array.isArray(classifications)) {
+            classifiedMessages = messages.map(msg => {
+              const classification = classifications.find(c => c.emailId === msg.id);
+              if (classification) {
+                if (classification.category === "action-required") actionRequired++;
+                if (classification.category === "client") clientEmails++;
+                return { ...msg, ...classification };
+              }
+              return msg;
+            });
+
+            // Trigger pipeline
+            await fetch(`${origin}/api/automation/email-pipeline`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ emails: classifiedMessages })
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Auto-classification pipeline error:", err);
+      }
+    }
+
     return Response.json({
       connected: true,
-      inbox: messages,
+      inbox: classifiedMessages,
       stats: {
-        total: messages.length,
+        total: classifiedMessages.length,
         unread,
-        actionRequired: 0,
-        clientEmails: 0,
+        actionRequired,
+        clientEmails,
       },
     });
   } catch (error) {
@@ -113,7 +153,38 @@ export async function POST(request) {
     // Handle actions
     if (action === "fetch") {
       const messages = await getGmailInbox(accessToken, options.maxResults || 20);
-      return Response.json({ connected: true, inbox: messages });
+
+      let classifiedMessages = messages;
+      if (messages.length > 0) {
+        try {
+          const origin = new URL(request.url).origin;
+          const classifyRes = await fetch(`${origin}/api/email/classify`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ emails: messages })
+          });
+
+          if (classifyRes.ok) {
+            const { classifications } = await classifyRes.json();
+            if (classifications && Array.isArray(classifications)) {
+              classifiedMessages = messages.map(msg => {
+                const classification = classifications.find(c => c.emailId === msg.id);
+                return classification ? { ...msg, ...classification } : msg;
+              });
+
+              await fetch(`${origin}/api/automation/email-pipeline`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ emails: classifiedMessages })
+              });
+            }
+          }
+        } catch (err) {
+          console.error("Auto-classification pipeline error:", err);
+        }
+      }
+
+      return Response.json({ connected: true, inbox: classifiedMessages });
     }
 
     if (action === "read" && emailId) {
