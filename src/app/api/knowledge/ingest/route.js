@@ -7,7 +7,7 @@ import { classifyContent, processUrl, createStagingEntry } from "@/lib/knowledge
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { content, type = "text", title = "", source = "manual" } = body;
+    const { content, type = "text", title = "", source = "manual", fileName = "" } = body;
 
     if (!content) {
       return Response.json(
@@ -16,27 +16,52 @@ export async function POST(request) {
       );
     }
 
+    // Redirect to /api/knowledge/ingest-url if type is URL
+    if (type === "url") {
+      try {
+        const urlObj = new URL('/api/knowledge/ingest-url', request.url);
+        // We will call the other route internally
+        const internalResponse = await fetch(urlObj.toString(), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url: content, type: "webpage" }) // Assuming webpage by default
+        });
+
+        const data = await internalResponse.json();
+
+        if (!internalResponse.ok) {
+          return Response.json(data, { status: internalResponse.status });
+        }
+
+        return Response.json(data);
+      } catch (err) {
+        return Response.json({ error: "Failed to process URL internally: " + err.message }, { status: 500 });
+      }
+    }
+
     let processedContent = content;
     let processedMeta = {};
+    let finalTitle = title;
 
-    // If URL, fetch and process
-    if (type === "url") {
-      const urlResult = await processUrl(content);
-      processedContent = urlResult.content;
-      processedMeta = {
-        originalUrl: content,
-        processingTokens: urlResult.tokens,
-        processingCost: urlResult.cost,
-      };
+    if (type === "file") {
+      // Decode base64
+      try {
+        processedContent = Buffer.from(content, 'base64').toString('utf-8');
+        finalTitle = fileName || title || "Uploaded File";
+      } catch (err) {
+        return Response.json({ error: "Failed to decode file content" }, { status: 400 });
+      }
     }
 
     // Classify the content
-    const classification = await classifyContent(processedContent, title);
+    const classification = await classifyContent(processedContent, finalTitle);
 
     // Create staging entry
     const entry = createStagingEntry({
       content: processedContent,
-      title,
+      title: finalTitle,
       type,
       source,
       classification,

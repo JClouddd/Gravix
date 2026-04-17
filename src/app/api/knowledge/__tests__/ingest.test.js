@@ -77,32 +77,34 @@ describe('POST /api/knowledge/ingest', () => {
     expect(data.message).toContain('Content staged for review');
   });
 
-  it('processes URL content and returns staging entry', async () => {
-    const mockUrlResult = {
-      content: 'Extracted content from URL',
-      tokens: 100,
-      cost: 0.01
-    };
-
-    const mockClassification = {
-      category: 'workflow',
-      confidence: 0.85,
-      summary: 'URL summary',
-      tags: ['url-test']
-    };
-
-    const mockEntry = {
-      id: 'ing_url_456',
-      title: 'URL Title',
-      type: 'url',
-      status: 'staged'
-    };
-
-    processUrl.mockResolvedValueOnce(mockUrlResult);
-    classifyContent.mockResolvedValueOnce(mockClassification);
-    createStagingEntry.mockReturnValueOnce(mockEntry);
+  it('processes URL content and delegates to ingest-url', async () => {
+    // Mock the global fetch for the internal call
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        success: true,
+        ingested: true,
+        title: 'URL Title',
+        summary: 'URL summary',
+        wordCount: 100,
+        classification: {
+          category: 'workflow',
+          confidence: 0.85,
+          summary: 'URL summary',
+          tags: ['url-test']
+        },
+        entry: {
+          id: 'ing_url_456',
+          title: 'URL Title',
+          type: 'url',
+          status: 'staged'
+        }
+      })
+    });
 
     const req = {
+      url: 'http://localhost/api/knowledge/ingest',
       json: async () => ({
         content: 'https://example.com',
         type: 'url',
@@ -114,29 +116,14 @@ describe('POST /api/knowledge/ingest', () => {
     const response = await POST(req);
     const data = await response.json();
 
-    expect(processUrl).toHaveBeenCalledWith('https://example.com');
-    expect(classifyContent).toHaveBeenCalledWith('Extracted content from URL', 'URL Title');
-    expect(createStagingEntry).toHaveBeenCalledWith({
-      content: 'Extracted content from URL',
-      title: 'URL Title',
-      type: 'url',
-      source: 'auto',
-      classification: mockClassification
-    });
+    expect(global.fetch).toHaveBeenCalledWith('http://localhost/api/knowledge/ingest-url', expect.any(Object));
 
     expect(data.success).toBe(true);
     expect(data.entry).toEqual({
       id: 'ing_url_456',
       title: 'URL Title',
       type: 'url',
-      category: 'workflow',
-      confidence: 0.85,
-      summary: 'URL summary',
-      tags: ['url-test'],
-      status: 'staged',
-      originalUrl: 'https://example.com',
-      processingTokens: 100,
-      processingCost: 0.01
+      status: 'staged'
     });
   });
 
@@ -157,5 +144,59 @@ describe('POST /api/knowledge/ingest', () => {
 
     expect(response.status).toBe(500);
     expect(data.error).toBe(errorMsg);
+  });
+
+  it('processes file content and returns staging entry', async () => {
+    const mockClassification = {
+      category: 'skill',
+      confidence: 0.9,
+      summary: 'Test summary',
+      tags: ['test']
+    };
+
+    const mockEntry = {
+      id: 'ing_file_123',
+      title: 'my_file.txt',
+      type: 'file',
+      status: 'staged'
+    };
+
+    classifyContent.mockResolvedValueOnce(mockClassification);
+    createStagingEntry.mockReturnValueOnce(mockEntry);
+
+    const base64Content = Buffer.from('File content').toString('base64');
+
+    const req = {
+      json: async () => ({
+        content: base64Content,
+        type: 'file',
+        fileName: 'my_file.txt',
+        source: 'manual'
+      })
+    };
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(classifyContent).toHaveBeenCalledWith('File content', 'my_file.txt');
+    expect(createStagingEntry).toHaveBeenCalledWith({
+      content: 'File content',
+      title: 'my_file.txt',
+      type: 'file',
+      source: 'manual',
+      classification: mockClassification
+    });
+
+    expect(data.success).toBe(true);
+    expect(data.entry).toEqual({
+      id: 'ing_file_123',
+      title: 'my_file.txt',
+      type: 'file',
+      category: 'skill',
+      confidence: 0.9,
+      summary: 'Test summary',
+      tags: ['test'],
+      status: 'staged'
+    });
   });
 });
