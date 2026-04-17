@@ -28,16 +28,6 @@ export default function ClientsModule() {
 
   const [newBilling, setNewBilling] = useState({ description: "", amount: "", hours: "", date: "", type: "invoice" });
 
-  useEffect(() => {
-    if (selectedClient) {
-      if (activeTab === "billing") {
-        fetchBilling();
-      } else if (activeTab === "communications") {
-        fetchCommunications();
-      }
-    }
-  }, [selectedClient, activeTab]);
-
   const fetchBilling = async () => {
     setIsFetchingData(true);
     try {
@@ -67,6 +57,18 @@ export default function ClientsModule() {
       setIsFetchingData(false);
     }
   };
+
+  useEffect(() => {
+    if (selectedClient) {
+      if (activeTab === "billing") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchBilling();
+      } else if (activeTab === "communications") {
+        fetchCommunications();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClient, activeTab]);
 
   const handleAddBilling = async (e) => {
     e.preventDefault();
