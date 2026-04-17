@@ -11,7 +11,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const uid = searchParams.get('uid') || 'owner';
 
-    const docRef = doc(db, 'settings', `user_${uid}`);
+    const docRef = doc(db, 'settings', 'user_preferences');
     const snap = await getDoc(docRef);
 
     if (!snap.exists()) {
@@ -56,12 +56,12 @@ export async function POST(request) {
 
     if (!settings) {
       return NextResponse.json(
-        { error: 'settings object required' },
+        { error: 'settings required' },
         { status: 400 }
       );
     }
 
-    const docRef = doc(db, 'settings', `user_${uid}`);
+    const docRef = doc(db, 'settings', 'user_preferences');
     await setDoc(docRef, {
       ...settings,
       updatedAt: serverTimestamp(),
