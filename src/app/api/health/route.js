@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function GET(request) {
   const origin = new URL(request.url).origin;
@@ -41,13 +40,13 @@ export async function GET(request) {
   // 3. Firestore & Google Auth Check (for Gmail & Calendar)
   try {
     const start = Date.now();
-    const docRef = doc(db, "settings", "google_oauth");
-    const docSnap = await getDoc(docRef);
+    const docRef = adminDb.collection("settings").doc("google_oauth");
+    const docSnap = await docRef.get();
     const latency = Date.now() - start;
 
     services.firestore = { status: "pass", latency, connected: true };
 
-    if (docSnap.exists()) {
+    if (docSnap.exists) {
       const data = docSnap.data();
       const hasTokens = !!data.access_token;
       services.gmail = { status: hasTokens ? "pass" : "fail", error: hasTokens ? null : "No tokens" };

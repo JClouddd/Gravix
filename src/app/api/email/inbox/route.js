@@ -1,6 +1,5 @@
 import { getGmailInbox, refreshAccessToken, googleApiRequest } from "@/lib/googleAuth";
-import { getFirestore, doc, getDoc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { adminDb } from "@/lib/firebaseAdmin";
 
 /**
  * GET /api/email/inbox — Fetch real Gmail inbox or return not-connected status
@@ -8,9 +7,9 @@ import { db } from "@/lib/firebase";
 export async function GET(request) {
   try {
     // Check if OAuth tokens exist
-    const tokensDoc = await getDoc(doc(db, "settings", "google_oauth"));
+    const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
 
-    if (!tokensDoc.exists()) {
+    if (!tokensDoc.exists) {
       return Response.json({
         connected: false,
         message: "Gmail is not connected. Go to Settings → Integrations → Connect Gmail.",
@@ -30,7 +29,7 @@ export async function GET(request) {
         accessToken = refreshed.access_token;
 
         // Update stored token
-        await updateDoc(doc(db, "settings", "google_oauth"), {
+        await adminDb.collection("settings").doc("google_oauth").update({
           accessToken: refreshed.access_token,
           expiresAt: Date.now() + (refreshed.expires_in * 1000),
         });
@@ -128,8 +127,8 @@ export async function POST(request) {
     }
 
     // Check OAuth
-    const tokensDoc = await getDoc(doc(db, "settings", "google_oauth"));
-    if (!tokensDoc.exists()) {
+    const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
+    if (!tokensDoc.exists) {
       return Response.json({
         connected: false,
         message: "Gmail API not connected. Go to Settings → Integrations → Connect Gmail.",
@@ -144,7 +143,7 @@ export async function POST(request) {
     if (Date.now() > tokens.expiresAt) {
       const refreshed = await refreshAccessToken(tokens.refreshToken);
       accessToken = refreshed.access_token;
-      await updateDoc(doc(db, "settings", "google_oauth"), {
+      await adminDb.collection("settings").doc("google_oauth").update({
         accessToken: refreshed.access_token,
         expiresAt: Date.now() + (refreshed.expires_in * 1000),
       });

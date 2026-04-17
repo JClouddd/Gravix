@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { adminDb } from '@/lib/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 /**
  * GET /api/settings?uid=<uid>
@@ -11,10 +11,10 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const uid = searchParams.get('uid') || 'owner';
 
-    const docRef = doc(db, 'settings', 'user_preferences');
-    const snap = await getDoc(docRef);
+    const docRef = adminDb.collection('settings').doc('user_preferences');
+    const snap = await docRef.get();
 
-    if (!snap.exists()) {
+    if (!snap.exists) {
       // Return defaults for new users
       const defaults = {
         theme: 'dark',
@@ -61,10 +61,10 @@ export async function POST(request) {
       );
     }
 
-    const docRef = doc(db, 'settings', 'user_preferences');
-    await setDoc(docRef, {
+    const docRef = adminDb.collection('settings').doc('user_preferences');
+    await docRef.set({
       ...settings,
-      updatedAt: serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
     return NextResponse.json({ saved: true });

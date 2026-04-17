@@ -1,12 +1,11 @@
 import { getCalendarEvents, refreshAccessToken } from "@/lib/googleAuth";
-import { doc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function GET() {
   try {
-    const tokensDoc = await getDoc(doc(db, "settings", "google_oauth"));
+    const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
 
-    if (!tokensDoc.exists()) {
+    if (!tokensDoc.exists) {
       return Response.json({
         connected: false,
         connectUrl: "/api/auth/connect",
@@ -22,7 +21,7 @@ export async function GET() {
         const refreshed = await refreshAccessToken(tokens.refreshToken);
         accessToken = refreshed.access_token;
 
-        await updateDoc(doc(db, "settings", "google_oauth"), {
+        await adminDb.collection("settings").doc("google_oauth").update({
           accessToken: refreshed.access_token,
           expiresAt: Date.now() + (refreshed.expires_in * 1000),
         });
