@@ -1,0 +1,68 @@
+
+> gravix@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+✓ Ready in 525ms
+⚠ turbopack.root should be absolute, using: /app
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+
+○ Compiling / ...
+ GET / 200 in 4.8s (next.js: 4.5s, application-code: 357ms)
+ GET / 200 in 219ms (next.js: 17ms, application-code: 203ms)
+[/api/jules/tasks GET] Error: JULES_API_KEY environment variable is not set
+    at getApiKey (src/lib/julesClient.js:19:11)
+    at julesRequest (src/lib/julesClient.js:27:23)
+    at listSessions (src/lib/julesClient.js:83:10)
+    at GET (src/app/api/jules/tasks/route.js:56:40)
+  17 |   const key = process.env.JULES_API_KEY;
+  18 |   if (!key) {
+> 19 |     throw new Error("JULES_API_KEY environment variable is not set");
+     |           ^
+  20 |   }
+  21 |   return key;
+  22 | }
+ GET /api/jules/tasks 503 in 1331ms (next.js: 661ms, application-code: 670ms)
+ GET /api/knowledge/status 200 in 1404ms (next.js: 1380ms, application-code: 24ms)
+ GET /api/agents/roster 200 in 3.0s (next.js: 2.9s, application-code: 8ms)
+[/api/gemini/chat] Error: GEMINI_API_KEY environment variable is not set
+    at generate (src/lib/geminiClient.js:153:11)
+    at chat (src/lib/geminiClient.js:298:10)
+    at POST (src/app/api/gemini/chat/route.js:26:30)
+  151 |   const apiKey = process.env.GEMINI_API_KEY;
+  152 |   if (!apiKey) {
+> 153 |     throw new Error("GEMINI_API_KEY environment variable is not set");
+      |           ^
+  154 |   }
+  155 |
+  156 |   const genAI = new GoogleGenerativeAI(apiKey);
+ POST /api/gemini/chat 500 in 529ms (next.js: 329ms, application-code: 200ms)
+ GET /api/costs/summary 200 in 3.6s (next.js: 2.7s, application-code: 946ms)
+ GET /api/knowledge/status 200 in 9ms (next.js: 4ms, application-code: 5ms)
+[/api/jules/tasks GET] Error: JULES_API_KEY environment variable is not set
+    at getApiKey (src/lib/julesClient.js:19:11)
+    at julesRequest (src/lib/julesClient.js:27:23)
+    at listSessions (src/lib/julesClient.js:83:10)
+    at GET (src/app/api/jules/tasks/route.js:56:40)
+  17 |   const key = process.env.JULES_API_KEY;
+  18 |   if (!key) {
+> 19 |     throw new Error("JULES_API_KEY environment variable is not set");
+     |           ^
+  20 |   }
+  21 |   return key;
+  22 | }
+ GET /api/jules/tasks 503 in 149ms (next.js: 3ms, application-code: 146ms)
+ GET /api/health 200 in 3.8s (next.js: 2.9s, application-code: 955ms)
+[2026-04-17T22:09:53.173Z]  @firebase/firestore: Firestore (12.12.0): GrpcConnection RPC 'Write' stream 0x1fe3ec1e error. Code: 7 Message: 7 PERMISSION_DENIED: Missing or insufficient permissions.
+Error writing health history: [Error [FirebaseError]: 7 PERMISSION_DENIED: Missing or insufficient permissions.] {
+  code: 'permission-denied',
+  customData: undefined,
+  toString: [Function (anonymous)]
+}
+ POST /api/health/history 500 in 606ms (next.js: 389ms, application-code: 217ms)
