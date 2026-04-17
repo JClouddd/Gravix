@@ -1,35 +1,48 @@
 import { estimateCost } from "@/lib/geminiClient";
+import { getUsageSummary } from "@/lib/costTracker";
 
 /**
  * GET /api/costs/summary
  * Returns current period cost summary
  */
 export async function GET() {
-  // TODO: Pull from Firestore once token tracking is wired
-  const summary = {
-    period: new Date().toISOString().slice(0, 7), // YYYY-MM
-    totalSpend: 0,
-    credits: {
-      cloud: { used: 0, total: 100, unit: "USD" },
-      genai: { used: 0, total: 1000, unit: "USD" },
-    },
-    perModel: {
-      flash: { calls: 0, tokens: 0, cost: 0 },
-      pro: { calls: 0, tokens: 0, cost: 0 },
-      deep: { calls: 0, tokens: 0, cost: 0 },
-    },
-    perAgent: {
-      conductor: 0,
-      forge: 0,
-      scholar: 0,
-      analyst: 0,
-      courier: 0,
-      sentinel: 0,
-      builder: 0,
-    },
-  };
+  try {
+    const summary = await getUsageSummary();
+    const period = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-  return Response.json(summary);
+    const responseData = {
+      period,
+      totalSpend: summary.totalSpendCurrentMonth,
+      credits: {
+        cloud: { used: 0, total: 100, unit: "USD" },
+        genai: { used: summary.totalSpendCurrentMonth, total: 1000, unit: "USD" },
+      },
+      perModel: {
+        flash: summary.perModel.flash || { calls: 0, tokens: 0, cost: 0 },
+        pro: summary.perModel.pro || { calls: 0, tokens: 0, cost: 0 },
+        deep: summary.perModel.deep || { calls: 0, tokens: 0, cost: 0 },
+      },
+      perAgent: {
+        conductor: summary.perAgent.conductor || 0,
+        forge: summary.perAgent.forge || 0,
+        scholar: summary.perAgent.scholar || 0,
+        analyst: summary.perAgent.analyst || 0,
+        courier: summary.perAgent.courier || 0,
+        sentinel: summary.perAgent.sentinel || 0,
+        builder: summary.perAgent.builder || 0,
+      },
+      perRoute: summary.perRoute || {},
+      dailyTrend: summary.dailyTrend || [],
+    };
+
+    return Response.json(responseData);
+  } catch (error) {
+    console.error("[/api/costs/summary]", error);
+    return Response.json(
+      { error: error.message || "Internal server error" },
+      { status: 500 }
+    );
+  }
 }
 
 /**
