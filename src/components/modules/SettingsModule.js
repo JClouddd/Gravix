@@ -21,6 +21,26 @@ const INTEGRATIONS = [
   { name: "Colab Enterprise", status: "not connected", dot: "offline", comingSoon: true },
 ];
 
+function Toggle({ checked, onChange }) {
+  return (
+    <div
+      style={{
+        width: 36, height: 20, borderRadius: 10,
+        background: checked ? "var(--accent)" : "var(--bg-tertiary)",
+        position: "relative", cursor: "pointer", transition: "background 0.2s"
+      }}
+      onClick={() => onChange(!checked)}
+    >
+      <div
+        style={{
+          width: 16, height: 16, borderRadius: "50%", background: "white",
+          position: "absolute", top: 2, left: checked ? 18 : 2, transition: "left 0.2s"
+        }}
+      />
+    </div>
+  );
+}
+
 export default function SettingsModule() {
   // Profile State
   const [profile, setProfile] = useState({ name: "Jane Doe", email: "jane.doe@example.com" });

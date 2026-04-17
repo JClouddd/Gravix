@@ -198,7 +198,7 @@ export async function getTasks(accessToken, taskListId = "@default") {
   );
 }
 
-const googleAuth = {
+const exportedObject = {
   getAuthUrl,
   exchangeCode,
   refreshAccessToken,
@@ -211,4 +211,4 @@ const googleAuth = {
   SCOPES,
 };
 
-export default googleAuth;
+export default exportedObject;

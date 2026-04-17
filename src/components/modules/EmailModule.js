@@ -27,12 +27,8 @@ export default function EmailModule() {
   const [isSending, setIsSending] = useState(false);
   const [draftText, setDraftText] = useState("");
 
-  useEffect(() => {
-    fetchInbox();
-  }, []);
-
-  const fetchInbox = async () => {
-    setIsLoading(true);
+  const fetchInbox = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/email/inbox");
@@ -54,6 +50,11 @@ export default function EmailModule() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchInbox(false); // Initial state is already loading
+  }, []);
 
   const handleConnect = () => {
     window.location.href = "/api/auth/connect";

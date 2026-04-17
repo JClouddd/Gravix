@@ -123,7 +123,7 @@ export async function triggerTask({
   };
 }
 
-const julesClient = {
+const exportedObject = {
   listSources,
   createSession,
   getSession,
@@ -132,4 +132,4 @@ const julesClient = {
   triggerTask,
 };
 
-export default julesClient;
+export default exportedObject;
