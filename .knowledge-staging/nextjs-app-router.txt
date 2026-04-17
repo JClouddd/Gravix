@@ -1,0 +1,11 @@
+# Next.js App Router Reference
+## Route Handlers: Use route.js files in the app/api directory. Export named functions: GET, POST, PUT, DELETE.
+## Dynamic Routes: Use [slug] folder naming for dynamic segments.
+## Layouts: layout.js wraps child routes. Root layout is required.
+## Loading: loading.js shows while route content loads.
+## Error Handling: error.js catches errors in the route segment.
+## Server Components: Components are server by default. Add "use client" for client components.
+## Metadata: Export metadata object from page.js or layout.js for SEO.
+## Caching: fetch() results are cached by default. Use cache: "no-store" for dynamic data.
+## Environment Variables: NEXT_PUBLIC_ prefix for client-side access. Server-only by default.
+## API Route Patterns: Return Response.json() or NextResponse.json(). Parse body with request.json().

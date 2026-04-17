@@ -1,0 +1,11 @@
+# Google Calendar API Reference
+## List Events: GET /calendar/v3/calendars/primary/events?timeMin=ISO8601&singleEvents=true
+## Create Event: POST /calendar/v3/calendars/primary/events with summary, start, end
+## Update Event: PATCH /calendar/v3/calendars/{calendarId}/events/{eventId}
+## Delete Event: DELETE /calendar/v3/calendars/{calendarId}/events/{eventId}
+## Event Fields: summary, location, description, start (dateTime/date), end, attendees, reminders
+## Recurring Events: rrule field for frequency, until, count, interval
+## Free/Busy: POST /calendar/v3/freeBusy with timeMin, timeMax, items (calendar IDs)
+## Color IDs: 1-11 map to predefined colors. Set via colorId field.
+## Notifications: push notifications via Channels (webhook URL) 
+## Google Meet: conferenceData.createRequest.requestId to auto-create Meet link

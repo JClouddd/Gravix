@@ -1,0 +1,12 @@
+# Cloud Scheduler for Gravix
+## Create Job: gcloud scheduler jobs create http NAME --schedule="CRON" --uri=URL
+## Cron Format: minute hour day-of-month month day-of-week
+## Daily at midnight: "0 0 * * *"
+## Every 6 hours: "0 */6 * * *"
+## HTTP Targets: POST to Gravix API routes for automated tasks
+## Auth: Use OIDC token for authenticated endpoints
+## Retry Config: retryCount, minBackoffDuration, maxBackoffDuration
+## Planned Jobs:
+##   - Daily knowledge sync: POST /api/knowledge/ingest (auto-import new GCS docs)
+##   - Sentinel health check: GET /api/agents/sentinel/report (every 6 hours)
+##   - Cost summary: POST /api/costs/summary (daily aggregation)

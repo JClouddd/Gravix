@@ -1,0 +1,10 @@
+# Google Meet API for Gravix
+## Create Space: POST /v2/spaces (creates a new meeting)
+## Get Space: GET /v2/spaces/{name}
+## End Active Call: PATCH /v2/spaces/{name}/activeConference
+## List Recordings: GET /v2/conferenceRecords/{parent}/recordings
+## List Transcripts: GET /v2/conferenceRecords/{parent}/transcripts
+## Transcript Entries: GET /v2/conferenceRecords/{parent}/transcripts/{transcript}/entries
+## Processing Flow: Calendar event with Meet → meeting ends → fetch transcript → Gemini analysis
+## Extract: action items, decisions, contacts, follow-ups
+## Route Results: Tasks module, Client Manager, Calendar, Email

@@ -1,0 +1,10 @@
+# Firestore Optimization for Gravix
+## Collection Structure: api_usage (flat), users/{uid}/config/settings (nested)
+## Indexes: Composite indexes for multi-field queries. Created via firebase.json or console.
+## Pagination: Use limit() + startAfter() for large collections
+## Real-Time: onSnapshot() for live UI updates (Finance dashboard, agent status)
+## Batch Writes: writeBatch() for atomic multi-document operations
+## Transactions: runTransaction() when reads and writes must be atomic
+## Security Rules: Match patterns with auth conditions. Test with emulator.
+## Cost: $0.06/100K reads, $0.18/100K writes, $0.06/100K deletes
+## TTL: Set expiration on api_usage docs (90-day retention)

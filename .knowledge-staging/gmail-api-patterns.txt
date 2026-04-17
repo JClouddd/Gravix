@@ -1,0 +1,10 @@
+# Gmail API Reference for Gravix
+## Scopes: gmail.readonly (read), gmail.send (send), gmail.modify (full)
+## List Messages: GET /gmail/v1/users/me/messages?labelIds=INBOX&maxResults=20
+## Get Message: GET /gmail/v1/users/me/messages/{id}?format=full (or metadata, minimal)
+## Send Message: POST /gmail/v1/users/me/messages/send with raw base64url-encoded RFC 2822 message
+## Labels: INBOX, SENT, DRAFT, TRASH, SPAM, STARRED, IMPORTANT, UNREAD
+## Batch Requests: Use multipart/mixed for up to 100 requests per batch
+## Pagination: Use nextPageToken from list response as pageToken in next request
+## Headers: From, To, Subject, Date accessible via message.payload.headers array
+## Attachments: Access via message.payload.parts[].body.attachmentId

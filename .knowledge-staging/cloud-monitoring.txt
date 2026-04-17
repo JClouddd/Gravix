@@ -1,0 +1,9 @@
+# Cloud Monitoring for Gravix
+## Custom Metrics: Write via timeseries.create endpoint
+## Metric Types: custom.googleapis.com/gravix/{metric_name}
+## Dashboard: Create via dashboards.create with widget layouts
+## Alerting Policies: Set conditions and notification channels
+## Uptime Checks: Monitor HTTPS endpoints for availability
+## Log-Based Metrics: Create metrics from Cloud Logging log entries
+## MQL: Monitoring Query Language for complex queries
+## Key Metrics to Track: API latency, error rates, token usage, cost per day

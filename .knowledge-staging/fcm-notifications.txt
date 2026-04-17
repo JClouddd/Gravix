@@ -1,0 +1,14 @@
+# Firebase Cloud Messaging for Gravix
+## Send Message: admin.messaging().send({ token, notification, data })
+## Web Push: Requires service worker (firebase-messaging-sw.js)
+## VAPID Key: Generate in Firebase Console → Cloud Messaging
+## Token Management: getToken() on client, store in Firestore
+## Topics: Subscribe to topics for broadcast notifications
+## Data Messages: Handled by app when in foreground
+## Notification Messages: Handled by browser when in background
+## Use Cases:
+##   - Agent error alerts (Sentinel → push)
+##   - PR merged notifications (Builder → push)
+##   - Cost threshold warnings (Sentinel → push)
+##   - Client email received (Courier → push)
+##   - Meeting starting (Courier → push)

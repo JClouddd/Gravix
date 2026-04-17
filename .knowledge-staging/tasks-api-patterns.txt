@@ -1,0 +1,11 @@
+# Google Tasks API Reference
+## List Task Lists: GET /tasks/v1/users/@me/lists
+## List Tasks: GET /tasks/v1/lists/{taskListId}/tasks
+## Create Task: POST /tasks/v1/lists/{taskListId}/tasks with title, notes, due
+## Update Task: PATCH /tasks/v1/lists/{taskListId}/tasks/{taskId}
+## Complete Task: PATCH with status: "completed"
+## Delete Task: DELETE /tasks/v1/lists/{taskListId}/tasks/{taskId}
+## Task Fields: title, notes, due (RFC 3339), status (needsAction/completed), parent
+## Subtasks: Set parent field to parent task ID
+## Ordering: Use position field or move endpoint
+## Default List: Use @default as taskListId for the user's default list
