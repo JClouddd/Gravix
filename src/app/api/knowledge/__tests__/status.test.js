@@ -18,9 +18,12 @@ describe('GET /api/knowledge/status', () => {
     expect(data.status).toBe('operational');
     expect(data.dataStore).toEqual({
       type: "vertex_ai",
-      bucket: "gs://gravix-knowledge",
-      region: "us-central1",
-      deployed: false,
+      id: "gravix-knowledge",
+      engineId: "gravix-scholar",
+      bucket: "gs://gravix-knowledge-docs",
+      region: "global",
+      project: "antigravity-hub-jcloud",
+      deployed: true,
     });
 
     expect(data.stats).toBeDefined();
