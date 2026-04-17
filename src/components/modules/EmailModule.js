@@ -27,8 +27,8 @@ export default function EmailModule() {
   const [isSending, setIsSending] = useState(false);
   const [draftText, setDraftText] = useState("");
 
-  const fetchInbox = async (showLoading = true) => {
-    if (showLoading) setIsLoading(true);
+  const fetchInbox = async () => {
+    setIsLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/email/inbox");
@@ -52,8 +52,27 @@ export default function EmailModule() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchInbox(false); // Initial state is already loading
+    let isMounted = true;
+    const loadData = async () => {
+      try {
+        const res = await fetch("/api/email/inbox");
+        const data = await res.json();
+        if (isMounted) {
+          setIsConnected(data.connected);
+          if (data.connected && data.inbox) {
+            setInbox(data.inbox);
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err.message);
+        }
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    loadData();
+    return () => { isMounted = false; };
   }, []);
 
   const handleConnect = () => {
