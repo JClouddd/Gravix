@@ -22,9 +22,6 @@ const INTEGRATIONS = [
 ];
 
 export default function SettingsModule() {
-  const [theme, setTheme] = useState("dark");
-
-export default function SettingsModule() {
   // Profile State
   const [profile, setProfile] = useState({ name: "Jane Doe", email: "jane.doe@example.com" });
 
@@ -249,7 +246,7 @@ export default function SettingsModule() {
                 <div className="body">Two-Factor Authentication</div>
                 <div className="caption">Add an extra layer of security</div>
               </div>
-              <Toggle checked={twoFactor} onChange={setTwoFactor} />
+              <input type="checkbox" checked={twoFactor} onChange={e => setTwoFactor(e.target.checked)} />
             </div>
           </div>
         </div>

@@ -441,7 +441,7 @@ export async function structuredGenerate({
   });
 }
 
-export default {
+const geminiClient = {
   generate,
   chat,
   groundedQuery,
@@ -449,3 +449,5 @@ export default {
   structuredGenerate,
   estimateCost,
 };
+
+export default geminiClient;

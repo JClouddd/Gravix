@@ -244,7 +244,7 @@ Help the user review this content. Answer questions about it, suggest improvemen
   });
 }
 
-export default {
+const knowledgeEngine = {
   DOCUMENTATION_SOURCES,
   CATEGORIES,
   classifyContent,
@@ -252,3 +252,5 @@ export default {
   createStagingEntry,
   scholarChat,
 };
+
+export default knowledgeEngine;
