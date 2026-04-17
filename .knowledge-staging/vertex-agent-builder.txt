@@ -1,0 +1,500 @@
+<html 
+      lang="en"
+      dir="ltr">
+  
+    <meta name="google-signin-scope"
+          content="profile email https://www.googleapis.com/auth/developerprofiles https://www.googleapis.com/auth/developerprofiles.award https://www.googleapis.com/auth/devprofiles.full_control.firstparty">
+    
+    
+    
+    
+    <link rel="manifest" href="/_pwa/clouddocs/manifest.json"
+          crossorigin="use-credentials">
+    
+    
+    
+      <link rel="stylesheet"
+            href="//fonts.googleapis.com/css2?family=Material+Icons&family=Material+Symbols+Outlined&display=block">
+      
+        
+      
+    <link rel="search" type="application/opensearchdescription+xml"
+            title="Google Cloud Documentation" href="https://docs.cloud.google.com/s/opensearch.xml">
+      <link rel="alternate" hreflang="en"
+          href="https://docs.cloud.google.com/agent-builder/overview" /><link rel="alternate" hreflang="zh-Hans"
+          href="https://docs.cloud.google.com/agent-builder/overview?hl=zh-cn" /><link rel="alternate" hreflang="zh-Hant"
+          href="https://docs.cloud.google.com/agent-builder/overview?hl=zh-tw" /><link rel="alternate" hreflang="fr"
+          href="https://docs.cloud.google.com/agent-builder/overview?hl=fr" /><link rel="alternate" hreflang="de"
+          href="https://docs.cloud.google.com/agent-builder/overview?hl=de" /><link rel="alternate" hreflang="id"
+          href="https://docs.cloud.google.com/agent-builder/overview?hl=id" /><link rel="alternate" hreflang="it"
+          href="https://docs.cloud.google.com/agent-builder/overview?hl=it" /><link rel="alternate" hreflang="ja"
+          href="https://docs.cloud.google.com/agent-builder/overview?hl=ja" /><link rel="alternate" hreflang="ko"
+          href="https://docs.cloud.google.com/agent-builder/overview?hl=ko" /><link rel="alternate" hreflang="pt-BR"
+          href="https://docs.cloud.google.com/agent-builder/overview?hl=pt-br" /><link rel="alternate" hreflang="pt"
+          href="https://docs.cloud.google.com/agent-builder/overview?hl=pt" /><link rel="alternate" hreflang="es"
+          href="https://docs.cloud.google.com/agent-builder/overview?hl=es" /><link rel="alternate" hreflang="es-419"
+          href="https://docs.cloud.google.com/agent-builder/overview?hl=es-419" />Vertex AI Agent Builder overview &nbsp;|&nbsp; Google Cloud Documentation
+  
+  
+  
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    
+    "headline": "Vertex AI Agent Builder overview"
+  }
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [{
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Vertex AI Agent Builder",
+      "item": "https://docs.cloud.google.com/agent-builder"
+    },{
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Vertex AI Agent Builder overview",
+      "item": "https://docs.cloud.google.com/agent-builder/overview"
+    }]
+  }
+  
+  
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  
+    
+  <body class="color-scheme--light"
+        template="page"
+        theme="clouddocs-theme"
+        type="article"
+        
+        appearance
+        
+        layout="docs"
+        
+        
+        free-trial
+        
+        
+        display-toc
+        pending>
+  
+    
+  
+  
+    
+      
+      Skip to main content
+    
+    
+      
+        
+  
+    
+  
+    
+      
+        <button type="button" id="devsite-hamburger-menu"
+          class="devsite-header-icon-button button-flat material-icons gc-analytics-event"
+          data-category="Site-Wide Custom Events"
+          data-label="Navigation menu button"
+          visually-hidden
+          aria-label="Open menu">
+        
+        
+  <a href="/" class="devsite-site-logo-link gc-analytics-event"
+   data-category="Site-Wide Custom Events" data-label="Site logo" track-type="globalNav"
+   track-name="googleCloudDocumentation" track-metadata-position="nav"
+   track-metadata-eventDetail="nav">
+  
+  
+    
+    <source srcset="https://www.gstatic.com/devrel-devsite/prod/v2f052e0cca7362dede225b85c12aee59eabee5b8fbb05d44fc345ffb54861aec/clouddocs/images/lockup-dark-theme.svg"
+            media="(prefers-color-scheme: dark)"
+            class="devsite-dark-theme">
+    
+    
+  
+  
+        
+          
+            
+              
+              
+  
+    
+      
+        
+          <tab class="devsite-dropdown
+    
+    devsite-active
+    devsite-clickable
+    ">
+  
+    <a href="https://docs.cloud.google.com/docs"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://docs.cloud.google.com/docs"
+    
+       track-type="nav"
+       track-metadata-position="nav - docs-home"
+       track-metadata-module="primary nav"
+       aria-label="Technology areas, selected" 
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Technology areas"
+         
+           track-name="docs-home"
+         
+           track-link-column-type="single-column"
+         
+       >
+    Technology areas
+  
+    
+    
+      <button
+         aria-haspopup="menu"
+         aria-expanded="false"
+         aria-label="Dropdown menu for Technology areas"
+         track-type="nav"
+         track-metadata-eventdetail="https://docs.cloud.google.com/docs"
+         track-metadata-position="nav - docs-home"
+         track-metadata-module="primary nav"
+         
+          
+            data-category="Site-Wide Custom Events"
+          
+            data-label="Tab: Technology areas"
+          
+            track-name="docs-home"
+          
+            track-link-column-type="single-column"
+          
+        
+         class="devsite-tabs-dropdown-toggle devsite-icon devsite-icon-arrow-drop-down">
+    
+  
+  
+    
+      
+        <button class="devsite-tabs-close-button material-icons button-flat gc-analytics-event"
+                data-category="Site-Wide Custom Events"
+                data-label="Close dropdown menu"
+                aria-label="Close dropdown menu"
+                track-type="nav"
+                track-name="close"
+                track-metadata-eventdetail="#"
+                track-metadata-position="nav - docs-home"
+                track-metadata-module="tertiary nav">close
+      
+      
+        <div class="devsite-tabs-dropdown-column
+                    ">
+          
+            <ul class="devsite-tabs-dropdown-section
+                       ">
+              
+              
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/ai-ml"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/ai-ml"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      AI and ML
+                    
+                    
+                  
+                
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/application-development"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/application-development"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      Application development
+                    
+                    
+                  
+                
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/application-hosting"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/application-hosting"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      Application hosting
+                    
+                    
+                  
+                
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/compute-area"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/compute-area"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      Compute
+                    
+                    
+                  
+                
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/data"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/data"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      Data analytics and pipelines
+                    
+                    
+                  
+                
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/databases"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/databases"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      Databases
+                    
+                    
+                  
+                
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/dhm-cloud"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/dhm-cloud"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      Distributed, hybrid, and multicloud
+                    
+                    
+                  
+                
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/industry"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/industry"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      Industry solutions
+                    
+                    
+                  
+                
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/migration"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/migration"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      Migration
+                    
+                    
+                  
+                
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/networking"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/networking"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      Networking
+                    
+                    
+                  
+                
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/observability"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/observability"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      Observability and monitoring
+                    
+                    
+                  
+                
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/security"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/security"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      Security
+                    
+                    
+                  
+                
+              
+                
+                  <a href="https://docs.cloud.google.com/docs/storage"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://docs.cloud.google.com/docs/storage"
+                     track-metadata-position="nav - docs-home"
+                     track-metadata-module="tertiary nav"
+                     
+                     tooltip
+                  >
+                    
+                    
+                      Storage
+                    
+                    
+                  
+                
+              
+            
+          
+        
+      
+    
+  
+        
+      
+        
+          <tab class="devsite-dropdown
+    
+    
+    devsite-clickable
+    ">
+  
+    <a href="https://docs.cloud.google.com/docs/cross-product-overviews"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://docs.cloud.google.com/docs/cross-product-overviews"
+    
+       track-type="nav"
+       track-metadata-position="nav - crossproduct"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Cross-product tools"
+         
+           track-name="crossproduct"
+         
+           track-link-column-type="single-column"
+         
+       >
+    Cross-product tools
+  
+    
+    
+      <button
+         aria-haspopup="menu"
+         aria-expanded="false"
+         aria-label="Dropdown menu for Cross-product tools"
+         track-type="nav"
+         track-metadata-eventdetail="https://docs.cloud.google.com/docs/cross-product-overviews"
+         track-metadata-position="nav - crossproduct"
+         track-metadata-module="primary nav"
+         
+          
+            data-category="Site-Wide Custom Events"
+          
+            data-label="Tab: Cross-product tools"
+          
+            track-name="crossproduct"
+          
+            track-link-column-type="single-column"
+          

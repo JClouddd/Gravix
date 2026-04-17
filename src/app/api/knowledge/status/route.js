@@ -9,9 +9,12 @@ export async function GET() {
     status: "operational",
     dataStore: {
       type: "vertex_ai",
-      bucket: "gs://gravix-knowledge",
-      region: "us-central1",
-      deployed: false, // Set to true once Vertex AI Data Store is created
+      id: "gravix-knowledge",
+      engineId: "gravix-scholar",
+      bucket: "gs://gravix-knowledge-docs",
+      region: "global",
+      project: "antigravity-hub-jcloud",
+      deployed: true,
     },
     stats: {
       documentsIngested: 0,

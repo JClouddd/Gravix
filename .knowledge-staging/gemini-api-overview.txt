@@ -1,0 +1,500 @@
+<html 
+      lang="en"
+      dir="ltr">
+  
+    <meta name="google-signin-scope"
+          content="profile email https://www.googleapis.com/auth/developerprofiles https://www.googleapis.com/auth/developerprofiles.award https://www.googleapis.com/auth/devprofiles.full_control.firstparty">
+    
+    
+    
+    
+    <link rel="manifest" href="/_pwa/googledevai/manifest.json"
+          crossorigin="use-credentials">
+    
+    
+    
+      <link rel="stylesheet"
+            href="//fonts.googleapis.com/css2?family=Material+Icons&family=Material+Symbols+Outlined&display=block">
+      
+        
+      
+    <link rel="search" type="application/opensearchdescription+xml"
+            title="Google AI for Developers" href="https://ai.google.dev/s/opensearch.xml">
+      <link rel="alternate" hreflang="en"
+          href="https://ai.google.dev/gemini-api/docs" /><link rel="alternate" hreflang="ar"
+          href="https://ai.google.dev/gemini-api/docs?hl=ar" /><link rel="alternate" hreflang="bn"
+          href="https://ai.google.dev/gemini-api/docs?hl=bn" /><link rel="alternate" hreflang="zh-Hans"
+          href="https://ai.google.dev/gemini-api/docs?hl=zh-cn" /><link rel="alternate" hreflang="zh-Hant"
+          href="https://ai.google.dev/gemini-api/docs?hl=zh-tw" /><link rel="alternate" hreflang="fa"
+          href="https://ai.google.dev/gemini-api/docs?hl=fa" /><link rel="alternate" hreflang="fr"
+          href="https://ai.google.dev/gemini-api/docs?hl=fr" /><link rel="alternate" hreflang="de"
+          href="https://ai.google.dev/gemini-api/docs?hl=de" /><link rel="alternate" hreflang="he"
+          href="https://ai.google.dev/gemini-api/docs?hl=he" /><link rel="alternate" hreflang="hi"
+          href="https://ai.google.dev/gemini-api/docs?hl=hi" /><link rel="alternate" hreflang="id"
+          href="https://ai.google.dev/gemini-api/docs?hl=id" /><link rel="alternate" hreflang="it"
+          href="https://ai.google.dev/gemini-api/docs?hl=it" /><link rel="alternate" hreflang="ja"
+          href="https://ai.google.dev/gemini-api/docs?hl=ja" /><link rel="alternate" hreflang="ko"
+          href="https://ai.google.dev/gemini-api/docs?hl=ko" /><link rel="alternate" hreflang="pl"
+          href="https://ai.google.dev/gemini-api/docs?hl=pl" /><link rel="alternate" hreflang="pt-BR"
+          href="https://ai.google.dev/gemini-api/docs?hl=pt-br" /><link rel="alternate" hreflang="ru"
+          href="https://ai.google.dev/gemini-api/docs?hl=ru" /><link rel="alternate" hreflang="es-419"
+          href="https://ai.google.dev/gemini-api/docs?hl=es-419" /><link rel="alternate" hreflang="th"
+          href="https://ai.google.dev/gemini-api/docs?hl=th" /><link rel="alternate" hreflang="tr"
+          href="https://ai.google.dev/gemini-api/docs?hl=tr" /><link rel="alternate" hreflang="vi"
+          href="https://ai.google.dev/gemini-api/docs?hl=vi" /><link rel="alternate" hreflang="sq"
+          href="https://ai.google.dev/gemini-api/docs?hl=sq" />Gemini API &nbsp;|&nbsp; Google AI for Developers
+  
+  
+  
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    
+    "headline": ""
+  }
+  
+  
+  
+  
+  
+  
+  
+    
+  <body class="gemini-api color-scheme--light"
+        template="page"
+        theme="googledevai-theme"
+        type="article"
+        
+        appearance
+        
+        layout="docs"
+        
+        
+        
+        
+        
+        display-toc
+        pending>
+  
+    
+  
+  
+    
+      
+      Skip to main content
+    
+    
+      
+        
+  
+    
+  
+    
+      
+        <button type="button" id="devsite-hamburger-menu"
+          class="devsite-header-icon-button button-flat material-icons gc-analytics-event"
+          data-category="Site-Wide Custom Events"
+          data-label="Navigation menu button"
+          visually-hidden
+          aria-label="Open menu">
+        
+        
+  <a href="/" class="devsite-site-logo-link gc-analytics-event"
+   data-category="Site-Wide Custom Events" data-label="Site logo" track-type="globalNav"
+   track-name="geminiAPI" track-metadata-position="nav"
+   track-metadata-eventDetail="nav">
+  
+  
+    
+    <source srcset="https://ai.google.dev/_static/googledevai/images/gemini-api-logo-dark-theme.svg"
+            media="(prefers-color-scheme: dark)"
+            class="devsite-dark-theme">
+    
+    
+  
+  
+  
+  
+  
+    <ul class="devsite-breadcrumb-list"
+  >
+  
+  <li class="devsite-breadcrumb-item
+             ">
+    
+    
+    
+      
+      
+    
+  
+  
+  
+        
+          
+            
+           
+          
+<devsite-search
+    enable-signin
+    enable-search
+    enable-suggestions
+      enable-query-completion
+    
+    enable-search-summaries
+    project-name="Gemini API"
+    tenant-name="Google AI for Developers"
+    project-scope="/gemini-api"
+    url-scoped="https://ai.google.dev/s/results/gemini-api"
+    
+    
+    
+    >
+  
+    
+      <button type="button"
+              search-open
+              class="devsite-search-button devsite-header-icon-button button-flat material-icons"
+              
+              aria-label="Open search">
+      
+        <input
+          aria-activedescendant=""
+          aria-autocomplete="list"
+          
+          aria-label="Search"
+          aria-expanded="false"
+          aria-haspopup="listbox"
+          autocomplete="off"
+          class="devsite-search-field devsite-search-query"
+          name="q"
+          
+          placeholder="Search"
+          role="combobox"
+          type="text"
+          value=""
+          >
+          
+            
+              
+                  
+                    
+                  
+                
+                
+                
+                
+                
+              
+            
+          
+          
+            /
+          
+      
+    
+  
+  <button type="button"
+          search-close
+          class="devsite-search-button devsite-header-icon-button button-flat material-icons"
+          
+          aria-label="Close search">
+        
+        
+          
+          
+          
+          
+          
+  
+    
+    
+    
+      <a role="menuitem" lang="en"
+        >English
+    
+    
+    
+      <a role="menuitem" lang="de"
+        >Deutsch
+    
+    
+    
+      <a role="menuitem" lang="es_419"
+        >Español – América Latina
+    
+    
+    
+      <a role="menuitem" lang="fr"
+        >Français
+    
+    
+    
+      <a role="menuitem" lang="id"
+        >Indonesia
+    
+    
+    
+      <a role="menuitem" lang="it"
+        >Italiano
+    
+    
+    
+      <a role="menuitem" lang="pl"
+        >Polski
+    
+    
+    
+      <a role="menuitem" lang="pt_br"
+        >Português – Brasil
+    
+    
+    
+      <a role="menuitem" lang="sq"
+        >Shqip
+    
+    
+    
+      <a role="menuitem" lang="vi"
+        >Tiếng Việt
+    
+    
+    
+      <a role="menuitem" lang="tr"
+        >Türkçe
+    
+    
+    
+      <a role="menuitem" lang="ru"
+        >Русский
+    
+    
+    
+      <a role="menuitem" lang="he"
+        >עברית
+    
+    
+    
+      <a role="menuitem" lang="ar"
+        >العربيّة
+    
+    
+    
+      <a role="menuitem" lang="fa"
+        >فارسی
+    
+    
+    
+      <a role="menuitem" lang="hi"
+        >हिंदी
+    
+    
+    
+      <a role="menuitem" lang="bn"
+        >বাংলা
+    
+    
+    
+      <a role="menuitem" lang="th"
+        >ภาษาไทย
+    
+    
+    
+      <a role="menuitem" lang="zh_cn"
+        >中文 – 简体
+    
+    
+    
+      <a role="menuitem" lang="zh_tw"
+        >中文 – 繁體
+    
+    
+    
+      <a role="menuitem" lang="ja"
+        >日本語
+    
+    
+    
+      <a role="menuitem" lang="ko"
+        >한국어
+    
+    
+  
+          
+            <a class="devsite-header-link devsite-top-button button gc-analytics-event "
+    href="https://aistudio.google.com/apikey"
+    data-category="Site-Wide Custom Events"
+    data-label="Site header link: Get API key"
+    
+      
+        target="_blank"
+      
+    >
+  Get API key
+          
+            <a class="devsite-header-link devsite-top-button button gc-analytics-event "
+    href="https://github.com/google-gemini/cookbook"
+    data-category="Site-Wide Custom Events"
+    data-label="Site header link: Cookbook"
+    
+      
+        target="_blank"
+      
+    >
+  Cookbook
+          
+            <a class="devsite-header-link devsite-top-button button gc-analytics-event "
+    href="https://discuss.ai.google.dev/c/gemini-api/"
+    data-category="Site-Wide Custom Events"
+    data-label="Site header link: Community"
+    
+      
+        target="_blank"
+      
+    >
+  Community
+          
+        
+        
+          <devsite-user 
+                        
+                        
+                          enable-profiles
+                        
+                        
+                        id="devsite-user">
+            
+              
+              Sign in
+            
+          
+        
+        
+        
+      
+    
+  
+  <div class="devsite-collapsible-section
+    ">
+    
+      
+        
+      
+      
+        
+          
+          
+            
+            
+  
+    
+      
+        
+          
+            
+    <a href="https://ai.google.dev/gemini-api/docs"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://ai.google.dev/gemini-api/docs"
+    
+       track-type="nav"
+       track-metadata-position="nav - docs"
+       track-metadata-module="primary nav"
+       aria-label="Docs, selected" 
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Docs"
+         
+           track-name="docs"
+         
+       >
+    Docs
+  
+    
+    
+  
+          
+        
+      
+        
+          
+            
+    <a href="https://ai.google.dev/api"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://ai.google.dev/api"
+    
+       track-type="nav"
+       track-metadata-position="nav - api reference"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: API reference"
+         
+           track-name="api reference"
+         
+       >
+    API reference
+  
+    
+    
+  
+          
+        
+      
+    
+  
+          
+          
+        
+      
+    
+  
+  
+  
+        
+          
+            
+<div class="devsite-book-nav-filter"
+     hidden>
+  
+  <input type="text"
+         placeholder="Filter"
+         
+         aria-label="Type to filter"
+         role="searchbox">
+  
+  <span class="filter-clear-button hidden"
+        data-title="Clear filter"
+        aria-label="Clear filter"
+        role="button"
+        tabindex="0">
+<nav class="devsite-book-nav devsite-nav nocontent" data-nosnippet
+     aria-label="Side menu">
+  
+    <button type="button"
+            id="devsite-close-nav"
+            class="devsite-header-icon-button button-flat material-icons gc-analytics-event"
+            data-category="Site-Wide Custom Events"
+            data-label="Close navigation"
+            aria-label="Close navigation">
+    
+    
+  <a href="/" class="devsite-site-logo-link gc-analytics-event"
+   data-category="Site-Wide Custom Events" data-label="Site logo" track-type="globalNav"
+   track-name="geminiAPI" track-metadata-position="nav"
+   track-metadata-eventDetail="nav">
+  
+  
+    
+    <source srcset="https://ai.google.dev/_static/googledevai/images/gemini-api-logo-dark-theme.svg"
+            media="(prefers-color-scheme: dark)"
+            class="devsite-dark-theme">
+    
+    
+  
+  
+  

@@ -1,0 +1,78 @@
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+
+/**
+ * GET /api/settings?uid=<uid>
+ * Returns user preferences from Firestore
+ */
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const uid = searchParams.get('uid');
+
+    if (!uid) {
+      return NextResponse.json({ error: 'uid required' }, { status: 400 });
+    }
+
+    const docRef = doc(db, 'users', uid, 'config', 'settings');
+    const snap = await getDoc(docRef);
+
+    if (!snap.exists()) {
+      // Return defaults for new users
+      const defaults = {
+        theme: 'dark',
+        accentColor: '#6C5CE7',
+        fontSize: 14,
+        integrations: {
+          gmail: false,
+          calendar: false,
+          tasks: false,
+          firebase: true,
+          vertexAi: false,
+          jules: true,
+        },
+        notifications: {
+          costAlerts: true,
+          agentErrors: true,
+          prMerged: true,
+          dailyDigest: false,
+        },
+        sessionTimeout: 30, // minutes
+      };
+      return NextResponse.json({ settings: defaults, isDefault: true });
+    }
+
+    return NextResponse.json({ settings: snap.data(), isDefault: false });
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/settings
+ * Saves user preferences to Firestore
+ * Body: { uid, settings: { ... } }
+ */
+export async function POST(request) {
+  try {
+    const { uid, settings } = await request.json();
+
+    if (!uid || !settings) {
+      return NextResponse.json(
+        { error: 'uid and settings required' },
+        { status: 400 }
+      );
+    }
+
+    const docRef = doc(db, 'users', uid, 'config', 'settings');
+    await setDoc(docRef, {
+      ...settings,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
+    return NextResponse.json({ saved: true });
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
