@@ -13,9 +13,12 @@ export default function KnowledgeModule() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [ingestionInput, setIngestionInput] = useState("");
+  const [ingestionTitle, setIngestionTitle] = useState("");
   const [ingestionType, setIngestionType] = useState("text");
   const [ingesting, setIngesting] = useState(false);
   const [stagedEntries, setStagedEntries] = useState([]);
+  const [ingestionError, setIngestionError] = useState("");
+  const [lastEntry, setLastEntry] = useState(null);
   const [scholarMessage, setScholarMessage] = useState("");
   const [scholarHistory, setScholarHistory] = useState([]);
   const [scholarLoading, setScholarLoading] = useState(false);
@@ -35,6 +38,8 @@ export default function KnowledgeModule() {
   const handleIngest = useCallback(async () => {
     if (!ingestionInput.trim()) return;
     setIngesting(true);
+    setIngestionError("");
+    setLastEntry(null);
     try {
       const res = await fetch("/api/knowledge/ingest", {
         method: "POST",
@@ -42,19 +47,25 @@ export default function KnowledgeModule() {
         body: JSON.stringify({
           content: ingestionInput,
           type: ingestionType,
+          title: ingestionTitle,
           source: "manual",
         }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setStagedEntries((prev) => [data.entry, ...prev]);
+        setLastEntry(data.entry);
         setIngestionInput("");
+        setIngestionTitle("");
+      } else {
+        setIngestionError(data.error || "Ingestion failed");
       }
     } catch (error) {
       console.error("Ingestion failed:", error);
+      setIngestionError(error.message || "An unexpected error occurred");
     }
     setIngesting(false);
-  }, [ingestionInput, ingestionType]);
+  }, [ingestionInput, ingestionType, ingestionTitle]);
 
   // Handle Scholar chat
   const handleScholarChat = useCallback(async () => {
@@ -169,32 +180,75 @@ export default function KnowledgeModule() {
           {/* Input Area */}
           <div className="card">
             <h3 className="h4" style={{ marginBottom: 16 }}>Submit Content</h3>
-            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              {["text", "url"].map((t) => (
-                <button
-                  key={t}
-                  className={`btn btn-sm ${ingestionType === t ? "btn-primary" : "btn-secondary"}`}
-                  onClick={() => setIngestionType(t)}
-                >
-                  {t === "text" ? "📝 Text" : "🔗 URL"}
-                </button>
-              ))}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+              <input
+                type="text"
+                className="input"
+                placeholder="Title"
+                value={ingestionTitle}
+                onChange={(e) => setIngestionTitle(e.target.value)}
+              />
+
+              <select
+                className="input"
+                value={ingestionType}
+                onChange={(e) => setIngestionType(e.target.value)}
+              >
+                <option value="text">Text</option>
+                <option value="url">URL</option>
+                <option value="pdf_transcript">PDF Transcript</option>
+              </select>
+
+              <textarea
+                className="input"
+                rows={4}
+                placeholder="Paste content, URL, or document text..."
+                value={ingestionInput}
+                onChange={(e) => setIngestionInput(e.target.value)}
+                style={{ resize: "vertical" }}
+              />
             </div>
-            <textarea
-              className="input"
-              rows={4}
-              placeholder={ingestionType === "url" ? "Paste a URL to ingest..." : "Paste text content to ingest..."}
-              value={ingestionInput}
-              onChange={(e) => setIngestionInput(e.target.value)}
-              style={{ resize: "vertical", marginBottom: 12 }}
-            />
-            <button
-              className="btn btn-primary"
-              onClick={handleIngest}
-              disabled={ingesting || !ingestionInput.trim()}
-            >
-              {ingesting ? "Processing..." : "🚀 Ingest & Classify"}
-            </button>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleIngest}
+                disabled={ingesting || !ingestionInput.trim()}
+              >
+                {ingesting ? "⏳ Processing..." : "Submit for Review"}
+              </button>
+
+              {ingestionError && (
+                <span className="badge badge-error">
+                  ❌ {ingestionError}
+                </span>
+              )}
+            </div>
+
+            {lastEntry && (
+              <div style={{ marginTop: 16, padding: 12, background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span className="badge badge-success">✅ Staged for Review</span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <span className="badge badge-info">{lastEntry.category}</span>
+                    <span className="badge badge-accent">
+                      {lastEntry.confidence ? `${(lastEntry.confidence * 100).toFixed(0)}% Confidence` : "N/A"}
+                    </span>
+                  </div>
+                </div>
+                <p className="body-sm" style={{ color: "var(--text-secondary)", marginBottom: 8 }}>
+                  {lastEntry.summary}
+                </p>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {lastEntry.tags?.map((tag) => (
+                    <span key={tag} className="badge badge-accent" style={{ fontSize: 11 }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Staged Entries */}
