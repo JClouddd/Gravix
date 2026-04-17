@@ -1,5 +1,7 @@
 import { structuredGenerate, generate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
+import { collection, addDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 /**
  * POST /api/agents/route
@@ -65,6 +67,17 @@ Choose the best agent and explain your reasoning.`,
         action: message,
         confidence: 0.5,
       };
+    }
+
+    // Log routing decision to Firestore for Conductor analysis
+    try {
+      await addDoc(collection(db, "agent_routing_log"), {
+        message: message.substring(0, 100),
+        selectedAgent: decision.agent,
+        timestamp: new Date().toISOString()
+      });
+    } catch (err) {
+      console.warn("[agent_routing_log] Failed to log routing decision:", err.message);
     }
 
     // Log routing cost

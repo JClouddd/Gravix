@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-const TABS = ["Roster", "Workflow", "Tasks"];
+const TABS = ["Roster", "Workflow", "Tasks", "Proposals"];
 
 export default function AgentsModule() {
   const [activeTab, setActiveTab] = useState("Roster");
@@ -24,6 +24,10 @@ export default function AgentsModule() {
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [newTaskPrompt, setNewTaskPrompt] = useState("");
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
+
+  // Proposals state
+  const [proposals, setProposals] = useState([]);
+  const [isLoadingProposals, setIsLoadingProposals] = useState(true);
 
   // Fetch initial data
   useEffect(() => {
@@ -67,9 +71,24 @@ export default function AgentsModule() {
       }
     }
 
+    async function fetchProposals() {
+      try {
+        const res = await fetch("/api/agents/conductor/analyze");
+        if (res.ok) {
+          const data = await res.json();
+          setProposals(data.proposals?.filter(p => p.status === "pending") || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch proposals", err);
+      } finally {
+        setIsLoadingProposals(false);
+      }
+    }
+
     fetchRoster();
     fetchTasks();
     fetchCosts();
+    fetchProposals();
   }, []);
 
   // Task Board Action
@@ -94,6 +113,21 @@ export default function AgentsModule() {
       console.error("Error creating task", err);
     } finally {
       setIsSubmittingTask(false);
+    }
+  };
+
+  const handleProposalDecision = async (id, status) => {
+    try {
+      const res = await fetch("/api/agents/conductor/analyze", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status })
+      });
+      if (res.ok) {
+        setProposals(prev => prev.filter(p => p.id !== id));
+      }
+    } catch (err) {
+      console.error("Error updating proposal status", err);
     }
   };
 
@@ -511,6 +545,64 @@ export default function AgentsModule() {
         </div>
       )}
 
+      {activeTab === "Proposals" && (
+        <div>
+          <div className="card" style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h3 className="h3">Conductor Proposals</h3>
+              <p className="caption" style={{ color: "var(--text-secondary)", marginTop: 4 }}>
+                Based on recent routing patterns, Conductor has identified the following gaps and proposes these new agents.
+              </p>
+            </div>
+            <div className="badge">{proposals.length} Pending</div>
+          </div>
+
+          {isLoadingProposals ? (
+             <p className="caption">Loading proposals...</p>
+          ) : proposals.length === 0 ? (
+            <div className="empty-state card" style={{ padding: 48, textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+              <h4 className="h4" style={{ marginBottom: 8 }}>No New Proposals</h4>
+              <p className="body-sm" style={{ color: "var(--text-secondary)" }}>
+                We need more routing data to make intelligent agent proposals. Check back later.
+              </p>
+            </div>
+          ) : (
+            <div className="grid-2">
+              {proposals.map(proposal => (
+                <div key={proposal.id} className="card card-glass" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                      <h4 className="h4">{proposal.name}</h4>
+                      <span className="badge badge-primary">{proposal.role}</span>
+                    </div>
+                    <p className="body-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                      {proposal.reason}
+                    </p>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 12, marginTop: "auto" }}>
+                    <button
+                      className="button button-primary"
+                      style={{ flex: 1 }}
+                      onClick={() => handleProposalDecision(proposal.id, "approved")}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      className="button button-danger"
+                      style={{ flex: 1, background: "transparent", border: "1px solid var(--error)", color: "var(--error)" }}
+                      onClick={() => handleProposalDecision(proposal.id, "dismissed")}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
           </div>
   );
 }
