@@ -10,6 +10,8 @@ export default function HomeModule() {
   const [agents, setAgents] = useState([]);
   const [costs, setCosts] = useState(null);
   const [knowledge, setKnowledge] = useState(null);
+  const [julesTasks, setJulesTasks] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,14 +19,26 @@ export default function HomeModule() {
       fetch("/api/agents/roster").then((r) => r.json()),
       fetch("/api/costs/summary").then((r) => r.json()),
       fetch("/api/knowledge/status").then((r) => r.json()),
+      fetch("/api/jules/tasks").then((r) => r.json()),
     ])
-      .then(([agentsData, costsData, knowledgeData]) => {
+      .then(([agentsData, costsData, knowledgeData, julesData]) => {
         setAgents(agentsData.agents || []);
         setCosts(costsData);
         setKnowledge(knowledgeData);
+
+        if (julesData?.error || julesData?.connected === false) {
+          setFetchError(julesData.error || "Failed to load tasks");
+          setJulesTasks([]);
+        } else {
+          setJulesTasks(julesData?.sessions || []);
+        }
+
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        setFetchError(err.message);
+        setLoading(false);
+      });
   }, []);
 
   if (loading) {
@@ -157,13 +171,38 @@ export default function HomeModule() {
       {/* Recent Activity */}
       <div className="card">
         <h3 className="h4" style={{ marginBottom: 16 }}>Recent Activity</h3>
-        <div className="empty-state" style={{ padding: "40px 20px" }}>
-          <div className="empty-state-icon">📋</div>
-          <p className="empty-state-title">No activity yet</p>
-          <p className="empty-state-desc">
-            Activity from agents, tasks, and system events will appear here as Gravix comes online.
-          </p>
-        </div>
+        {fetchError ? (
+          <div className="empty-state" style={{ padding: "20px" }}>
+            <div className="empty-state-icon" style={{ color: "var(--error)" }}>⚠️</div>
+            <p className="empty-state-title" style={{ color: "var(--error)" }}>Failed to load activity</p>
+            <p className="empty-state-desc">{fetchError}</p>
+          </div>
+        ) : julesTasks && julesTasks.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {julesTasks.slice(0, 5).map((task, index) => (
+              <div
+                key={task.name || index}
+                className="card"
+                style={{ padding: "12px 16px" }}
+              >
+                <div className="body-sm" style={{ fontWeight: 600, marginBottom: 4 }}>
+                  {task.title || task.name || "Task"}
+                </div>
+                <div className="caption" style={{ color: "var(--text-secondary)" }}>
+                  {task.state || "Unknown Status"}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state" style={{ padding: "40px 20px" }}>
+            <div className="empty-state-icon">📋</div>
+            <p className="empty-state-title">No activity yet</p>
+            <p className="empty-state-desc">
+              Activity from agents, tasks, and system events will appear here as Gravix comes online.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
