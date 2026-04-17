@@ -122,6 +122,12 @@ Create a `.env.local` file in the root directory and configure the following var
 
 ---
 
+## 🔒 Security
+
+For detailed instructions on securing your Gravix installation, including setting up GCP Service Accounts and restricting API keys, please refer to the [Security Setup Guide](docs/SECURITY_SETUP.md).
+
+---
+
 ## 📄 License
 
 This project is licensed under the **MIT License**.
