@@ -1,5 +1,6 @@
 /**
- * geminiClient.js — Centralized Gemini API Client
+ * @fileoverview geminiClient.js — Centralized Gemini API Client
+ * This module provides a unified interface for interacting with the Google Gemini API.
  *
  * Features:
  * - Auto-complexity routing (Flash / Pro / Deep Research)
@@ -7,8 +8,7 @@
  * - Structured JSON output
  * - Deep Research mode
  * - Retry with exponential backoff
- * - Token tracking → Firestore
- * - Cost estimation before expensive calls
+ * - Token tracking and cost estimation
  */
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -40,6 +40,32 @@ function routeComplexity(complexity = "auto", promptLength = 0) {
 }
 
 /* ── Cost Estimator ───────────────────────────────────────────── */
+
+/**
+ * Estimates the cost of a Gemini API call based on model tier and token counts.
+ *
+ * @description
+ * Calculates the estimated cost for input and output tokens for a given model tier.
+ * It also determines if the cost is low enough to auto-approve or high enough to warn.
+ *
+ * @param {string} modelTier - The model tier to use ("flash", "pro", or "deep").
+ * @param {number} inputTokens - The number of input tokens.
+ * @param {number} [estimatedOutputTokens=500] - The estimated number of output tokens.
+ * @returns {{
+ *   modelTier: string,
+ *   inputTokens: number,
+ *   estimatedOutputTokens: number,
+ *   inputCost: number,
+ *   outputCost: number,
+ *   totalCost: number,
+ *   autoApprove: boolean,
+ *   warning: boolean
+ * }} The estimated cost details.
+ *
+ * @example
+ * const costEstimate = estimateCost("pro", 1000, 200);
+ * console.log(costEstimate.totalCost); // 0.00325
+ */
 export function estimateCost(modelTier, inputTokens, estimatedOutputTokens = 500) {
   const costs = MODEL_COSTS[modelTier] || MODEL_COSTS.flash;
   const inputCost = (inputTokens / 1_000_000) * costs.input;
@@ -74,6 +100,43 @@ async function withRetry(fn, maxRetries = 3, baseDelay = 1000) {
 }
 
 /* ── Main Generation Function ─────────────────────────────────── */
+
+/**
+ * Main function to generate content using the Gemini API.
+ *
+ * @description
+ * Generates text content using a specified or automatically selected Gemini model.
+ * It handles model routing, structured JSON output formatting, Google Search grounding,
+ * deep reasoning, and retry logic with exponential backoff.
+ *
+ * @param {Object} options - Options for content generation.
+ * @param {string} options.prompt - The main input prompt.
+ * @param {string} [options.systemPrompt=""] - Optional system instructions.
+ * @param {("auto"|"low"|"flash"|"high"|"pro"|"deep"|"research")} [options.complexity="auto"] - Determines which model to use.
+ * @param {boolean} [options.grounded=false] - Whether to use Google Search grounding.
+ * @param {Object|null} [options.jsonSchema=null] - Optional JSON schema for structured output.
+ * @param {("max"|"high"|"medium"|null)} [options.thinkingLevel=null] - Thinking budget for deep reasoning models.
+ * @param {number} [options.maxTokens=8192] - Maximum number of output tokens.
+ * @param {number|null} [options.temperature=null] - Optional temperature for generation (0.0 to 2.0).
+ * @param {Array<{role: string, content: string}>} [options.history=[]] - Optional conversation history.
+ * @returns {Promise<{
+ *   text: string,
+ *   model: string,
+ *   modelTier: string,
+ *   tokens: {input: number, output: number, total: number},
+ *   cost: Object,
+ *   duration: number,
+ *   grounded: boolean,
+ *   groundingMetadata: Object|null
+ * }>} The generated response and metadata.
+ *
+ * @example
+ * const response = await generate({
+ *   prompt: "Explain quantum computing in simple terms.",
+ *   complexity: "low"
+ * });
+ * console.log(response.text);
+ */
 export async function generate({
   prompt,
   systemPrompt = "",
@@ -194,6 +257,37 @@ export async function generate({
 }
 
 /* ── Chat Session ─────────────────────────────────────────────── */
+
+/**
+ * Convenience wrapper around generate() for handling chat conversations.
+ *
+ * @description
+ * Processes a single chat message within the context of an existing conversation history.
+ *
+ * @param {Object} options - Options for the chat session.
+ * @param {string} options.message - The user's new chat message.
+ * @param {Array<{role: string, content: string}>} [options.history=[]] - Previous conversation history.
+ * @param {string} [options.systemPrompt=""] - Optional system instructions.
+ * @param {("auto"|"low"|"flash"|"high"|"pro"|"deep"|"research")} [options.complexity="auto"] - Determines which model to use.
+ * @param {boolean} [options.grounded=false] - Whether to use Google Search grounding.
+ * @returns {Promise<{
+ *   text: string,
+ *   model: string,
+ *   modelTier: string,
+ *   tokens: {input: number, output: number, total: number},
+ *   cost: Object,
+ *   duration: number,
+ *   grounded: boolean,
+ *   groundingMetadata: Object|null
+ * }>} The generated response and metadata.
+ *
+ * @example
+ * const response = await chat({
+ *   message: "How does it work?",
+ *   history: [{ role: "user", content: "Tell me about photosynthesis." }, { role: "model", content: "It's how plants make food." }]
+ * });
+ * console.log(response.text);
+ */
 export async function chat({
   message,
   history = [],
@@ -211,6 +305,34 @@ export async function chat({
 }
 
 /* ── Grounded Search Query ────────────────────────────────────── */
+
+/**
+ * Executes a query with Google Search grounding enabled.
+ *
+ * @description
+ * Generates an answer to a query, using Google Search to ground the response
+ * in current, factual information. Always uses the "pro" complexity tier.
+ *
+ * @param {Object} options - Options for the grounded query.
+ * @param {string} options.query - The search query or question.
+ * @param {string} [options.systemPrompt="You are a helpful research assistant. Provide accurate, well-sourced answers."] - System instructions.
+ * @returns {Promise<{
+ *   text: string,
+ *   model: string,
+ *   modelTier: string,
+ *   tokens: {input: number, output: number, total: number},
+ *   cost: Object,
+ *   duration: number,
+ *   grounded: boolean,
+ *   groundingMetadata: Object|null
+ * }>} The generated response and metadata, including grounding data.
+ *
+ * @example
+ * const response = await groundedQuery({
+ *   query: "What is the current stock price of Google?"
+ * });
+ * console.log(response.text);
+ */
 export async function groundedQuery({
   query,
   systemPrompt = "You are a helpful research assistant. Provide accurate, well-sourced answers.",
@@ -224,6 +346,34 @@ export async function groundedQuery({
 }
 
 /* ── Deep Research ────────────────────────────────────────────── */
+
+/**
+ * Conducts deep research on a topic using extended reasoning and search grounding.
+ *
+ * @description
+ * Uses the "deep" model tier with a "high" thinking budget and Google Search grounding
+ * to provide a comprehensive, multi-perspective analysis on a given topic.
+ *
+ * @param {Object} options - Options for the deep research session.
+ * @param {string} options.topic - The research topic or question.
+ * @param {string} [options.systemPrompt="You are a deep research analyst. Provide comprehensive, multi-perspective analysis with citations."] - System instructions.
+ * @returns {Promise<{
+ *   text: string,
+ *   model: string,
+ *   modelTier: string,
+ *   tokens: {input: number, output: number, total: number},
+ *   cost: Object,
+ *   duration: number,
+ *   grounded: boolean,
+ *   groundingMetadata: Object|null
+ * }>} The generated response and metadata, including extensive grounding data.
+ *
+ * @example
+ * const research = await deepResearch({
+ *   topic: "The impact of artificial intelligence on modern healthcare."
+ * });
+ * console.log(research.text);
+ */
 export async function deepResearch({
   topic,
   systemPrompt = "You are a deep research analyst. Provide comprehensive, multi-perspective analysis with citations.",
@@ -239,6 +389,44 @@ export async function deepResearch({
 }
 
 /* ── Structured Output ────────────────────────────────────────── */
+
+/**
+ * Generates content structured to match a specific JSON schema.
+ *
+ * @description
+ * Forces the model to output valid JSON conforming to the provided schema.
+ * Useful for extracting data or ensuring consistent API responses.
+ *
+ * @param {Object} options - Options for structured generation.
+ * @param {string} options.prompt - The input prompt.
+ * @param {Object} options.schema - The JSON schema the output must adhere to.
+ * @param {string} [options.systemPrompt=""] - Optional system instructions.
+ * @param {("auto"|"low"|"flash"|"high"|"pro"|"deep"|"research")} [options.complexity="auto"] - Determines which model to use.
+ * @returns {Promise<{
+ *   text: string,
+ *   model: string,
+ *   modelTier: string,
+ *   tokens: {input: number, output: number, total: number},
+ *   cost: Object,
+ *   duration: number,
+ *   grounded: boolean,
+ *   groundingMetadata: Object|null
+ * }>} The generated response and metadata. The `text` property will contain the JSON string.
+ *
+ * @example
+ * const schema = {
+ *   type: "object",
+ *   properties: {
+ *     recipeName: { type: "string" },
+ *     ingredients: { type: "array", items: { type: "string" } }
+ *   }
+ * };
+ * const response = await structuredGenerate({
+ *   prompt: "Give me a recipe for chocolate chip cookies.",
+ *   schema
+ * });
+ * const recipe = JSON.parse(response.text);
+ */
 export async function structuredGenerate({
   prompt,
   schema,
