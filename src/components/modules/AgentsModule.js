@@ -10,6 +10,11 @@ export default function AgentsModule() {
   // Roster state
   const [agents, setAgents] = useState([]);
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
+  const [agentCosts, setAgentCosts] = useState({});
+  const [executionMode, setExecutionMode] = useState("Step");
+  const [rosterChatInput, setRosterChatInput] = useState("");
+  const [rosterChatStatus, setRosterChatStatus] = useState("idle");
+  const [rosterChatResult, setRosterChatResult] = useState(null);
 
   // Workflow state
   const [highlightedAgent, setHighlightedAgent] = useState(null);
@@ -50,8 +55,21 @@ export default function AgentsModule() {
       }
     }
 
+    async function fetchCosts() {
+      try {
+        const res = await fetch("/api/costs/breakdown");
+        if (res.ok) {
+          const data = await res.json();
+          setAgentCosts(data.perAgent || {});
+        }
+      } catch (err) {
+        console.error("Failed to fetch agent costs", err);
+      }
+    }
+
     fetchRoster();
     fetchTasks();
+    fetchCosts();
   }, []);
 
   // Task Board Action
@@ -90,22 +108,48 @@ export default function AgentsModule() {
     });
   };
 
+  const handleRosterChat = async () => {
+    if (!rosterChatInput.trim()) return;
+    setRosterChatStatus("routing");
+    setRosterChatResult(null);
+
+    try {
+      const res = await fetch("/api/agents/route", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: rosterChatInput,
+          execute: true,
+          mode: executionMode
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRosterChatResult(data);
+        setRosterChatInput("");
+      } else {
+        setRosterChatResult({ error: "Failed to route request." });
+      }
+    } catch (err) {
+      console.error("Error in roster chat", err);
+      setRosterChatResult({ error: err.message });
+    } finally {
+      setRosterChatStatus("idle");
+    }
+  };
+
   return (
     <div>
       <div className="module-header">
         <div className="module-header-left">
           <div className="module-icon" style={{ background: "var(--accent-subtle)" }}>🤖</div>
           <div>
-            <h1 className="module-title">Agent Orchestrator</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <h1 className="module-title">Agent Orchestrator</h1>
+              <span className="badge badge-info">{executionMode} Mode</span>
+            </div>
             <p className="module-subtitle">7 agents — deploy, monitor, and orchestrate</p>
           </div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <select className="input" style={{ width: 140, padding: "6px 10px" }}>
-            <option>Step Mode</option>
-            <option>Batch Mode</option>
-            <option>Autonomous</option>
-          </select>
         </div>
       </div>
 
@@ -137,13 +181,36 @@ export default function AgentsModule() {
       </div>
 
       {activeTab === "Roster" && (
-        <div className="grid-auto">
-          {isLoadingAgents ? (
-            <div style={{ padding: 24, color: "var(--text-secondary)" }}>Loading agents...</div>
-          ) : agents.map((agent) => {
-            const isOnline = agent.status === "active";
-            const isBusy = agent.status === "busy";
-            return (
+        <div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+            {["Step", "Batch", "Autonomous"].map(mode => (
+              <button
+                key={mode}
+                className={`button ${executionMode === mode ? "button-primary" : ""}`}
+                style={{
+                  background: executionMode === mode ? "var(--accent)" : "var(--bg-secondary)",
+                  color: executionMode === mode ? "#fff" : "var(--text-primary)",
+                  border: "1px solid var(--card-border)"
+                }}
+                onClick={() => setExecutionMode(mode)}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid-auto">
+            {isLoadingAgents ? (
+              <div style={{ padding: 24, color: "var(--text-secondary)" }}>Loading agents...</div>
+            ) : agents.map((agent) => {
+              const isOnline = agent.status === "active";
+              const isBusy = agent.status === "busy";
+
+              const costVal = agentCosts[agent.id]?.cost || 0;
+              const costBadgeClass = costVal < 0.01 ? "badge-success" : costVal < 0.10 ? "badge-warning" : "badge-error";
+              const costLabel = costVal === 0 ? "$0.00" : `$${costVal.toFixed(3)} this month`;
+
+              return (
               <div
                 key={agent.id}
                 className="card"
@@ -174,6 +241,9 @@ export default function AgentsModule() {
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                   <span className="badge" style={{ fontSize: 11, background: "var(--bg-secondary)" }}>Planning</span>
                   <span className="badge" style={{ fontSize: 11, background: "var(--bg-secondary)" }}>Execution</span>
+                  <span className={`badge ${costBadgeClass}`} style={{ fontSize: 11 }}>
+                    {costLabel}
+                  </span>
                 </div>
 
                 <div className="badge badge-info" style={{ fontSize: 11 }}>
@@ -182,6 +252,63 @@ export default function AgentsModule() {
               </div>
             );
           })}
+          </div>
+
+          <div className="card" style={{ marginTop: 32 }}>
+            <h4 className="h4" style={{ marginBottom: 16 }}>Test & Execute</h4>
+            <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+              <input
+                type="text"
+                className="input"
+                style={{ flex: 1 }}
+                placeholder="Ask Conductor to route a request..."
+                value={rosterChatInput}
+                onChange={(e) => setRosterChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleRosterChat()}
+              />
+              <button className="button button-primary" onClick={handleRosterChat}>
+                Send
+              </button>
+            </div>
+
+            {rosterChatStatus === "routing" && (
+              <div className="empty-state" style={{ padding: 32 }}>
+                <div className="status-dot online" style={{ marginBottom: 16, width: 12, height: 12 }} />
+                <p className="body-sm">Conductor is executing...</p>
+              </div>
+            )}
+
+            {rosterChatResult && rosterChatStatus !== "routing" && (
+              <div style={{ background: "var(--bg-secondary)", padding: 16, borderRadius: 8, border: "1px solid var(--card-border)" }}>
+                {rosterChatResult.error ? (
+                  <p className="body-sm" style={{ color: "var(--error)" }}>{rosterChatResult.error}</p>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, color: "var(--text-secondary)" }}>
+                      <span>Result</span>
+                      <span>→</span>
+                      <span style={{ color: "var(--accent)" }}>Conductor</span>
+                      {rosterChatResult.routing?.agent && (
+                        <>
+                          <span>→</span>
+                          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{rosterChatResult.routing.agent}</span>
+                        </>
+                      )}
+                    </div>
+                    {rosterChatResult.response?.text ? (
+                       <p className="body-sm" style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}>
+                         {rosterChatResult.response.text}
+                       </p>
+                    ) : (
+                       <p className="body-sm" style={{ marginBottom: 8 }}>
+                         {rosterChatResult.message || JSON.stringify(rosterChatResult)}
+                       </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

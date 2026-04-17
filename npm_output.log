@@ -5,33 +5,73 @@
 ▲ Next.js 16.2.4 (Turbopack)
 - Local:         http://localhost:3000
 - Network:       http://192.168.0.2:3000
-✓ Ready in 794ms
+✓ Ready in 523ms
 ⚠ turbopack.root should be absolute, using: /app
-Attention: Next.js now collects completely anonymous telemetry regarding usage.
-This information is used to shape Next.js' roadmap and prioritize features.
-You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
-https://nextjs.org/telemetry
-
 
 ○ Compiling / ...
- GET / 200 in 6.0s (next.js: 5.6s, application-code: 438ms)
- GET / 200 in 237ms (next.js: 35ms, application-code: 201ms)
- GET /api/knowledge/status 200 in 729ms (next.js: 695ms, application-code: 34ms)
- GET /api/agents/roster 200 in 2.7s (next.js: 2.7s, application-code: 15ms)
-[/api/costs/summary] [Error [FirebaseError]: Missing or insufficient permissions.] {
-  code: 'permission-denied',
-  customData: undefined,
-  toString: [Function (anonymous)]
-}
- GET /api/costs/summary 500 in 3.1s (next.js: 2.8s, application-code: 348ms)
- GET / 200 in 87ms (next.js: 6ms, application-code: 82ms)
- GET / 200 in 93ms (next.js: 10ms, application-code: 83ms)
- GET /api/agents/roster 200 in 11ms (next.js: 6ms, application-code: 5ms)
- GET /api/knowledge/status 200 in 8ms (next.js: 3ms, application-code: 5ms)
-[/api/costs/summary] [Error [FirebaseError]: Missing or insufficient permissions.] {
-  code: 'permission-denied',
-  customData: undefined,
-  toString: [Function (anonymous)]
-}
- GET /api/costs/summary 500 in 70ms (next.js: 13ms, application-code: 57ms)
-[2026-04-17T20:26:33.337Z]  @firebase/firestore: Firestore (12.12.0): GrpcConnection RPC 'Listen' stream 0x690c0ae9 error. Code: 1 Message: 1 CANCELLED: Disconnecting idle stream. Timed out waiting for new targets.
+ GET / 200 in 4.6s (next.js: 4.1s, application-code: 431ms)
+ GET / 200 in 140ms (next.js: 10ms, application-code: 130ms)
+[/api/jules/tasks GET] Error: JULES_API_KEY environment variable is not set
+    at getApiKey (src/lib/julesClient.js:19:11)
+    at julesRequest (src/lib/julesClient.js:27:23)
+    at listSessions (src/lib/julesClient.js:83:10)
+    at GET (src/app/api/jules/tasks/route.js:56:40)
+  17 |   const key = process.env.JULES_API_KEY;
+  18 |   if (!key) {
+> 19 |     throw new Error("JULES_API_KEY environment variable is not set");
+     |           ^
+  20 |   }
+  21 |   return key;
+  22 | }
+ GET /api/jules/tasks 503 in 1465ms (next.js: 571ms, application-code: 893ms)
+ GET /api/knowledge/status 200 in 1519ms (next.js: 1510ms, application-code: 9ms)
+ GET /api/agents/roster 200 in 2.5s (next.js: 2.5s, application-code: 6ms)
+ GET /api/costs/summary 200 in 2.9s (next.js: 2.5s, application-code: 338ms)
+ GET / 200 in 73ms (next.js: 5ms, application-code: 68ms)
+ GET / 200 in 77ms (next.js: 5ms, application-code: 71ms)
+ GET /api/agents/roster 200 in 11ms (next.js: 5ms, application-code: 6ms)
+ GET /api/knowledge/status 200 in 16ms (next.js: 10ms, application-code: 6ms)
+[/api/jules/tasks GET] Error: JULES_API_KEY environment variable is not set
+    at getApiKey (src/lib/julesClient.js:19:11)
+    at julesRequest (src/lib/julesClient.js:27:23)
+    at listSessions (src/lib/julesClient.js:83:10)
+    at GET (src/app/api/jules/tasks/route.js:56:40)
+  17 |   const key = process.env.JULES_API_KEY;
+  18 |   if (!key) {
+> 19 |     throw new Error("JULES_API_KEY environment variable is not set");
+     |           ^
+  20 |   }
+  21 |   return key;
+  22 | }
+ GET /api/jules/tasks 503 in 237ms (next.js: 13ms, application-code: 224ms)
+ GET /api/costs/summary 200 in 294ms (next.js: 18ms, application-code: 277ms)
+ GET /api/agents/roster 200 in 13ms (next.js: 5ms, application-code: 8ms)
+[/api/jules/tasks GET] Error: JULES_API_KEY environment variable is not set
+    at getApiKey (src/lib/julesClient.js:19:11)
+    at julesRequest (src/lib/julesClient.js:27:23)
+    at listSessions (src/lib/julesClient.js:83:10)
+    at GET (src/app/api/jules/tasks/route.js:56:40)
+  17 |   const key = process.env.JULES_API_KEY;
+  18 |   if (!key) {
+> 19 |     throw new Error("JULES_API_KEY environment variable is not set");
+     |           ^
+  20 |   }
+  21 |   return key;
+  22 | }
+ GET /api/jules/tasks 503 in 155ms (next.js: 14ms, application-code: 141ms)
+ GET /api/agents/roster 200 in 7ms (next.js: 3ms, application-code: 4ms)
+[/api/jules/tasks GET] Error: JULES_API_KEY environment variable is not set
+    at getApiKey (src/lib/julesClient.js:19:11)
+    at julesRequest (src/lib/julesClient.js:27:23)
+    at listSessions (src/lib/julesClient.js:83:10)
+    at GET (src/app/api/jules/tasks/route.js:56:40)
+  17 |   const key = process.env.JULES_API_KEY;
+  18 |   if (!key) {
+> 19 |     throw new Error("JULES_API_KEY environment variable is not set");
+     |           ^
+  20 |   }
+  21 |   return key;
+  22 | }
+ GET /api/jules/tasks 503 in 162ms (next.js: 4ms, application-code: 158ms)
+ GET /api/costs/breakdown 200 in 431ms (next.js: 370ms, application-code: 61ms)
+ GET /api/costs/breakdown 200 in 49ms (next.js: 3ms, application-code: 46ms)
