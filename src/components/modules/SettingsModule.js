@@ -23,8 +23,6 @@ const INTEGRATIONS = [
 
 export default function SettingsModule() {
   const [theme, setTheme] = useState("dark");
-
-export default function SettingsModule() {
   // Profile State
   const [profile, setProfile] = useState({ name: "Jane Doe", email: "jane.doe@example.com" });
 

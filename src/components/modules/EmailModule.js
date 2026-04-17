@@ -1,84 +1,62 @@
 "use client";
 
-import { useState } from "react";
-
-const MOCK_EMAILS = [
-  {
-    id: 1,
-    sender: "Sarah Jenkins",
-    avatar: "S",
-    subject: "Urgent: Q3 Report Approval Needed",
-    preview: "Hi team, please review and approve the Q3 report by EOD. Attached is the...",
-    body: "Hi team,\n\nPlease review and approve the Q3 report by EOD. Attached is the latest draft incorporating the finance team's feedback.\n\nThanks,\nSarah",
-    timestamp: "10:30 AM",
-    unread: true,
-    badge: { label: "Action Required", class: "badge-error" },
-  },
-  {
-    id: 2,
-    sender: "Acme Corp (Client)",
-    avatar: "A",
-    subject: "Project Kickoff Discussion",
-    preview: "Great meeting everyone yesterday. I wanted to follow up on the timeline...",
-    body: "Great meeting everyone yesterday. I wanted to follow up on the timeline we discussed. Are we still on track for next Monday?\n\nBest,\nAcme Team",
-    timestamp: "9:15 AM",
-    unread: true,
-    badge: { label: "Client", class: "badge-info" },
-  },
-  {
-    id: 3,
-    sender: "Billing Dept",
-    avatar: "B",
-    subject: "Invoice #49201 Paid",
-    preview: "Your recent invoice #49201 has been successfully processed and paid...",
-    body: "Hello,\n\nYour recent invoice #49201 has been successfully processed and paid. The funds should appear in your account within 2-3 business days.\n\nRegards,\nBilling Dept",
-    timestamp: "Yesterday",
-    unread: false,
-    badge: { label: "Invoice", class: "badge-success" },
-  },
-  {
-    id: 4,
-    sender: "Tech Weekly",
-    avatar: "T",
-    subject: "Top 10 AI Tools This Week",
-    preview: "Discover the latest trends in artificial intelligence and how they can...",
-    body: "Welcome to this week's Tech Weekly!\n\nDiscover the latest trends in artificial intelligence and how they can boost your productivity. In this issue, we cover 10 tools that are changing the game.\n\nRead more inside...",
-    timestamp: "Yesterday",
-    unread: false,
-    badge: { label: "Newsletter", class: "badge" },
-  },
-  {
-    id: 5,
-    sender: "Mike Ross",
-    avatar: "M",
-    subject: "Quick question about the presentation",
-    preview: "Do you have a minute to look over slide 12? I feel like the chart is a bit...",
-    body: "Hey,\n\nDo you have a minute to look over slide 12? I feel like the chart is a bit confusing and could use some tweaking before the big meeting.\n\nLet me know,\nMike",
-    timestamp: "Oct 12",
-    unread: false,
-    badge: null,
-  },
-];
+import { useState, useEffect } from "react";
 
 /**
  * Email Module — Gmail inbox with AI classification
  * Smart compose, thread summarization, action extraction
  */
 export default function EmailModule() {
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true); // Default true until checked
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [inbox, setInbox] = useState([]);
+  const [stats, setStats] = useState({ total: 0, unread: 0 });
+
   const [activeTab, setActiveTab] = useState("inbox"); // 'inbox' or 'compose'
   const [selectedEmail, setSelectedEmail] = useState(null);
 
   // Compose State
+  const [isAiDraftMode, setIsAiDraftMode] = useState(true);
   const [composeTo, setComposeTo] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
-  const [composeContext, setComposeContext] = useState("");
+  const [composeBody, setComposeBody] = useState(""); // For manual mode body
+  const [composeContext, setComposeContext] = useState(""); // For AI Prompt
   const [composeTone, setComposeTone] = useState("professional");
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [draftText, setDraftText] = useState("");
 
+  useEffect(() => {
+    fetchInbox();
+  }, []);
+
+  const fetchInbox = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/email/inbox");
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fetch inbox");
+      }
+
+      setIsConnected(data.connected);
+      if (data.connected) {
+        setInbox(data.inbox || []);
+        setStats(data.stats || { total: 0, unread: 0 });
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleConnect = () => {
-    setIsConnected(true);
+    window.location.href = "/api/auth/connect";
   };
 
   const handleGenerateDraft = async () => {
@@ -88,15 +66,14 @@ export default function EmailModule() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to: composeTo,
-          subject: composeSubject,
-          context: composeContext,
-          tone: composeTone,
+          aiDraft: true,
+          prompt: `${composeContext} Tone: ${composeTone}`,
         }),
       });
       const data = await res.json();
       if (res.ok && data.draft) {
-        setDraftText(data.draft.body);
+        setComposeSubject(data.subject || "Draft");
+        setDraftText(data.body);
       } else {
         alert(data.error || "Failed to generate draft");
       }
@@ -108,7 +85,45 @@ export default function EmailModule() {
     }
   };
 
-  if (!isConnected) {
+  const handleSendEmail = async (bodyContent) => {
+    if (!composeTo || !composeSubject || !bodyContent) {
+      alert("Please fill in to, subject, and body fields.");
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const res = await fetch("/api/email/compose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aiDraft: false,
+          to: composeTo,
+          subject: composeSubject,
+          body: bodyContent,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.sent) {
+        alert("Email sent successfully!");
+        setComposeTo("");
+        setComposeSubject("");
+        setComposeBody("");
+        setComposeContext("");
+        setDraftText("");
+        setActiveTab("inbox");
+      } else {
+        alert(data.error || "Failed to send email");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error sending email.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  if (!isConnected && !isLoading) {
     return (
       <div>
         <div className="module-header">
@@ -174,43 +189,91 @@ export default function EmailModule() {
       <div className="card" style={{ padding: selectedEmail || activeTab === "compose" ? "24px" : "0" }}>
         {activeTab === "inbox" && !selectedEmail && (
           <div style={{ display: "flex", flexDirection: "column" }}>
-            {MOCK_EMAILS.map((email, idx) => (
-              <div
-                key={email.id}
-                style={{
-                  display: "flex",
-                  padding: "16px 24px",
-                  borderBottom: idx < MOCK_EMAILS.length - 1 ? "1px solid var(--card-border)" : "none",
-                  cursor: "pointer",
-                  background: email.unread ? "var(--bg-hover)" : "transparent",
-                  transition: "background 0.2s"
-                }}
-                onClick={() => setSelectedEmail(email)}
-                onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"}
-                onMouseLeave={(e) => e.currentTarget.style.background = email.unread ? "var(--bg-hover)" : "transparent"}
-              >
-                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent-subtle)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", marginRight: 16, flexShrink: 0 }}>
-                  {email.avatar}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ fontWeight: email.unread ? 600 : 500, color: "var(--text-primary)" }}>{email.sender}</span>
-                    <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{email.timestamp}</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontWeight: email.unread ? 600 : 500, color: "var(--text-primary)", fontSize: 14 }}>{email.subject}</span>
-                    {email.badge && (
-                      <span className={`badge ${email.badge.class}`} style={email.badge.class === "badge" ? { background: "var(--bg-tertiary)", color: "var(--text-secondary)" } : {}}>
-                        {email.badge.label}
-                      </span>
-                    )}
-                  </div>
-                  <div className="truncate" style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                    {email.preview}
-                  </div>
-                </div>
+            {error && (
+              <div style={{ padding: "16px 24px", display: "flex", justifyContent: "center" }}>
+                <span className="badge badge-error">Error: {error}</span>
               </div>
-            ))}
+            )}
+            {!error && (
+              <div style={{ padding: "12px 24px", borderBottom: "1px solid var(--card-border)", display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--text-secondary)" }}>
+                <span>Inbox</span>
+                <span>Total: {stats.total} | Unread: {stats.unread}</span>
+              </div>
+            )}
+
+            {isLoading ? (
+              Array(5).fill(0).map((_, idx) => (
+                <div key={idx} style={{ display: "flex", padding: "16px 24px", borderBottom: "1px solid var(--card-border)" }}>
+                  <div className="skeleton" style={{ width: 40, height: 40, borderRadius: "50%", marginRight: 16, flexShrink: 0 }}></div>
+                  <div style={{ flex: 1 }}>
+                    <div className="skeleton" style={{ width: "30%", height: 16, marginBottom: 8 }}></div>
+                    <div className="skeleton" style={{ width: "60%", height: 14, marginBottom: 8 }}></div>
+                    <div className="skeleton" style={{ width: "90%", height: 12 }}></div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              inbox.length === 0 && !error ? (
+                <div style={{ padding: "32px 24px", textAlign: "center", color: "var(--text-secondary)" }}>
+                  No emails found.
+                </div>
+              ) : (
+                inbox.map((email, idx) => {
+                  const isUnread = !email.isRead;
+                  const senderName = email.from ? email.from.split("<")[0].trim().replace(/"/g, "") : "Unknown";
+                  const avatarLetter = senderName ? senderName.charAt(0).toUpperCase() : "?";
+
+                  return (
+                    <div
+                      key={email.id}
+                      style={{
+                        display: "flex",
+                        padding: "16px 24px",
+                        borderBottom: idx < inbox.length - 1 ? "1px solid var(--card-border)" : "none",
+                        cursor: "pointer",
+                        background: isUnread ? "var(--bg-hover)" : "transparent",
+                        borderLeft: isUnread ? "4px solid var(--accent)" : "4px solid transparent",
+                        transition: "background 0.2s"
+                      }}
+                      onClick={() => setSelectedEmail(email)}
+                      onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = isUnread ? "var(--bg-hover)" : "transparent"}
+                    >
+                      <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent-subtle)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", marginRight: 16, flexShrink: 0 }}>
+                        {avatarLetter}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                          <span style={{ fontWeight: isUnread ? 600 : 500, color: "var(--text-primary)" }}>{senderName}</span>
+                          <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{email.date}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontWeight: isUnread ? 600 : 500, color: "var(--text-primary)", fontSize: 14 }}>{email.subject}</span>
+                          {isUnread && (
+                            <span className="badge badge-info">
+                              Unread
+                            </span>
+                          )}
+                          {!isUnread && (
+                            <span className="badge" style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}>
+                              Read
+                            </span>
+                          )}
+                          {email.labels && email.labels.includes("IMPORTANT") && (
+                            <span className="badge badge-error">
+                              Important
+                            </span>
+                          )}
+                        </div>
+                        <div className="truncate" style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                          {email.snippet}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )
+            )}
           </div>
         )}
 
@@ -221,59 +284,104 @@ export default function EmailModule() {
             </button>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
               <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--accent-subtle)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", fontSize: 20 }}>
-                {selectedEmail.avatar}
+                {selectedEmail.from ? selectedEmail.from.split("<")[0].trim().replace(/"/g, "").charAt(0).toUpperCase() : "?"}
               </div>
               <div>
                 <h2 style={{ fontSize: 20, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{selectedEmail.subject}</h2>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontWeight: 500, color: "var(--text-primary)" }}>{selectedEmail.sender}</span>
-                  <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>• {selectedEmail.timestamp}</span>
+                  <span style={{ fontWeight: 500, color: "var(--text-primary)" }}>{selectedEmail.from}</span>
+                  <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>• {selectedEmail.date}</span>
                 </div>
               </div>
             </div>
             <div style={{ fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
-              {selectedEmail.body}
+              {selectedEmail.snippet}
             </div>
           </div>
         )}
 
         {activeTab === "compose" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <button
+                className={`btn btn-sm ${isAiDraftMode ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setIsAiDraftMode(true)}
+              >
+                ✨ AI Draft
+              </button>
+              <button
+                className={`btn btn-sm ${!isAiDraftMode ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setIsAiDraftMode(false)}
+              >
+                ✍️ Manual
+              </button>
+            </div>
+
             <div>
               <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>To</label>
               <input className="input" placeholder="recipient@example.com" value={composeTo} onChange={e => setComposeTo(e.target.value)} />
             </div>
-            <div>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Subject</label>
-              <input className="input" placeholder="Email subject" value={composeSubject} onChange={e => setComposeSubject(e.target.value)} />
-            </div>
-            <div>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Context (What should this email say?)</label>
-              <textarea className="input" style={{ minHeight: 100, resize: "vertical" }} placeholder="Describe the email you want to send..." value={composeContext} onChange={e => setComposeContext(e.target.value)} />
-            </div>
-            <div>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Tone</label>
-              <select className="input" value={composeTone} onChange={e => setComposeTone(e.target.value)}>
-                <option value="professional">Professional</option>
-                <option value="casual">Casual</option>
-                <option value="formal">Formal</option>
-                <option value="friendly">Friendly</option>
-              </select>
-            </div>
-            <div>
-              <button className="btn btn-primary" onClick={handleGenerateDraft} disabled={isGeneratingDraft || !composeContext.trim()}>
-                {isGeneratingDraft ? "✨ Generating..." : "✨ Generate Draft"}
-              </button>
-            </div>
-            {draftText && (
-              <div style={{ marginTop: 24, padding: 16, background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", border: "1px solid var(--card-border)" }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>AI Draft Generated</h3>
-                <textarea className="input" style={{ minHeight: 150, marginBottom: 12 }} value={draftText} onChange={e => setDraftText(e.target.value)} />
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn btn-primary" onClick={() => alert("Email Sent! (Mock)")}>Send</button>
-                  <button className="btn btn-secondary" onClick={() => setDraftText("")}>Discard</button>
+
+            {isAiDraftMode ? (
+              <>
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Context (What should this email say?)</label>
+                  <textarea className="input" style={{ minHeight: 100, resize: "vertical" }} placeholder="Describe the email you want to send..." value={composeContext} onChange={e => setComposeContext(e.target.value)} />
                 </div>
-              </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Tone</label>
+                  <select className="input" value={composeTone} onChange={e => setComposeTone(e.target.value)}>
+                    <option value="professional">Professional</option>
+                    <option value="casual">Casual</option>
+                    <option value="formal">Formal</option>
+                    <option value="friendly">Friendly</option>
+                  </select>
+                </div>
+                <div>
+                  <button className="btn btn-primary" onClick={handleGenerateDraft} disabled={isGeneratingDraft || !composeContext.trim()}>
+                    {isGeneratingDraft ? "✨ Generating..." : "✨ Generate Draft"}
+                  </button>
+                </div>
+
+                {draftText && (
+                  <div style={{ marginTop: 24, padding: 16, background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", border: "1px solid var(--card-border)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <h3 style={{ fontSize: 14, fontWeight: 600 }}>AI Draft Generated</h3>
+                      <div className="badge badge-success">Ready to send</div>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Subject</label>
+                      <input className="input" style={{ marginBottom: 12 }} value={composeSubject} onChange={e => setComposeSubject(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Body</label>
+                      <textarea className="input" style={{ minHeight: 150, marginBottom: 12 }} value={draftText} onChange={e => setDraftText(e.target.value)} />
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="btn btn-primary" onClick={() => handleSendEmail(draftText)} disabled={isSending}>
+                        {isSending ? "Sending..." : "Send Draft"}
+                      </button>
+                      <button className="btn btn-secondary" onClick={() => setDraftText("")}>Discard</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Subject</label>
+                  <input className="input" placeholder="Email subject" value={composeSubject} onChange={e => setComposeSubject(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Body</label>
+                  <textarea className="input" style={{ minHeight: 200, resize: "vertical" }} placeholder="Write your email here..." value={composeBody} onChange={e => setComposeBody(e.target.value)} />
+                </div>
+                <div>
+                  <button className="btn btn-primary" onClick={() => handleSendEmail(composeBody)} disabled={isSending}>
+                    {isSending ? "Sending..." : "Send Email"}
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}
