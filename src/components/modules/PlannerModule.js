@@ -27,6 +27,10 @@ export default function PlannerModule() {
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", dueDate: "", priority: "Medium" });
 
+  // Filter State
+  const [calendarFilter, setCalendarFilter] = useState("All");
+  const [tasksFilter, setTasksFilter] = useState("All");
+
   useEffect(() => {
     let isMounted = true;
     async function fetchData() {
@@ -46,10 +50,11 @@ export default function PlannerModule() {
               const dateObj = evt.start ? new Date(evt.start) : new Date();
               return {
                 id: evt.id,
-                title: evt.summary,
+                title: evt.summary || evt.title,
                 date: dateObj,
                 type: "event",
-                color: "var(--accent)", // random color placeholder
+                color: evt.color || "var(--accent)",
+                sourceType: evt.sourceType || "personal",
                 start: evt.start ? new Date(evt.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : "00:00",
                 end: evt.end ? new Date(evt.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : "00:00",
                 location: evt.location,
@@ -75,7 +80,9 @@ export default function PlannerModule() {
                 title: task.title,
                 dueDate: task.due ? task.due.substring(0, 10) : "",
                 priority: "Medium", // Google Tasks API doesn't expose priority clearly
-                completed: task.status === "completed"
+                completed: task.status === "completed",
+                source: task.source || "manual",
+                sourceIcon: task.sourceIcon || "✋"
               };
             });
             setTasks(mappedTasks);
@@ -187,7 +194,12 @@ export default function PlannerModule() {
       );
     }
 
-    const selectedEvents = calendarEvents.filter(
+    const filteredCalendarEvents = calendarEvents.filter(e => {
+      if (calendarFilter === "All") return true;
+      return e.sourceType?.toLowerCase() === calendarFilter.toLowerCase();
+    });
+
+    const selectedEvents = filteredCalendarEvents.filter(
       (e) =>
         e.date.getDate() === selectedDate.getDate() &&
         e.date.getMonth() === selectedDate.getMonth() &&
@@ -195,6 +207,18 @@ export default function PlannerModule() {
     );
 
     return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
+          {["All", "Client", "Agent", "Personal"].map(filter => (
+            <button
+              key={filter}
+              className={`btn btn-sm ${calendarFilter === filter ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setCalendarFilter(filter)}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
       <div className="grid-2" style={{ gridTemplateColumns: "3fr 1fr", gap: "24px" }}>
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
@@ -225,7 +249,10 @@ export default function PlannerModule() {
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               {selectedEvents.map(evt => (
                 <div key={evt.id} style={{ padding: "12px", borderRadius: "var(--radius-md)", background: "var(--bg-tertiary)", borderLeft: `3px solid ${evt.color}` }}>
-                  <div style={{ fontWeight: "bold", fontSize: "14px", marginBottom: "4px" }}>{evt.title}</div>
+                  <div style={{ fontWeight: "bold", fontSize: "14px", marginBottom: "4px", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", backgroundColor: evt.color }} />
+                    {evt.title}
+                  </div>
                   <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>{evt.start} - {evt.end}</div>
                 </div>
               ))}
@@ -233,11 +260,17 @@ export default function PlannerModule() {
           )}
         </div>
       </div>
+      </div>
     );
   };
 
   const renderTasks = () => {
-    const sortedTasks = [...tasks].sort((a, b) => {
+    const filteredTasks = tasks.filter(task => {
+      if (tasksFilter === "All") return true;
+      return task.source?.toLowerCase() === tasksFilter.toLowerCase();
+    });
+
+    const sortedTasks = [...filteredTasks].sort((a, b) => {
       if (taskSort === "date") {
         return new Date(a.dueDate) - new Date(b.dueDate);
       } else {
@@ -268,6 +301,18 @@ export default function PlannerModule() {
     };
 
     return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
+          {["All", "Manual", "Email", "Meeting", "Agent"].map(filter => (
+            <button
+              key={filter}
+              className={`btn btn-sm ${tasksFilter === filter ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setTasksFilter(filter)}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <h3 className="h4">Task List</h3>
@@ -319,6 +364,7 @@ export default function PlannerModule() {
                   onChange={() => toggleTask(task.id)}
                   style={{ width: "16px", height: "16px", cursor: "pointer" }}
                 />
+                <span style={{ fontSize: "16px" }}>{task.sourceIcon}</span>
                 <span style={{ fontSize: "14px", textDecoration: task.completed ? "line-through" : "none", color: task.completed ? "var(--text-secondary)" : "var(--text-primary)" }}>
                   {task.title}
                 </span>
@@ -330,6 +376,7 @@ export default function PlannerModule() {
             </div>
           ))}
         </div>
+      </div>
       </div>
     );
   };

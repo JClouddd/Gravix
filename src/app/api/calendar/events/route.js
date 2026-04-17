@@ -1,5 +1,5 @@
 import { getCalendarEvents, refreshAccessToken } from "@/lib/googleAuth";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export async function GET() {
@@ -39,18 +39,47 @@ export async function GET() {
     const eventsResponse = await getCalendarEvents(accessToken);
     const rawEvents = eventsResponse.items || eventsResponse || [];
 
+    // Fetch clients to check for attendee matches
+    const clientsSnapshot = await getDocs(collection(db, "clients"));
+    const clientEmails = new Set();
+    clientsSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.email) {
+        clientEmails.add(data.email.toLowerCase());
+      }
+    });
+
     // Safely map and extract fields
     const mappedEvents = (Array.isArray(rawEvents) ? rawEvents : []).map((evt) => {
       const start = evt.start?.dateTime || evt.start?.date || "";
       const end = evt.end?.dateTime || evt.end?.date || "";
+      const summary = evt.summary || "Untitled Event";
+      const attendees = evt.attendees || [];
+
+      let sourceType = "personal";
+      let color = "#22c55e"; // Default: green
+
+      if (summary.startsWith("Follow-up") || summary.startsWith("Kickoff")) {
+        sourceType = "agent";
+        color = "#8b5cf6"; // Purple
+      } else {
+        const hasClient = attendees.some(a => a.email && clientEmails.has(a.email.toLowerCase()));
+        if (hasClient) {
+          sourceType = "client";
+          color = "#3b82f6"; // Blue
+        }
+      }
+
       return {
         id: evt.id,
-        summary: evt.summary || "Untitled Event",
+        summary,
         start,
         end,
         location: evt.location || "",
         meetLink: evt.hangoutLink || "",
-        attendees: evt.attendees || [],
+        attendees,
+        sourceType,
+        color,
       };
     });
 
