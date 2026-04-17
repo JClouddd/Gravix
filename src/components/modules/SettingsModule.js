@@ -246,7 +246,7 @@ export default function SettingsModule() {
                 <div className="body">Two-Factor Authentication</div>
                 <div className="caption">Add an extra layer of security</div>
               </div>
-              <Toggle checked={twoFactor} onChange={setTwoFactor} />
+              <input type="checkbox" checked={twoFactor} onChange={(e) => setTwoFactor(e.target.checked)} style={{ width: "20px", height: "20px", accentColor: "var(--accent)" }} />
             </div>
           </div>
         </div>

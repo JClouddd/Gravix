@@ -123,7 +123,7 @@ export async function triggerTask({
   };
 }
 
-export default {
+const defaultExport = {
   listSources,
   createSession,
   getSession,
@@ -131,3 +131,4 @@ export default {
   sendActivity,
   triggerTask,
 };
+export default defaultExport;
