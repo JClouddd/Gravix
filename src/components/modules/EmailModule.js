@@ -16,6 +16,18 @@ export default function EmailModule() {
   const [activeTab, setActiveTab] = useState("inbox"); // 'inbox' or 'compose'
   const [selectedEmail, setSelectedEmail] = useState(null);
 
+  // Classification & Summary State
+  const [classifications, setClassifications] = useState({});
+  const [isClassifying, setIsClassifying] = useState(false);
+  const [summaryData, setSummaryData] = useState({});
+  const [isSummarizing, setIsSummarizing] = useState(false);
+
+  // Task Creation State
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDueDate, setTaskDueDate] = useState("");
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+
   // Compose State
   const [isAiDraftMode, setIsAiDraftMode] = useState(true);
   const [composeTo, setComposeTo] = useState("");
@@ -51,6 +63,40 @@ export default function EmailModule() {
     }
   };
 
+  const classifyEmails = async (emailsToClassify) => {
+    if (!emailsToClassify || emailsToClassify.length === 0) return;
+    setIsClassifying(true);
+    try {
+      const payload = emailsToClassify.map(e => ({
+        id: e.id,
+        from: e.from,
+        subject: e.subject,
+        snippet: e.snippet
+      }));
+
+      const res = await fetch("/api/email/classify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails: payload })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.classifications) {
+          const newClassifications = {};
+          data.classifications.forEach(c => {
+            newClassifications[c.emailId] = c;
+          });
+          setClassifications(prev => ({...prev, ...newClassifications}));
+        }
+      }
+    } catch (err) {
+      console.error("Error classifying emails:", err);
+    } finally {
+      setIsClassifying(false);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
     const loadData = async () => {
@@ -61,6 +107,14 @@ export default function EmailModule() {
           setIsConnected(data.connected);
           if (data.connected && data.inbox) {
             setInbox(data.inbox);
+            // We use functional state updater below so we don't need 'classifications' in dependency array
+            // But we will just ignore the lint warning or fetch then classify everything
+            // Better to just classify top 10 from inbox without relying on current state for unclassified check
+            // To simplify and fix exhaustive-deps, we just classify the first 10 on initial load.
+            const toClassify = data.inbox.slice(0, 10);
+            if (toClassify.length > 0) {
+              classifyEmails(toClassify);
+            }
           }
         }
       } catch (err) {
@@ -74,6 +128,68 @@ export default function EmailModule() {
     loadData();
     return () => { isMounted = false; };
   }, []);
+
+  const handleSummarizeThread = async () => {
+    if (!selectedEmail) return;
+    setIsSummarizing(true);
+    try {
+      const res = await fetch("/api/email/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Use threadId if available, otherwise fallback to array of emailIds
+        body: JSON.stringify({
+          threadId: selectedEmail.threadId,
+          emailIds: !selectedEmail.threadId ? [selectedEmail.id] : undefined
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSummaryData(prev => ({
+          ...prev,
+          [selectedEmail.id]: data
+        }));
+      } else {
+         alert("Failed to summarize email.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error summarizing email.");
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  const handleCreateTask = async () => {
+    if (!selectedEmail || !taskTitle) return;
+    setIsCreatingTask(true);
+    try {
+      const res = await fetch("/api/email/to-task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailId: selectedEmail.id,
+          taskTitle,
+          taskNotes: `Created from Gravix Email Module.\nSummary: ${summaryData[selectedEmail.id]?.summary || "N/A"}\nAction Items: ${summaryData[selectedEmail.id]?.actionItems || "N/A"}`,
+          due: taskDueDate
+        })
+      });
+
+      if (res.ok) {
+        alert("Task created successfully!");
+        setShowTaskForm(false);
+        setTaskTitle("");
+        setTaskDueDate("");
+      } else {
+        alert("Failed to create task.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error creating task.");
+    } finally {
+      setIsCreatingTask(false);
+    }
+  };
 
   const handleConnect = () => {
     window.location.href = "/api/auth/connect";
@@ -243,6 +359,13 @@ export default function EmailModule() {
                   const senderName = email.from ? email.from.split("<")[0].trim().replace(/"/g, "") : "Unknown";
                   const avatarLetter = senderName ? senderName.charAt(0).toUpperCase() : "?";
 
+                  const classification = classifications[email.id];
+                  let badgeClass = "badge-info";
+                  if (classification?.category === "client") badgeClass = "badge-success";
+                  if (classification?.category === "spam") badgeClass = "badge-error";
+                  if (classification?.category === "notification") badgeClass = "badge-accent";
+                  if (classification?.category === "work") badgeClass = "badge-warning";
+
                   return (
                     <div
                       key={email.id}
@@ -265,16 +388,25 @@ export default function EmailModule() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                           <span style={{ fontWeight: isUnread ? 600 : 500, color: "var(--text-primary)" }}>{senderName}</span>
-                          <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{email.date}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                             {classification?.urgency === "high" && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--error)" }} title="High Urgency"></div>}
+                             {classification?.urgency === "medium" && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--warning)" }} title="Medium Urgency"></div>}
+                             <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{email.date}</span>
+                          </div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                           <span style={{ fontWeight: isUnread ? 600 : 500, color: "var(--text-primary)", fontSize: 14 }}>{email.subject}</span>
+                          {classification && (
+                             <span className={`badge ${badgeClass}`}>
+                                {classification.category}
+                             </span>
+                          )}
                           {isUnread && (
                             <span className="badge badge-info">
                               Unread
                             </span>
                           )}
-                          {!isUnread && (
+                          {!isUnread && !classification && (
                             <span className="badge" style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}>
                               Read
                             </span>
@@ -299,9 +431,70 @@ export default function EmailModule() {
 
         {activeTab === "inbox" && selectedEmail && (
           <div>
-            <button className="btn btn-ghost btn-sm" style={{ marginBottom: 16 }} onClick={() => setSelectedEmail(null)}>
-              ← Back to Inbox
-            </button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedEmail(null); setShowTaskForm(false); }}>
+                ← Back to Inbox
+              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                 <button className="btn btn-secondary btn-sm" onClick={handleSummarizeThread} disabled={isSummarizing}>
+                    {isSummarizing ? "Summarizing..." : "✨ Summarize Thread"}
+                 </button>
+                 <button className="btn btn-primary btn-sm" onClick={() => setShowTaskForm(!showTaskForm)}>
+                    ✅ Create Task
+                 </button>
+              </div>
+            </div>
+
+            {showTaskForm && (
+              <div style={{ marginBottom: 24, padding: 16, background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", border: "1px solid var(--card-border)" }}>
+                 <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Create Task from Email</h3>
+                 <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
+                    <div style={{ flex: 1 }}>
+                       <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Task Title</label>
+                       <input className="input" placeholder="What needs to be done?" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} />
+                    </div>
+                    <div style={{ width: 150 }}>
+                       <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Due Date</label>
+                       <input type="date" className="input" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} />
+                    </div>
+                 </div>
+                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setShowTaskForm(false)}>Cancel</button>
+                    <button className="btn btn-primary btn-sm" onClick={handleCreateTask} disabled={isCreatingTask || !taskTitle}>
+                       {isCreatingTask ? "Creating..." : "Save Task"}
+                    </button>
+                 </div>
+              </div>
+            )}
+
+            {summaryData[selectedEmail.id] && (
+               <div style={{ marginBottom: 24, padding: 16, background: "var(--accent-subtle)", borderRadius: "var(--radius-md)", border: "1px solid var(--accent)" }}>
+                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--accent)" }}>✨ AI Summary</h3>
+                    {summaryData[selectedEmail.id].urgency && (
+                       <span className={`badge ${summaryData[selectedEmail.id].urgency === 'high' ? 'badge-error' : summaryData[selectedEmail.id].urgency === 'medium' ? 'badge-warning' : 'badge-info'}`}>
+                          Urgency: {summaryData[selectedEmail.id].urgency}
+                       </span>
+                    )}
+                 </div>
+                 <p style={{ fontSize: 14, marginBottom: 12 }}>{summaryData[selectedEmail.id].summary}</p>
+
+                 {summaryData[selectedEmail.id].actionItems && summaryData[selectedEmail.id].actionItems !== "None" && (
+                    <div style={{ marginBottom: 8 }}>
+                       <strong style={{ fontSize: 13 }}>Action Items:</strong>
+                       <div style={{ fontSize: 13, marginTop: 4, whiteSpace: "pre-wrap" }}>{summaryData[selectedEmail.id].actionItems}</div>
+                    </div>
+                 )}
+
+                 {summaryData[selectedEmail.id].decisions && summaryData[selectedEmail.id].decisions !== "None" && (
+                    <div>
+                       <strong style={{ fontSize: 13 }}>Key Decisions:</strong>
+                       <div style={{ fontSize: 13, marginTop: 4, whiteSpace: "pre-wrap" }}>{summaryData[selectedEmail.id].decisions}</div>
+                    </div>
+                 )}
+               </div>
+            )}
+
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
               <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--accent-subtle)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", fontSize: 20 }}>
                 {selectedEmail.from ? selectedEmail.from.split("<")[0].trim().replace(/"/g, "").charAt(0).toUpperCase() : "?"}
