@@ -46,11 +46,31 @@ export async function GET() {
       try {
         const tasksRes = await getTasks(accessToken, list.id);
         const tasks = tasksRes.items || [];
-        return tasks.map(task => ({
-          ...task,
-          listId: list.id,
-          listTitle: list.title
-        }));
+        return tasks.map(task => {
+          let source = "manual";
+          let sourceIcon = "✋";
+
+          if (task.notes) {
+            if (task.notes.includes("Source: Email")) {
+              source = "email";
+              sourceIcon = "✉️";
+            } else if (task.notes.includes("From meeting")) {
+              source = "meeting";
+              sourceIcon = "🎙️";
+            } else if (task.notes.includes("Agent:")) {
+              source = "agent";
+              sourceIcon = "🤖";
+            }
+          }
+
+          return {
+            ...task,
+            listId: list.id,
+            listTitle: list.title,
+            source,
+            sourceIcon
+          };
+        });
       } catch (e) {
         console.error(`Failed to fetch tasks for list ${list.id}`, e);
         return [];
