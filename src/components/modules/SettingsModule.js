@@ -2,35 +2,27 @@
 
 import { useState } from "react";
 
-const Toggle = ({ checked, onChange }) => (
-  <button
-    type="button"
-    onClick={() => onChange(!checked)}
-    style={{
-      width: 40,
-      height: 24,
-      borderRadius: 12,
-      background: checked ? "var(--success)" : "var(--bg-tertiary)",
-      border: "none",
-      cursor: "pointer",
-      position: "relative",
-      transition: "background 0.2s",
-      padding: 0
-    }}
-  >
-    <div style={{
-      width: 20,
-      height: 20,
-      borderRadius: "50%",
-      background: "white",
-      position: "absolute",
-      top: 2,
-      left: checked ? 18 : 2,
-      transition: "left 0.2s",
-      boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
-    }} />
-  </button>
-);
+/**
+ * Settings Module
+ * PWA install, notification prefs, agent mode defaults, API key mgmt
+ */
+const INTEGRATIONS = [
+  { name: "Gemini API", status: "connected", dot: "online" },
+  { name: "Firebase Auth", status: "connected", dot: "online" },
+  { name: "Cloud Firestore", status: "connected", dot: "online" },
+  { name: "Vertex AI Data Store", status: "connected", dot: "online", meta: "ID: gravix-knowledge" },
+  { name: "Scholar Search Engine", status: "connected", dot: "online", meta: "ID: gravix-scholar" },
+  { name: "Cloud Storage", status: "connected", dot: "online", meta: "bucket: gs://gravix-knowledge-docs" },
+  { name: "Jules", status: "connected", dot: "online", meta: "repo: JClouddd/Gravix" },
+  { name: "Dialogflow CX", status: "connected", dot: "online", meta: "7 agents deployed" },
+  { name: "Gmail API", status: "not connected", dot: "busy", needsOAuth: true },
+  { name: "Google Calendar", status: "not connected", dot: "busy", needsOAuth: true },
+  { name: "Google Tasks", status: "not connected", dot: "busy", needsOAuth: true },
+  { name: "Colab Enterprise", status: "not connected", dot: "offline", comingSoon: true },
+];
+
+export default function SettingsModule() {
+  const [theme, setTheme] = useState("dark");
 
 export default function SettingsModule() {
   // Profile State
@@ -132,25 +124,91 @@ export default function SettingsModule() {
 
         {/* Integrations */}
         <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>Notifications</h3>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div className="body">Push Notifications</div>
+              <div className="caption">Receive alerts from Sentinel and agent updates via FCM</div>
+            </div>
+            <span className="badge badge-warning">Requires PWA</span>
+          </div>
+        </div>
+
+        {/* Agent Defaults */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>Agent Defaults</h3>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div className="body">Default Execution Mode</div>
+              <div className="caption">How agents process tasks by default</div>
+            </div>
+            <select className="input" style={{ width: 160, padding: "6px 10px" }}>
+              <option>Step (confirm each)</option>
+              <option>Batch (confirm set)</option>
+              <option>Autonomous</option>
+            </select>
+          </div>
+        </div>
+
+        {/* PWA */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>Install App</h3>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div className="body">Install Gravix as PWA</div>
+              <div className="caption">Add to home screen for native app experience</div>
+            </div>
+            <button className="btn btn-primary btn-sm" disabled>
+              Install
+            </button>
+          </div>
+        </div>
+
+        {/* Integrations */}
+        <div className="card">
           <h3 className="h4" style={{ marginBottom: 16 }}>Integrations</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {integrationDetails.map((intg, index) => (
-              <div key={intg.id} style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                paddingBottom: index < integrationDetails.length - 1 ? 16 : 0,
-                borderBottom: index < integrationDetails.length - 1 ? "1px solid var(--card-border)" : "none"
-              }}>
-                <div>
-                  <div className="body" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {intg.name}
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
-                      <span className={`status-dot ${integrations[intg.id] ? 'online' : 'error'}`} />
-                      {integrations[intg.id] ? "Connected" : "Disconnected"}
+            {INTEGRATIONS.map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: i !== INTEGRATIONS.length - 1 ? 12 : 0, borderBottom: i !== INTEGRATIONS.length - 1 ? "1px solid var(--card-border)" : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div className={`status-dot ${item.dot}`} />
+                  <div>
+                    <div className="body">{item.name}</div>
+                    <div className="caption" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span>{item.status}</span>
+                      {item.meta && <span style={{ color: "var(--text-tertiary)" }}>• {item.meta}</span>}
                     </div>
                   </div>
-                  <div className="caption">{intg.desc}</div>
                 </div>
-                <Toggle checked={integrations[intg.id]} onChange={() => handleIntegrationToggle(intg.id)} />
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {item.comingSoon && <span className="badge badge-info">coming soon</span>}
+                  {item.needsOAuth && (
+                    <>
+                      <span className="badge badge-warning">Requires OAuth</span>
+                      <a href="/api/auth/connect" className="btn btn-secondary btn-sm" style={{ textDecoration: "none" }}>
+                        Connect
+                      </a>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* System Info */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>System Info</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[
+              ["GCP Project", "antigravity-hub-jcloud"],
+              ["Region", "us-central1"],
+              ["Service Account", "gravix-hub@antigravity-hub-jcloud.iam.gserviceaccount.com"],
+              ["Version", "0.1.0"],
+            ].map(([key, val]) => (
+              <div key={key} style={{ display: "flex", justifyContent: "space-between" }}>
+                <span className="body-sm" style={{ color: "var(--text-secondary)" }}>{key}</span>
+                <span className="mono" style={{ color: "var(--text-primary)" }}>{val}</span>
               </div>
             ))}
           </div>

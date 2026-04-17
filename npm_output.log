@@ -5,7 +5,7 @@
 ▲ Next.js 16.2.4 (Turbopack)
 - Local:         http://localhost:3000
 - Network:       http://192.168.0.2:3000
-✓ Ready in 526ms
+✓ Ready in 794ms
 ⚠ turbopack.root should be absolute, using: /app
 Attention: Next.js now collects completely anonymous telemetry regarding usage.
 This information is used to shape Next.js' roadmap and prioritize features.
@@ -13,17 +13,25 @@ You can learn more, including how to opt-out if you'd not like to participate in
 https://nextjs.org/telemetry
 
 
-○ Compiling /_not-found/page ...
- GET /settings 404 in 5.1s (next.js: 4.7s, application-code: 398ms)
- GET / 200 in 1263ms (next.js: 1122ms, application-code: 141ms)
- GET / 200 in 73ms (next.js: 6ms, application-code: 67ms)
- GET / 200 in 73ms (next.js: 5ms, application-code: 68ms)
- GET /api/agents/roster 200 in 551ms (next.js: 530ms, application-code: 20ms)
- GET /api/knowledge/status 200 in 623ms (next.js: 595ms, application-code: 28ms)
+○ Compiling / ...
+ GET / 200 in 6.0s (next.js: 5.6s, application-code: 438ms)
+ GET / 200 in 237ms (next.js: 35ms, application-code: 201ms)
+ GET /api/knowledge/status 200 in 729ms (next.js: 695ms, application-code: 34ms)
+ GET /api/agents/roster 200 in 2.7s (next.js: 2.7s, application-code: 15ms)
 [/api/costs/summary] [Error [FirebaseError]: Missing or insufficient permissions.] {
   code: 'permission-denied',
   customData: undefined,
   toString: [Function (anonymous)]
 }
- GET /api/costs/summary 500 in 2.2s (next.js: 1835ms, application-code: 398ms)
-[2026-04-17T07:34:09.329Z]  @firebase/firestore: Firestore (12.12.0): GrpcConnection RPC 'Listen' stream 0x6613b6d9 error. Code: 1 Message: 1 CANCELLED: Disconnecting idle stream. Timed out waiting for new targets.
+ GET /api/costs/summary 500 in 3.1s (next.js: 2.8s, application-code: 348ms)
+ GET / 200 in 87ms (next.js: 6ms, application-code: 82ms)
+ GET / 200 in 93ms (next.js: 10ms, application-code: 83ms)
+ GET /api/agents/roster 200 in 11ms (next.js: 6ms, application-code: 5ms)
+ GET /api/knowledge/status 200 in 8ms (next.js: 3ms, application-code: 5ms)
+[/api/costs/summary] [Error [FirebaseError]: Missing or insufficient permissions.] {
+  code: 'permission-denied',
+  customData: undefined,
+  toString: [Function (anonymous)]
+}
+ GET /api/costs/summary 500 in 70ms (next.js: 13ms, application-code: 57ms)
+[2026-04-17T20:26:33.337Z]  @firebase/firestore: Firestore (12.12.0): GrpcConnection RPC 'Listen' stream 0x690c0ae9 error. Code: 1 Message: 1 CANCELLED: Disconnecting idle stream. Timed out waiting for new targets.
