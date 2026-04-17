@@ -19,6 +19,8 @@ export default function KnowledgeModule() {
   const [stagedEntries, setStagedEntries] = useState([]);
   const [ingestionError, setIngestionError] = useState("");
   const [lastEntry, setLastEntry] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [scholarMessage, setScholarMessage] = useState("");
   const [scholarHistory, setScholarHistory] = useState([]);
   const [scholarLoading, setScholarLoading] = useState(false);
@@ -34,35 +36,144 @@ export default function KnowledgeModule() {
       .catch(() => setLoading(false));
   }, []);
 
+  // Handle file drop
+  const handleDrop = useCallback(async (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+
+    const allowedTypes = ['.txt', '.md', '.json', '.csv'];
+    const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+
+    if (!allowedTypes.includes(fileExtension) && file.type !== "text/plain" && file.type !== "application/json" && file.type !== "text/csv") {
+      setIngestionError("Unsupported file type. Please upload .txt, .md, .json, or .csv files.");
+      return;
+    }
+
+    setIngesting(true);
+    setIngestionError("");
+    setLastEntry(null);
+    setUploadProgress(10); // Start progress
+
+    try {
+      const reader = new FileReader();
+
+      reader.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentLoaded = Math.round((event.loaded / event.total) * 40); // Reader phase up to 50%
+          setUploadProgress(10 + percentLoaded);
+        }
+      };
+
+      reader.onload = async (event) => {
+        try {
+          const content = event.target.result;
+          // Encode content to base64
+          const base64Content = btoa(unescape(encodeURIComponent(content)));
+
+          setUploadProgress(60); // Preparing request
+
+          const res = await fetch("/api/knowledge/ingest", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: base64Content,
+              type: "file",
+              fileName: file.name,
+              source: "manual",
+            }),
+          });
+
+          setUploadProgress(90); // Waiting for response
+
+          const data = await res.json();
+          setUploadProgress(100);
+
+          if (res.ok && data.success) {
+            setStagedEntries((prev) => [data.entry || data, ...prev]);
+            setLastEntry(data.entry || data);
+            setIngestionTitle("");
+            setTimeout(() => setUploadProgress(0), 1500); // Reset after delay
+          } else {
+            setIngestionError(data.error || "Ingestion failed");
+            setUploadProgress(0);
+          }
+        } catch (err) {
+          setIngestionError("Error processing file content: " + err.message);
+          setUploadProgress(0);
+        }
+        setIngesting(false);
+      };
+
+      reader.onerror = () => {
+        setIngestionError("Error reading file.");
+        setIngesting(false);
+        setUploadProgress(0);
+      };
+
+      reader.readAsText(file);
+    } catch (error) {
+      console.error("File processing failed:", error);
+      setIngestionError(error.message || "An unexpected error occurred");
+      setIngesting(false);
+      setUploadProgress(0);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
   // Handle ingestion submission
   const handleIngest = useCallback(async () => {
     if (!ingestionInput.trim()) return;
     setIngesting(true);
     setIngestionError("");
     setLastEntry(null);
+    setUploadProgress(30);
     try {
-      const res = await fetch("/api/knowledge/ingest", {
+      const endpoint = ingestionType === "url" ? "/api/knowledge/ingest-url" : "/api/knowledge/ingest";
+      const payload = ingestionType === "url"
+        ? { url: ingestionInput, type: "webpage" } // assuming webpage for now, could be improved
+        : {
+            content: ingestionInput,
+            type: ingestionType,
+            title: ingestionTitle,
+            source: "manual",
+          };
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: ingestionInput,
-          type: ingestionType,
-          title: ingestionTitle,
-          source: "manual",
-        }),
+        body: JSON.stringify(payload),
       });
+
+      setUploadProgress(80);
       const data = await res.json();
-      if (res.ok && data.success) {
+      setUploadProgress(100);
+
+      if (res.ok && (data.success || data.ingested)) {
         setStagedEntries((prev) => [data.entry, ...prev]);
         setLastEntry(data.entry);
         setIngestionInput("");
         setIngestionTitle("");
+        setTimeout(() => setUploadProgress(0), 1500);
       } else {
         setIngestionError(data.error || "Ingestion failed");
+        setUploadProgress(0);
       }
     } catch (error) {
       console.error("Ingestion failed:", error);
       setIngestionError(error.message || "An unexpected error occurred");
+      setUploadProgress(0);
     }
     setIngesting(false);
   }, [ingestionInput, ingestionType, ingestionTitle]);
@@ -177,37 +288,113 @@ export default function KnowledgeModule() {
       {/* Ingestion Tab */}
       {activeTab === "Ingestion" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* Drag and Drop Zone */}
+          <div
+            className="card"
+            style={{
+              border: isDragging ? "2px dashed var(--accent)" : "2px dashed var(--card-border)",
+              background: isDragging ? "var(--accent-subtle)" : "var(--bg-secondary)",
+              transition: "all var(--duration-fast) var(--ease-out)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "40px 20px",
+              cursor: "pointer"
+            }}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onClick={() => {
+              // Trigger hidden file input if needed (optional)
+              document.getElementById('file-upload-input')?.click();
+            }}
+          >
+            <div style={{ fontSize: 32, marginBottom: 16 }}>📥</div>
+            <h3 className="h4">Drag & Drop Files Here</h3>
+            <p className="body-sm" style={{ color: "var(--text-secondary)", marginTop: 8 }}>
+              Supports .txt, .md, .json, .csv files
+            </p>
+            <input
+              type="file"
+              id="file-upload-input"
+              style={{ display: 'none' }}
+              accept=".txt,.md,.json,.csv"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  // Simulate drop event logic
+                  const event = {
+                    preventDefault: () => {},
+                    dataTransfer: { files: e.target.files }
+                  };
+                  handleDrop(event);
+                }
+              }}
+            />
+          </div>
+
+          {/* Upload Progress Indicator */}
+          {uploadProgress > 0 && (
+            <div className="card" style={{ padding: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <span className="caption">Uploading & Processing...</span>
+                <span className="caption">{uploadProgress}%</span>
+              </div>
+              <div style={{ width: "100%", height: 6, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{
+                  height: "100%",
+                  width: `${uploadProgress}%`,
+                  background: "var(--accent)",
+                  transition: "width 0.3s ease-out"
+                }} />
+              </div>
+            </div>
+          )}
+
           {/* Input Area */}
           <div className="card">
-            <h3 className="h4" style={{ marginBottom: 16 }}>Submit Content</h3>
+            <h3 className="h4" style={{ marginBottom: 16 }}>Submit Content or URL</h3>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
-              <input
-                type="text"
-                className="input"
-                placeholder="Title"
-                value={ingestionTitle}
-                onChange={(e) => setIngestionTitle(e.target.value)}
-              />
-
               <select
                 className="input"
                 value={ingestionType}
                 onChange={(e) => setIngestionType(e.target.value)}
               >
-                <option value="text">Text</option>
-                <option value="url">URL</option>
+                <option value="text">Text Input</option>
+                <option value="url">Ingest URL (Webpage / YouTube)</option>
                 <option value="pdf_transcript">PDF Transcript</option>
               </select>
 
-              <textarea
-                className="input"
-                rows={4}
-                placeholder="Paste content, URL, or document text..."
-                value={ingestionInput}
-                onChange={(e) => setIngestionInput(e.target.value)}
-                style={{ resize: "vertical" }}
-              />
+              {ingestionType !== "url" && (
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Title (Optional)"
+                  value={ingestionTitle}
+                  onChange={(e) => setIngestionTitle(e.target.value)}
+                />
+              )}
+
+              {ingestionType === "url" ? (
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Enter Webpage or YouTube URL..."
+                  value={ingestionInput}
+                  onChange={(e) => setIngestionInput(e.target.value)}
+                />
+              ) : (
+                <textarea
+                  className="input"
+                  rows={4}
+                  placeholder="Paste content or document text..."
+                  value={ingestionInput}
+                  onChange={(e) => setIngestionInput(e.target.value)}
+                  style={{ resize: "vertical" }}
+                />
+              )}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -216,7 +403,7 @@ export default function KnowledgeModule() {
                 onClick={handleIngest}
                 disabled={ingesting || !ingestionInput.trim()}
               >
-                {ingesting ? "⏳ Processing..." : "Submit for Review"}
+                {ingesting ? "⏳ Processing..." : (ingestionType === "url" ? "Ingest URL" : "Submit for Review")}
               </button>
 
               {ingestionError && (
