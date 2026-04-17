@@ -13,7 +13,6 @@ export default function FinanceModule() {
   const [summary, setSummary] = useState(null);
   const [breakdown, setBreakdown] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -25,9 +24,8 @@ export default function FinanceModule() {
         setBreakdown(breakdownData);
         setLoading(false);
       })
-      .catch((err) => {
-        console.error("Error fetching finance data:", err);
-        setError(true);
+      .catch((error) => {
+        console.error("Error fetching finance data:", error);
         setLoading(false);
       });
   }, []);
@@ -91,7 +89,7 @@ export default function FinanceModule() {
       </div>
 
       {activeTab === "Overview" && (
-        <OverviewTab summary={summary} breakdown={breakdown} />
+        <OverviewTab summary={summary} />
       )}
 
       {activeTab === "By Model" && (
@@ -166,8 +164,12 @@ function ByModelTab({ breakdown }) {
                 <span className="mono">{data.calls.toLocaleString()}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span className="text-secondary">Tokens</span>
-                <span className="mono">{data.tokens?.toLocaleString() || 0}</span>
+                <span className="text-secondary">Input Tokens</span>
+                <span className="mono">{data.inputTokens?.toLocaleString() || 0}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span className="text-secondary">Output Tokens</span>
+                <span className="mono">{data.outputTokens?.toLocaleString() || 0}</span>
               </div>
             </div>
 
@@ -200,8 +202,6 @@ function ByAgentTab({ breakdown }) {
     );
   }
 
-  const maxCost = Math.max(...agentKeys.map(k => agents[k].cost || 0), 0.0001); // avoid div by zero
-
   const getCostColor = (cost) => {
     if (cost < 1) return "var(--success)";
     if (cost < 10) return "var(--warning)";
@@ -209,116 +209,80 @@ function ByAgentTab({ breakdown }) {
   };
 
   return (
-    <div className="card" style={{ marginBottom: 24 }}>
-      <div className="h3" style={{ marginBottom: 16 }}>Per-Agent Cost</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {agentKeys.map((agentKey) => {
-          const data = agents[agentKey];
-          const displayName = agentKey.charAt(0).toUpperCase() + agentKey.slice(1);
-          const costColor = getCostColor(data.cost);
-          const pct = Math.min((data.cost / maxCost) * 100, 100);
+    <div className="grid-auto" style={{ marginBottom: 24 }}>
+      {agentKeys.map((agentKey) => {
+        const data = agents[agentKey];
+        const displayName = agentKey.charAt(0).toUpperCase() + agentKey.slice(1);
+        const costColor = getCostColor(data.cost);
 
-          return (
-            <div key={agentKey} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 12, height: 12, borderRadius: 2, background: `var(--agent-${agentKey.toLowerCase()}, var(--accent))` }} />
-                  <span style={{ fontWeight: 500, fontSize: 14 }}>{displayName}</span>
-                  <span className="caption" style={{ color: "var(--text-secondary)" }}>
-                    {data.invocations?.toLocaleString() || 0} calls
-                  </span>
-                </div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: costColor }}>
-                  ${data.cost.toFixed(4)}
-                </div>
-              </div>
-              <div style={{ height: 6, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${pct}%`, background: costColor, borderRadius: 3, transition: "width 0.6s var(--ease-out)" }} />
+        return (
+          <div key={agentKey} className="card" style={{ borderLeft: `3px solid var(--agent-${agentKey.toLowerCase()}, var(--accent))` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div className="h4">{displayName}</div>
+              <div className="badge" style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}>
+                {data.invocations.toLocaleString()} calls
               </div>
             </div>
-          );
-        })}
-      </div>
+
+            <div>
+              <div className="caption" style={{ marginBottom: 4 }}>Total Cost</div>
+              <div className="h2" style={{ color: costColor }}>
+                ${data.cost.toFixed(4)}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function OverviewTab({ summary, breakdown }) {
-  const totalSpendCurrentMonth = summary?.totalSpendCurrentMonth || 0;
-  const totalThisWeek = summary?.totalThisWeek || 0;
-  const averageDailyCost = summary?.averageDailyCost || 0;
-  const totalCalls = summary?.totalCalls || 0;
-  const topRoute = summary?.topRoute || "N/A";
-  const budget = summary?.budget || { limit: 1000, used: 0, remaining: 1000 };
-  const perRoute = breakdown?.perRoute || [];
+function OverviewTab({ summary }) {
+  const totalSpend = summary?.totalSpend || 0;
+
+  // Calculate projected cost dynamically
+  const now = new Date();
+  const currentDay = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const projectedCost = currentDay > 0 ? (totalSpend / currentDay) * daysInMonth : 0;
+
+  const cloudTotal = summary?.credits?.cloud?.total || 100;
+  const cloudUsed = summary?.credits?.cloud?.used || 0;
+  const cloudRemaining = Math.max(0, cloudTotal - cloudUsed);
+  const cloudPct = cloudTotal > 0 ? Math.min((cloudUsed / cloudTotal) * 100, 100) : 0;
+
+  const genaiTotal = summary?.credits?.genai?.total || 1000;
+  const genaiUsed = summary?.credits?.genai?.used || 0;
+  const genaiRemaining = Math.max(0, genaiTotal - genaiUsed);
+  const genaiPct = genaiTotal > 0 ? Math.min((genaiUsed / genaiTotal) * 100, 100) : 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24, marginBottom: 24 }}>
-      <div className="grid-3">
-        <div className="card" style={{ padding: 20 }}>
-          <div className="caption" style={{ marginBottom: 6 }}>Monthly Spend</div>
-          <div className="h2" style={{ color: "var(--error)" }}>
-            <AnimatedCounter value={totalSpendCurrentMonth} />
-          </div>
-          <div className="caption" style={{ marginTop: 4, display: "flex", justifyContent: "space-between" }}>
-            <span>Week: ${totalThisWeek.toFixed(2)}</span>
-            <span>Avg/Day: ${averageDailyCost.toFixed(2)}</span>
-          </div>
+    <div className="grid-3" style={{ marginBottom: 24 }}>
+      <div className="card" style={{ padding: 20 }}>
+        <div className="caption" style={{ marginBottom: 6 }}>Monthly Spend</div>
+        <div className="h2" style={{ color: "var(--error)" }}>
+          <AnimatedCounter value={totalSpend} />
         </div>
-
-        <GaugeCard
-          title="Budget Remaining"
-          remaining={budget.remaining}
-          used={budget.used}
-          total={budget.limit}
-          color="var(--accent)"
-        />
-
-        <div className="card" style={{ padding: 20 }}>
-          <div className="caption" style={{ marginBottom: 6 }}>Usage Stats</div>
-          <div className="h2" style={{ color: "var(--info)" }}>
-            {totalCalls.toLocaleString()}
-          </div>
-          <div className="caption" style={{ marginTop: 4 }}>
-            Top Route: {topRoute}
-          </div>
+        <div className="caption" style={{ marginTop: 4 }}>
+          Projected: ${projectedCost.toFixed(2)}
         </div>
       </div>
 
-      <div className="card">
-        <div className="h3" style={{ marginBottom: 16 }}>Per-Route Breakdown</div>
-        {perRoute.length === 0 ? (
-          <div className="text-secondary" style={{ fontSize: 14 }}>No route data available.</div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--card-border)", textAlign: "left" }}>
-                  <th style={{ padding: "12px 8px", color: "var(--text-secondary)", fontWeight: 500 }}>Route</th>
-                  <th style={{ padding: "12px 8px", color: "var(--text-secondary)", fontWeight: 500 }}>Calls</th>
-                  <th style={{ padding: "12px 8px", color: "var(--text-secondary)", fontWeight: 500 }}>Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                {perRoute.map((r) => (
-                  <tr key={r.route} style={{ borderBottom: "1px solid var(--card-border)" }}>
-                    <td style={{ padding: "12px 8px", display: "flex", alignItems: "center", gap: 8 }}>
-                      <span className="status-dot" style={{ background: "var(--accent)" }} />
-                      {r.route}
-                    </td>
-                    <td style={{ padding: "12px 8px", fontFamily: "var(--font-mono)" }}>
-                      {r.calls.toLocaleString()}
-                    </td>
-                    <td style={{ padding: "12px 8px", fontFamily: "var(--font-mono)", color: "var(--error)" }}>
-                      ${r.cost.toFixed(4)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <GaugeCard
+        title="Cloud Credits Remaining"
+        remaining={cloudRemaining}
+        used={cloudUsed}
+        total={cloudTotal}
+        color="var(--info)"
+      />
+
+      <GaugeCard
+        title="GenAI Credits Remaining"
+        remaining={genaiRemaining}
+        used={genaiUsed}
+        total={genaiTotal}
+        color="var(--accent)"
+      />
     </div>
   );
 }
