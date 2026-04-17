@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /**
  * Planner Module — Calendar + Tasks combined
@@ -9,35 +9,91 @@ import { useState } from "react";
 export default function PlannerModule() {
   const [activeTab, setActiveTab] = useState("calendar");
 
+  // Connection and Loading State
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
   // Calendar State
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Mock Events
-  const mockEvents = [
-    { id: 1, title: "Product Launch Strategy", date: new Date(new Date().getFullYear(), new Date().getMonth(), 15), type: "work", color: "var(--accent)", start: "09:00", end: "10:30" },
-    { id: 2, title: "Client Review: Alpha", date: new Date(new Date().getFullYear(), new Date().getMonth(), 18), type: "meeting", color: "var(--success)", start: "13:00", end: "14:00" },
-    { id: 3, title: "Team Weekly Sync", date: new Date(new Date().getFullYear(), new Date().getMonth(), 22), type: "internal", color: "var(--warning)", start: "15:00", end: "16:00" },
-  ];
+  // Events State
+  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [scheduleEvents, setScheduleEvents] = useState([]);
 
   // Tasks State
-  const [tasks, setTasks] = useState([
-    { id: 1, title: "Draft Q3 Marketing Copy", dueDate: "2024-10-15", priority: "High", completed: false },
-    { id: 2, title: "Review UI Mockups", dueDate: "2024-10-18", priority: "Medium", completed: true },
-    { id: 3, title: "Send Weekly Update to Stakeholders", dueDate: "2024-10-20", priority: "High", completed: false },
-    { id: 4, title: "Renew Domain Registration", dueDate: "2024-11-01", priority: "Low", completed: false },
-    { id: 5, title: "Update Dependencies", dueDate: "2024-10-25", priority: "Medium", completed: false },
-  ]);
+  const [tasks, setTasks] = useState([]);
   const [taskSort, setTaskSort] = useState("date"); // 'date' or 'priority'
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", dueDate: "", priority: "Medium" });
 
-  // Schedule mock events for today
-  const scheduleEvents = [
-    { id: 101, title: "Daily Standup", start: "09:30", end: "10:00", color: "var(--accent)" },
-    { id: 102, title: "Design Review", start: "11:00", end: "12:30", color: "var(--warning)" },
-    { id: 103, title: "Client Workshop", start: "14:00", end: "16:00", color: "var(--success)" },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchData() {
+      try {
+        const [calRes, tasksRes] = await Promise.all([
+          fetch("/api/calendar/events").then(res => res.json()),
+          fetch("/api/tasks/list").then(res => res.json())
+        ]);
+
+        if (isMounted) {
+          const connected = calRes.connected && tasksRes.connected;
+          setIsConnected(connected);
+
+          if (connected) {
+            // Map Calendar Events
+            const mappedEvents = (calRes.events || []).map(evt => {
+              const dateObj = evt.start ? new Date(evt.start) : new Date();
+              return {
+                id: evt.id,
+                title: evt.summary,
+                date: dateObj,
+                type: "event",
+                color: "var(--accent)", // random color placeholder
+                start: evt.start ? new Date(evt.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : "00:00",
+                end: evt.end ? new Date(evt.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : "00:00",
+                location: evt.location,
+                meetLink: evt.meetLink
+              };
+            });
+
+            setCalendarEvents(mappedEvents);
+
+            // Map Schedule Events (Events happening today)
+            const today = new Date();
+            const todayEvents = mappedEvents.filter(e =>
+              e.date.getDate() === today.getDate() &&
+              e.date.getMonth() === today.getMonth() &&
+              e.date.getFullYear() === today.getFullYear()
+            );
+            setScheduleEvents(todayEvents);
+
+            // Map Tasks
+            const mappedTasks = (tasksRes.tasks || []).map(task => {
+              return {
+                id: task.id,
+                title: task.title,
+                dueDate: task.due ? task.due.substring(0, 10) : "",
+                priority: "Medium", // Google Tasks API doesn't expose priority clearly
+                completed: task.status === "completed"
+              };
+            });
+            setTasks(mappedTasks);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch planner data", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    fetchData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Calendar Helpers
   const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
@@ -78,7 +134,7 @@ export default function PlannerModule() {
         date.getMonth() === selectedDate.getMonth() &&
         date.getFullYear() === selectedDate.getFullYear();
 
-      const dayEvents = mockEvents.filter(
+      const dayEvents = calendarEvents.filter(
         (e) =>
           e.date.getDate() === day &&
           e.date.getMonth() === month &&
@@ -131,7 +187,7 @@ export default function PlannerModule() {
       );
     }
 
-    const selectedEvents = mockEvents.filter(
+    const selectedEvents = calendarEvents.filter(
       (e) =>
         e.date.getDate() === selectedDate.getDate() &&
         e.date.getMonth() === selectedDate.getMonth() &&
@@ -334,6 +390,33 @@ export default function PlannerModule() {
       </div>
     );
   };
+
+  if (!isLoading && !isConnected) {
+    return (
+      <div>
+        <div className="module-header">
+          <div className="module-header-left">
+            <div className="module-icon" style={{ background: "var(--info-subtle)" }}>📅</div>
+            <div>
+              <h1 className="module-title">Planner</h1>
+              <p className="module-subtitle">Calendar, tasks, and deadlines — managed by Courier</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card card-glass" style={{ textAlign: "center", padding: "48px 24px", marginTop: "24px" }}>
+          <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔌</div>
+          <h2 className="h3" style={{ marginBottom: "12px" }}>Connect Google Workspace</h2>
+          <p style={{ color: "var(--text-secondary)", marginBottom: "24px", maxWidth: "400px", margin: "0 auto 24px" }}>
+            To view your calendar events and manage your tasks, please connect your Google Workspace account.
+          </p>
+          <a href="/api/auth/connect" className="btn btn-primary">
+            Connect Google Workspace
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
