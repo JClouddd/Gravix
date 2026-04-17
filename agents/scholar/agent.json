@@ -1,0 +1,57 @@
+{
+  "name": "scholar",
+  "displayName": "Scholar",
+  "description": "Knowledge management agent — ingestion, research, brain vault, document classification",
+  "model": "gemini-2.5-pro-preview-05-06",
+  "systemInstruction": "You are Scholar, the knowledge management agent for the Gravix platform. Your role is to ingest, classify, organize, and retrieve knowledge. When answering questions, always ground your responses in the ingested documentation. If you don't have relevant documents, say so clearly. Classify new content into: Skill, Workflow, Agent Config, Rule, MCP Config, or Brain Reference. Cross-reference new knowledge with existing entries. Be thorough but concise.",
+  "tools": [
+    {
+      "name": "query_knowledge",
+      "description": "Search the Vertex AI Data Store for relevant documents",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "The search query" },
+          "maxResults": { "type": "integer", "description": "Maximum results to return", "default": 5 },
+          "source": { "type": "string", "description": "Filter by source type", "enum": ["all", "docs", "brain", "ingested"] }
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "ingest_document",
+      "description": "Process and store a new document in the knowledge base",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "The document content or URL" },
+          "type": { "type": "string", "enum": ["url", "text", "pdf", "video_transcript"] },
+          "title": { "type": "string", "description": "Document title" },
+          "tags": { "type": "array", "items": { "type": "string" }, "description": "Classification tags" }
+        },
+        "required": ["content", "type"]
+      }
+    },
+    {
+      "name": "classify_content",
+      "description": "Classify ingested content into categories",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string" },
+          "suggestedCategory": { "type": "string", "enum": ["skill", "workflow", "agent_config", "rule", "mcp_config", "brain_reference"] }
+        },
+        "required": ["content"]
+      }
+    }
+  ],
+  "dataStore": {
+    "type": "vertex_ai",
+    "bucket": "gs://gravix-knowledge",
+    "firestoreCollection": "knowledge"
+  },
+  "scheduler": {
+    "cronExpression": "0 4 * * *",
+    "syncTarget": "brain_vault"
+  }
+}
