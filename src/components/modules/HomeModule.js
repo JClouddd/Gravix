@@ -13,6 +13,14 @@ export default function HomeModule() {
   const [julesTasks, setJulesTasks] = useState(null);
   const [fetchError, setFetchError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [healthData, setHealthData] = useState(null);
+
+  const fetchHealth = () => {
+    fetch("/api/health")
+      .then((r) => r.json())
+      .then((data) => setHealthData(data))
+      .catch((err) => console.error("Health fetch error:", err));
+  };
 
   useEffect(() => {
     Promise.all([
@@ -39,6 +47,10 @@ export default function HomeModule() {
         setFetchError(err.message);
         setLoading(false);
       });
+
+    fetchHealth();
+    const interval = setInterval(fetchHealth, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) {
@@ -166,6 +178,53 @@ export default function HomeModule() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* System Health Section */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 className="h4">System Health Dashboard</h3>
+          {healthData && (
+            <span className={`badge ${healthData.status === "healthy" ? "badge-success" : healthData.status === "degraded" ? "badge-warning" : "badge-error"}`} style={{ textTransform: "capitalize" }}>
+              Status: {healthData.status}
+            </span>
+          )}
+        </div>
+
+        {healthData ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="caption" style={{ marginBottom: 8, color: "var(--text-secondary)" }}>
+              Last checked: {new Date(healthData.timestamp).toLocaleString()}
+            </div>
+            {Object.entries(healthData.services || {}).map(([serviceName, data]) => {
+              const statusColor = data.status === "pass" ? "green" : "red";
+              const dotClass = data.status === "pass" ? "online" : "offline";
+
+              return (
+                <div key={serviceName} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "var(--bg-secondary)", borderRadius: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, textTransform: "capitalize" }}>
+                    <span className={`status-dot ${dotClass}`} />
+                    <span className="body-sm" style={{ fontWeight: 500 }}>{serviceName}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    {data.latency !== undefined && (
+                      <span className="mono" style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                        {data.latency}ms
+                      </span>
+                    )}
+                    {data.error && (
+                      <span className="caption" style={{ color: "var(--error)" }}>
+                        {data.error}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="skeleton" style={{ height: 100, borderRadius: 8 }} />
+        )}
       </div>
 
       {/* Recent Activity */}
