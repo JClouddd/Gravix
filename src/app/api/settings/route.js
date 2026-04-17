@@ -9,13 +9,9 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const uid = searchParams.get('uid');
+    const uid = searchParams.get('uid') || 'owner';
 
-    if (!uid) {
-      return NextResponse.json({ error: 'uid required' }, { status: 400 });
-    }
-
-    const docRef = doc(db, 'users', uid, 'config', 'settings');
+    const docRef = doc(db, 'settings', 'user_preferences');
     const snap = await getDoc(docRef);
 
     if (!snap.exists()) {
@@ -56,16 +52,16 @@ export async function GET(request) {
  */
 export async function POST(request) {
   try {
-    const { uid, settings } = await request.json();
+    const { uid = 'owner', settings } = await request.json();
 
-    if (!uid || !settings) {
+    if (!settings) {
       return NextResponse.json(
-        { error: 'uid and settings required' },
+        { error: 'settings required' },
         { status: 400 }
       );
     }
 
-    const docRef = doc(db, 'users', uid, 'config', 'settings');
+    const docRef = doc(db, 'settings', 'user_preferences');
     await setDoc(docRef, {
       ...settings,
       updatedAt: serverTimestamp(),
