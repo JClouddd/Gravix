@@ -244,7 +244,7 @@ Help the user review this content. Answer questions about it, suggest improvemen
   });
 }
 
-const exportedObject = {
+const defaultExport = {
   DOCUMENTATION_SOURCES,
   CATEGORIES,
   classifyContent,
@@ -252,5 +252,4 @@ const exportedObject = {
   createStagingEntry,
   scholarChat,
 };
-
-export default exportedObject;
+export default defaultExport;

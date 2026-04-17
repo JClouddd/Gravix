@@ -198,7 +198,7 @@ export async function getTasks(accessToken, taskListId = "@default") {
   );
 }
 
-const exportedObject = {
+const defaultExport = {
   getAuthUrl,
   exchangeCode,
   refreshAccessToken,
@@ -210,5 +210,4 @@ const exportedObject = {
   getTasks,
   SCOPES,
 };
-
-export default exportedObject;
+export default defaultExport;

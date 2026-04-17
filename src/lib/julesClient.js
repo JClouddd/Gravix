@@ -123,7 +123,7 @@ export async function triggerTask({
   };
 }
 
-const exportedObject = {
+const defaultExport = {
   listSources,
   createSession,
   getSession,
@@ -131,5 +131,4 @@ const exportedObject = {
   sendActivity,
   triggerTask,
 };
-
-export default exportedObject;
+export default defaultExport;

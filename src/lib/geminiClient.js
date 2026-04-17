@@ -441,7 +441,7 @@ export async function structuredGenerate({
   });
 }
 
-const exportedObject = {
+const defaultExport = {
   generate,
   chat,
   groundedQuery,
@@ -449,5 +449,4 @@ const exportedObject = {
   structuredGenerate,
   estimateCost,
 };
-
-export default exportedObject;
+export default defaultExport;
