@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-const TABS = ["Roster", "Orchestrator", "Task Board", "Sentinel"];
+const TABS = ["Roster", "Workflow", "Tasks"];
 
 export default function AgentsModule() {
   const [activeTab, setActiveTab] = useState("Roster");
@@ -11,10 +11,8 @@ export default function AgentsModule() {
   const [agents, setAgents] = useState([]);
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
 
-  // Orchestrator state
-  const [routeQuery, setRouteQuery] = useState("");
-  const [routingState, setRoutingState] = useState("idle"); // idle, analyzing, routed
-  const [routeDecision, setRouteDecision] = useState(null);
+  // Workflow state
+  const [highlightedAgent, setHighlightedAgent] = useState(null);
 
   // Task Board state
   const [tasks, setTasks] = useState([]);
@@ -56,21 +54,6 @@ export default function AgentsModule() {
     fetchTasks();
   }, []);
 
-  // Orchestrator Action
-  const handleRoute = () => {
-    if (!routeQuery.trim()) return;
-    setRoutingState("analyzing");
-
-    setTimeout(() => {
-      setRoutingState("routed");
-      setRouteDecision({
-        agent: "Analyst",
-        reasoning: "Query involves data processing and chart generation, which matches Analyst's core skills.",
-        confidence: "94%"
-      });
-    }, 1500);
-  };
-
   // Task Board Action
   const handleNewTask = async () => {
     if (!newTaskPrompt.trim()) return;
@@ -100,9 +83,9 @@ export default function AgentsModule() {
   const getTasksByStatus = (statusGroup) => {
     return tasks.filter(t => {
       const s = (t.status || "").toLowerCase();
-      if (statusGroup === "Pending") return s.includes('pending') || s.includes('queue') || s.includes('idle') || !s;
-      if (statusGroup === "In Progress") return s.includes('progress') || s.includes('running');
-      if (statusGroup === "Completed") return s.includes('complete') || s.includes('done') || s.includes('success');
+      if (statusGroup === "Queued") return s.includes('awaiting_user_feedback') || s.includes('pending') || s.includes('queue') || s.includes('idle') || !s;
+      if (statusGroup === "In Progress") return s.includes('in_progress') || s.includes('progress') || s.includes('running');
+      if (statusGroup === "Completed") return s.includes('completed') || s.includes('done') || s.includes('success');
       return false;
     });
   };
@@ -202,59 +185,135 @@ export default function AgentsModule() {
         </div>
       )}
 
-      {activeTab === "Orchestrator" && (
-        <div className="card">
-          <h4 className="h4" style={{ marginBottom: 16 }}>Agent Routing</h4>
-          <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
-            <input
-              type="text"
-              className="input"
-              style={{ flex: 1 }}
-              placeholder="What do you need help with?"
-              value={routeQuery}
-              onChange={(e) => setRouteQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleRoute()}
-            />
-            <button className="button button-primary" onClick={handleRoute}>
-              Route
-            </button>
+
+      {activeTab === "Workflow" && (
+        <div className="card" style={{ padding: 32, position: "relative", minHeight: 600, overflow: "hidden" }}>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes pulse-line {
+              0% { stroke-opacity: 0.3; stroke-width: 2; }
+              50% { stroke-opacity: 1; stroke-width: 3; }
+              100% { stroke-opacity: 0.3; stroke-width: 2; }
+            }
+            .connection-line {
+              stroke: var(--card-border);
+              stroke-width: 2;
+              transition: stroke 0.3s ease;
+            }
+            .connection-line.highlighted {
+              stroke: var(--accent);
+              animation: pulse-line 2s infinite ease-in-out;
+            }
+            .node-card {
+              position: absolute;
+              transform: translate(-50%, -50%);
+              width: 140px;
+              padding: 12px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              text-align: center;
+              gap: 8px;
+              cursor: pointer;
+              z-index: 10;
+              transition: border-color 0.2s ease, transform 0.2s ease;
+            }
+            .node-card:hover {
+              transform: translate(-50%, -50%) scale(1.05);
+            }
+            .node-card.highlighted {
+              border-color: var(--accent);
+              box-shadow: 0 0 0 1px var(--accent);
+            }
+            .domain-card {
+              position: absolute;
+              transform: translate(-50%, -50%);
+              width: 120px;
+              padding: 8px;
+              text-align: center;
+              background: var(--bg-secondary);
+              border: 1px dashed var(--card-border);
+              border-radius: 8px;
+              z-index: 5;
+            }
+          `}} />
+
+          <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+            {/* Conductor to Agents */}
+            <line x1="50%" y1="10%" x2="16%" y2="40%" className={`connection-line ${highlightedAgent === 'Scholar' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
+            <line x1="50%" y1="10%" x2="30%" y2="40%" className={`connection-line ${highlightedAgent === 'Courier' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
+            <line x1="50%" y1="10%" x2="44%" y2="40%" className={`connection-line ${highlightedAgent === 'Builder' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
+            <line x1="50%" y1="10%" x2="58%" y2="40%" className={`connection-line ${highlightedAgent === 'Sentinel' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
+            <line x1="50%" y1="10%" x2="72%" y2="40%" className={`connection-line ${highlightedAgent === 'Forge' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
+            <line x1="50%" y1="10%" x2="86%" y2="40%" className={`connection-line ${highlightedAgent === 'Analyst' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
+
+            {/* Agents to Domains */}
+            <line x1="16%" y1="40%" x2="16%" y2="75%" className={`connection-line ${highlightedAgent === 'Scholar' ? 'highlighted' : ''}`} />
+            <line x1="30%" y1="40%" x2="30%" y2="75%" className={`connection-line ${highlightedAgent === 'Courier' ? 'highlighted' : ''}`} />
+            <line x1="44%" y1="40%" x2="44%" y2="75%" className={`connection-line ${highlightedAgent === 'Builder' ? 'highlighted' : ''}`} />
+            <line x1="58%" y1="40%" x2="58%" y2="75%" className={`connection-line ${highlightedAgent === 'Sentinel' ? 'highlighted' : ''}`} />
+            <line x1="72%" y1="40%" x2="72%" y2="75%" className={`connection-line ${highlightedAgent === 'Forge' ? 'highlighted' : ''}`} />
+            <line x1="86%" y1="40%" x2="86%" y2="75%" className={`connection-line ${highlightedAgent === 'Analyst' ? 'highlighted' : ''}`} />
+          </svg>
+
+          {/* Conductor Node */}
+          <div
+            className={`card card-glass node-card ${highlightedAgent === 'Conductor' ? 'highlighted' : ''}`}
+            style={{ top: "10%", left: "50%" }}
+            onClick={() => setHighlightedAgent(highlightedAgent === 'Conductor' ? null : 'Conductor')}
+          >
+            <div style={{ fontSize: 24 }}>🔀</div>
+            <div className="body-sm" style={{ fontWeight: 600 }}>Conductor</div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span className="status-dot online" />
+              <span className="caption">Router</span>
+            </div>
           </div>
 
-          {routingState === "analyzing" && (
-            <div className="empty-state" style={{ padding: 32 }}>
-              <div className="status-dot online" style={{ marginBottom: 16, width: 12, height: 12 }} />
-              <p className="body-sm">Conductor is analyzing the request...</p>
-            </div>
-          )}
-
-          {routingState === "routed" && routeDecision && (
-            <div style={{ background: "var(--bg-secondary)", padding: 16, borderRadius: 8, border: "1px solid var(--card-border)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, color: "var(--text-secondary)" }}>
-                <span>Request</span>
-                <span>→</span>
-                <span style={{ color: "var(--accent)" }}>Conductor</span>
-                <span>→</span>
-                <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{routeDecision.agent}</span>
+          {/* Agent Nodes */}
+          {[
+            { name: "Scholar", icon: "📚", left: "16%", role: "Research" },
+            { name: "Courier", icon: "✉️", left: "30%", role: "Comms" },
+            { name: "Builder", icon: "🔨", left: "44%", role: "Code" },
+            { name: "Sentinel", icon: "🛡️", left: "58%", role: "Monitor" },
+            { name: "Forge", icon: "☁️", left: "72%", role: "Infra" },
+            { name: "Analyst", icon: "📊", left: "86%", role: "Data" },
+          ].map(agent => (
+            <div
+              key={agent.name}
+              className={`card card-glass node-card ${highlightedAgent === agent.name ? 'highlighted' : ''}`}
+              style={{ top: "40%", left: agent.left }}
+              onClick={() => setHighlightedAgent(highlightedAgent === agent.name ? null : agent.name)}
+            >
+              <div style={{ fontSize: 24 }}>{agent.icon}</div>
+              <div className="body-sm" style={{ fontWeight: 600 }}>{agent.name}</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span className="status-dot online" />
+                <span className="caption">{agent.role}</span>
               </div>
-              <p className="body-sm" style={{ marginBottom: 8 }}>
-                <strong>Reasoning:</strong> {routeDecision.reasoning}
-              </p>
             </div>
-          )}
+          ))}
 
-          {routingState === "idle" && (
-            <div className="empty-state">
-              <div className="empty-state-icon">🔀</div>
-              <p className="empty-state-title">Routing Visualizer</p>
-              <p className="empty-state-desc">
-                Type a request to see how Conductor routes it to the appropriate agent.
-              </p>
+          {/* Domain Nodes */}
+          {[
+            { name: "Knowledge Data Store", icon: "🗄️", left: "16%" },
+            { name: "Gmail / Calendar", icon: "📅", left: "30%" },
+            { name: "Jules / GitHub", icon: "💻", left: "44%" },
+            { name: "Cost Tracker", icon: "💰", left: "58%" },
+            { name: "GCP Infra", icon: "🌐", left: "72%" },
+            { name: "Colab", icon: "📓", left: "86%" },
+          ].map(domain => (
+            <div
+              key={domain.name}
+              className="domain-card"
+              style={{ top: "75%", left: domain.left }}
+            >
+              <div style={{ fontSize: 20, marginBottom: 4 }}>{domain.icon}</div>
+              <div className="caption" style={{ color: "var(--text-secondary)" }}>{domain.name}</div>
             </div>
-          )}
+          ))}
         </div>
       )}
-
-      {activeTab === "Task Board" && (
+{activeTab === "Tasks" && (
         <div>
           <div className="card" style={{ marginBottom: 24 }}>
             <div style={{ display: "flex", gap: 12 }}>
@@ -279,7 +338,7 @@ export default function AgentsModule() {
           </div>
 
           <div className="grid-3">
-            {["Pending", "In Progress", "Completed"].map((col) => {
+            {["Queued", "In Progress", "Completed"].map((col) => {
               const colTasks = getTasksByStatus(col);
               return (
                 <div key={col} className="card" style={{ minHeight: 300, background: "var(--bg-secondary)" }}>
@@ -296,18 +355,20 @@ export default function AgentsModule() {
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                       {colTasks.map((t, idx) => (
-                        <div key={t.id || t.sessionId || idx} className="card" style={{ padding: 12, background: "var(--bg-primary)", border: "1px solid var(--card-border)" }}>
+                        <div key={t.id || t.sessionId || idx} className="card card-glass" style={{ padding: 12 }}>
                           <p className="body-sm" style={{ fontWeight: 500, marginBottom: 8 }}>{t.title || (t.prompt && t.prompt.slice(0, 40)) || "Untitled Task"}</p>
+
+                          {t.agent && (
+                            <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
+                              <span className="caption">Agent:</span>
+                              <span className="badge" style={{ background: "var(--bg-secondary)" }}>{t.agent}</span>
+                            </div>
+                          )}
+
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <a
-                              href={`https://jules.google.com/sessions/${t.sessionId || t.id}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="caption"
-                              style={{ color: "var(--accent)", textDecoration: "none" }}
-                            >
-                              {t.sessionId || t.id || "Unknown ID"}
-                            </a>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              <span className="badge" style={{ fontSize: 10, padding: "2px 6px" }}>{t.status || 'Queue'}</span>
+                            </div>
                             <span className="caption" style={{ color: "var(--text-secondary)" }}>
                               {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "Just now"}
                             </span>
@@ -323,57 +384,6 @@ export default function AgentsModule() {
         </div>
       )}
 
-      {activeTab === "Sentinel" && (
-        <div className="grid-auto">
-          <div className="card">
-            <h4 className="h4" style={{ marginBottom: 16 }}>API Uptime</h4>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span style={{ fontSize: 32, fontWeight: 700, color: "var(--success)" }}>99.98%</span>
-              <span className="caption">Last 30 days</span>
-            </div>
-            <div style={{ marginTop: 16, height: 4, background: "var(--bg-secondary)", borderRadius: 2, overflow: "hidden" }}>
-              <div style={{ width: "99.98%", height: "100%", background: "var(--success)" }} />
-            </div>
           </div>
-
-          <div className="card">
-            <h4 className="h4" style={{ marginBottom: 16 }}>Error Rate</h4>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span style={{ fontSize: 32, fontWeight: 700, color: "var(--warning)" }}>0.12%</span>
-              <span className="caption">14 anomalies</span>
-            </div>
-            <div style={{ marginTop: 16, height: 4, background: "var(--bg-secondary)", borderRadius: 2, overflow: "hidden" }}>
-              <div style={{ width: "0.12%", height: "100%", background: "var(--warning)" }} />
-            </div>
-          </div>
-
-          <div className="card">
-            <h4 className="h4" style={{ marginBottom: 16 }}>Cost Alerts</h4>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span style={{ fontSize: 32, fontWeight: 700 }}>$14.20</span>
-              <span className="caption">/ $50.00 limit</span>
-            </div>
-            <div style={{ marginTop: 16, height: 4, background: "var(--bg-secondary)", borderRadius: 2, overflow: "hidden" }}>
-              <div style={{ width: "28%", height: "100%", background: "var(--accent)" }} />
-            </div>
-          </div>
-
-          <div className="card">
-            <h4 className="h4" style={{ marginBottom: 16 }}>Agent Health Checks</h4>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {["Conductor", "Forge", "Scholar", "Sentinel"].map(name => (
-                <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span className="body-sm">{name}</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span className="status-dot online" />
-                    <span className="caption">Healthy</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
