@@ -1,0 +1,55 @@
+name: Jules Auto Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'google-labs-jules[bot]' && (startsWith(github.head_ref, 'jules/') || startsWith(github.head_ref, 'add-') || startsWith(github.head_ref, 'feature/'))
+
+    steps:
+      - name: Wait for CI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Waiting for test job to complete..."
+          COMMIT_SHA=${{ github.event.pull_request.head.sha }}
+          REPO=${{ github.repository }}
+
+          while true; do
+            # Fetch check runs for the specific commit
+            CHECKS=$(gh api repos/$REPO/commits/$COMMIT_SHA/check-runs)
+
+            # Find the test job status and conclusion
+            TEST_STATUS=$(echo "$CHECKS" | jq -r '.check_runs[] | select(.name=="test") | .status')
+            TEST_CONCLUSION=$(echo "$CHECKS" | jq -r '.check_runs[] | select(.name=="test") | .conclusion')
+
+            if [ "$TEST_STATUS" == "completed" ]; then
+              if [ "$TEST_CONCLUSION" == "success" ]; then
+                echo "Test job completed successfully."
+                break
+              else
+                echo "Test job failed with conclusion: $TEST_CONCLUSION"
+                exit 1
+              fi
+            fi
+
+            echo "Test job status is $TEST_STATUS. Waiting 15 seconds..."
+            sleep 15
+          done
+
+      - name: Auto-approve
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr review ${{ github.event.pull_request.html_url }} --approve
+
+      - name: Auto-merge
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge ${{ github.event.pull_request.html_url }} --squash
