@@ -1,30 +1,37 @@
-import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp, Timestamp } from "firebase/firestore";
-import { db } from "./firebase";
+import { collection, addDoc, query, where, getDocs, serverTimestamp, Timestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export async function logUsage({
   route,
   model,
+  agent,
+  tokens,
+  cost,
+  // backwards compatibility
   modelTier,
   inputTokens,
   outputTokens,
-  totalTokens,
-  cost,
-  agent
+  totalTokens
 }) {
   try {
+    let input = inputTokens !== undefined ? inputTokens : (tokens?.input || tokens?.inputTokens || 0);
+    let output = outputTokens !== undefined ? outputTokens : (tokens?.output || tokens?.outputTokens || 0);
+
     const data = {
-      route,
-      model,
-      modelTier,
-      inputTokens,
-      outputTokens,
-      totalTokens,
-      cost,
+      route: route || "unknown",
+      model: model || modelTier || "unknown",
+      inputTokens: input,
+      outputTokens: output,
+      cost: cost || 0,
       timestamp: serverTimestamp()
     };
     if (agent) {
       data.agent = agent;
     }
+    // backwards compatibility for old fields if any code still sends them
+    if (modelTier) data.modelTier = modelTier;
+    if (totalTokens !== undefined) data.totalTokens = totalTokens;
+
     const docRef = await addDoc(collection(db, "api_usage"), data);
     return docRef.id;
   } catch (error) {
@@ -44,6 +51,11 @@ export async function getUsageSummary() {
   thirtyDaysAgo.setDate(now.getDate() - 30);
   thirtyDaysAgo.setHours(0, 0, 0, 0);
 
+  // Calculate 7 days ago
+  const startOfWeek = new Date();
+  startOfWeek.setDate(now.getDate() - 7);
+  startOfWeek.setHours(0, 0, 0, 0);
+
   // We query from the earlier of (startOfMonth, 30 days ago) to get all needed data.
   const earliestDate = startOfMonth < thirtyDaysAgo ? startOfMonth : thirtyDaysAgo;
 
@@ -56,6 +68,8 @@ export async function getUsageSummary() {
   const querySnapshot = await getDocs(q);
 
   let totalSpendCurrentMonth = 0;
+  let totalThisWeek = 0;
+  let totalCalls = 0;
   const perModel = {};
   const perRoute = {};
   const perAgent = {};
@@ -68,43 +82,48 @@ export async function getUsageSummary() {
     // Current month spend
     if (docDate >= startOfMonth) {
       totalSpendCurrentMonth += data.cost || 0;
+      totalCalls += 1;
+
+      // Per model breakdown
+      const modelName = data.model || data.modelTier;
+      if (modelName) {
+        if (!perModel[modelName]) {
+          perModel[modelName] = { calls: 0, cost: 0 };
+        }
+        perModel[modelName].calls += 1;
+        perModel[modelName].cost += (data.cost || 0);
+      }
+
+      // Per route breakdown
+      if (data.route) {
+        if (!perRoute[data.route]) {
+          perRoute[data.route] = { calls: 0, cost: 0 };
+        }
+        perRoute[data.route].calls += 1;
+        perRoute[data.route].cost += (data.cost || 0);
+      }
+
+      // Per agent breakdown
+      if (data.agent) {
+        if (!perAgent[data.agent]) {
+          perAgent[data.agent] = 0;
+        }
+        perAgent[data.agent] += (data.cost || 0);
+      }
     }
 
-    // Per model breakdown
-    if (data.modelTier) {
-      if (!perModel[data.modelTier]) {
-        perModel[data.modelTier] = { calls: 0, tokens: 0, cost: 0 };
-      }
-      perModel[data.modelTier].calls += 1;
-      perModel[data.modelTier].tokens += (data.totalTokens || 0);
-      perModel[data.modelTier].cost += (data.cost || 0);
-    }
-
-    // Per route breakdown
-    if (data.route) {
-      if (!perRoute[data.route]) {
-        perRoute[data.route] = { calls: 0, cost: 0 };
-      }
-      perRoute[data.route].calls += 1;
-      perRoute[data.route].cost += (data.cost || 0);
-    }
-
-    // Per agent breakdown
-    if (data.agent) {
-      if (!perAgent[data.agent]) {
-        perAgent[data.agent] = 0;
-      }
-      perAgent[data.agent] += (data.cost || 0);
+    // totalThisWeek
+    if (docDate >= startOfWeek) {
+      totalThisWeek += data.cost || 0;
     }
 
     // Daily trend (last 30 days)
     if (docDate >= thirtyDaysAgo) {
       const dateStr = docDate.toISOString().split("T")[0]; // YYYY-MM-DD
       if (!dailyTrendMap[dateStr]) {
-        dailyTrendMap[dateStr] = { cost: 0, calls: 0 };
+        dailyTrendMap[dateStr] = { cost: 0 };
       }
       dailyTrendMap[dateStr].cost += (data.cost || 0);
-      dailyTrendMap[dateStr].calls += 1;
     }
   });
 
@@ -115,16 +134,51 @@ export async function getUsageSummary() {
     const dateStr = d.toISOString().split("T")[0];
     dailyTrend.push({
       date: dateStr,
-      cost: dailyTrendMap[dateStr]?.cost || 0,
-      calls: dailyTrendMap[dateStr]?.calls || 0
+      cost: dailyTrendMap[dateStr]?.cost || 0
     });
   }
 
+  const daysInMonth = now.getDate();
+  const averageDailyCost = totalSpendCurrentMonth / Math.max(1, daysInMonth);
+
+  let topRoute = null;
+  let maxRouteCost = -1;
+  for (const [route, stats] of Object.entries(perRoute)) {
+    if (stats.cost > maxRouteCost) {
+      maxRouteCost = stats.cost;
+      topRoute = route;
+    }
+  }
+
+  const budgetLimit = 90;
+  const budget = {
+    limit: budgetLimit,
+    used: totalSpendCurrentMonth,
+    remaining: Math.max(0, budgetLimit - totalSpendCurrentMonth)
+  };
+
   return {
     totalSpendCurrentMonth,
-    perModel,
+    totalThisWeek,
+    averageDailyCost,
+    totalCalls,
+    topRoute,
     perRoute,
+    perModel,
     perAgent,
     dailyTrend,
+    budget
+  };
+}
+
+export async function checkBudget() {
+  const summary = await getUsageSummary();
+  const used = summary.totalSpendCurrentMonth;
+  const limit = 90;
+  return {
+    withinBudget: used <= limit,
+    used,
+    remaining: Math.max(0, limit - used),
+    percentUsed: (used / limit) * 100
   };
 }
