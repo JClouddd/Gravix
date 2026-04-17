@@ -1,61 +1,73 @@
 {
+  "version": "1.0",
+  "project": "antigravity-hub-jcloud",
+  "location": "us-central1",
   "agents": {
     "conductor": {
+      "id": "a300f0ec-e40e-47ec-b14f-050165415a6e",
       "displayName": "Conductor",
-      "model": "gemini-2.5-pro-preview-05-06",
-      "role": "Orchestrator — routes requests to the right agent",
-      "selfImprove": "Meta-Agent: creates new agents when gaps found",
-      "systemInstruction": "You are Conductor, the orchestrator agent for Gravix. Analyze incoming requests and route them to the most appropriate agent. If no agent can handle the request, flag it and suggest creating a new specialist agent.",
-      "skills": ["request_routing", "agent_creation", "workflow_planning"]
-    },
-    "forge": {
-      "displayName": "Forge",
-      "model": "gemini-2.5-flash-preview-05-20",
-      "role": "DevOps — MCP, secrets, IAM, APIs, health checks",
-      "selfImprove": "Auto-Config: updates on API changes",
-      "systemInstruction": "You are Forge, the DevOps agent for Gravix. Manage GCP infrastructure, service accounts, secrets, API configurations, and system health. Proactively detect configuration drift and suggest fixes.",
-      "skills": ["gcloud_cli", "secret_rotation", "iam_management", "health_checks"]
-    },
-    "analyst": {
-      "displayName": "Analyst",
-      "model": "gemini-2.5-pro-preview-05-06",
-      "role": "Data science — Colab, analysis, ML, charts",
-      "selfImprove": "Notebook Factory: drafts new notebooks",
-      "systemInstruction": "You are Analyst, the data science agent for Gravix. Execute notebooks, analyze data, create visualizations, and build ML models. Proactively suggest analyses based on available data.",
-      "skills": ["colab_execution", "data_analysis", "visualization", "ml_modeling"]
-    },
-    "courier": {
-      "displayName": "Courier",
-      "model": "gemini-2.5-flash-preview-05-20",
-      "role": "Communications — email, calendar, tasks, Meet, notifications",
-      "selfImprove": "Template Learning: auto-creates communication templates",
-      "systemInstruction": "You are Courier, the communications nerve center for Gravix. Manage all email, calendar, tasks, Google Meet transcripts, and push notifications. Detect action items in communications and route them to appropriate modules.",
-      "skills": ["gmail_api", "calendar_api", "tasks_api", "meet_api", "fcm_push"]
+      "role": "Orchestrator — routes requests to the right specialist agent",
+      "status": "deployed",
+      "platform": "dialogflow-cx"
     },
     "sentinel": {
+      "id": "94478343-18b9-4a15-aad4-31e3145829fd",
       "displayName": "Sentinel",
-      "model": "gemini-2.5-flash-preview-05-20",
       "role": "Security — costs, monitoring, agent health, rules",
-      "selfImprove": "Rule Generation: proposes rules from anomalies",
-      "systemInstruction": "You are Sentinel, the independent security and monitoring agent for Gravix. Monitor ALL agents, costs, deployments, and system health. Report directly to the user via FCM/email. You operate independently — no other agent can override your alerts.",
-      "skills": ["cost_monitoring", "health_checks", "anomaly_detection", "rule_generation"]
+      "status": "deployed",
+      "platform": "dialogflow-cx"
+    },
+    "scholar": {
+      "id": "05abb996-ebd5-4578-96d3-1c1cc44c34b6",
+      "displayName": "Scholar",
+      "role": "Knowledge — ingestion, research, documentation",
+      "status": "deployed",
+      "platform": "dialogflow-cx",
+      "dataStoreId": "gravix-knowledge",
+      "engineId": "gravix-scholar"
+    },
+    "forge": {
+      "id": "4f61286e-7f8e-4b6b-8db3-8d657c1571bb",
+      "displayName": "Forge",
+      "role": "DevOps — infrastructure, secrets, IAM, APIs",
+      "status": "deployed",
+      "platform": "dialogflow-cx"
+    },
+    "analyst": {
+      "id": "4665e241-8664-4f36-bce0-9c6a02907b73",
+      "displayName": "Analyst",
+      "role": "Data science — analysis, Colab, ML, charts",
+      "status": "deployed",
+      "platform": "dialogflow-cx"
+    },
+    "courier": {
+      "id": "aa9b7564-1e7f-4ee7-a576-86db9ae02492",
+      "displayName": "Courier",
+      "role": "Communications — email, calendar, tasks, Meet",
+      "status": "deployed",
+      "platform": "dialogflow-cx"
     },
     "builder": {
+      "id": "70547423-dbbc-4d3c-b464-faf6364bc92b",
       "displayName": "Builder",
-      "model": "gemini-2.5-pro-preview-05-06",
-      "role": "Code — branches, generation, Jules integration, patterns",
-      "selfImprove": "Pattern Library: extracts reusable patterns",
-      "systemInstruction": "You are Builder, the code generation agent for Gravix. Create branches, generate code, integrate with Jules for task delegation, and maintain a pattern library. Follow the project's coding standards: plain JavaScript, no TypeScript, Inter font, dark mode primary.",
-      "skills": ["code_generation", "branch_management", "jules_integration", "pattern_extraction"]
+      "role": "Code — branches, Jules integration, patterns",
+      "status": "deployed",
+      "platform": "dialogflow-cx"
     }
   },
-  "orchestration": {
-    "defaultMode": "step",
-    "modes": ["step", "batch", "autonomous"],
-    "costThresholds": {
-      "autoApprove": 0.001,
-      "warnUser": 0.05,
-      "requireConfirmation": 0.10
+  "dataStores": {
+    "gravix-knowledge": {
+      "displayName": "Gravix Knowledge Base",
+      "type": "discovery_engine",
+      "location": "global"
+    }
+  },
+  "engines": {
+    "gravix-scholar": {
+      "displayName": "Gravix Scholar",
+      "type": "search",
+      "tier": "STANDARD",
+      "addOns": ["LLM"]
     }
   }
 }
