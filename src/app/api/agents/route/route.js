@@ -100,7 +100,101 @@ Choose the best agent and explain your reasoning.`,
         cost: agentResult.cost,
         duration: agentResult.duration,
         grounded: agentResult.grounded,
+        toolData: {},
       };
+
+      // Real tool execution based on the agent
+      const origin = new URL(request.url).origin;
+
+      if (decision.agent === "forge") {
+        try {
+          const statusRes = await fetch(`${origin}/api/knowledge/status`);
+          if (statusRes.ok) agentResponse.toolData.systemStatus = await statusRes.json();
+        } catch (e) {
+          console.warn("[agents/route] forge status fetch failed:", e.message);
+        }
+        try {
+          const costsRes = await fetch(`${origin}/api/costs/summary`);
+          if (costsRes.ok) agentResponse.toolData.costs = await costsRes.json();
+        } catch (e) {
+          console.warn("[agents/route] forge costs fetch failed:", e.message);
+        }
+      } else if (decision.agent === "scholar") {
+        try {
+          const queryRes = await fetch(`${origin}/api/knowledge/query`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: message }),
+          });
+          if (queryRes.ok) {
+            agentResponse.toolData.groundedResults = await queryRes.json();
+          }
+        } catch (e) {
+          console.warn("[agents/route] scholar query fetch failed:", e.message);
+        }
+      } else if (decision.agent === "analyst") {
+        const lowerMsg = message.toLowerCase();
+        if (
+          lowerMsg.includes("stock") ||
+          lowerMsg.includes("ticker") ||
+          lowerMsg.includes("analysis")
+        ) {
+          try {
+            const colabRes = await fetch(`${origin}/api/colab/execute`);
+            if (colabRes.ok) {
+              const data = await colabRes.json();
+              agentResponse.toolData.notebooks = data.notebooks;
+            }
+          } catch (e) {
+             console.warn("[agents/route] analyst colab fetch failed:", e.message);
+          }
+        }
+      } else if (decision.agent === "courier") {
+        const lowerMsg = message.toLowerCase();
+        if (
+          lowerMsg.includes("email") ||
+          lowerMsg.includes("draft") ||
+          lowerMsg.includes("send")
+        ) {
+          try {
+            const emailRes = await fetch(`${origin}/api/email/inbox`);
+            if (emailRes.ok) {
+              agentResponse.toolData.emailStatus = await emailRes.json();
+            }
+          } catch (e) {
+            console.warn("[agents/route] courier email fetch failed:", e.message);
+          }
+        }
+      } else if (decision.agent === "builder") {
+        const lowerMsg = message.toLowerCase();
+        if (
+          lowerMsg.includes("code") ||
+          lowerMsg.includes("pr") ||
+          lowerMsg.includes("branch")
+        ) {
+          try {
+            const julesRes = await fetch(`${origin}/api/jules/tasks`);
+            if (julesRes.ok) {
+              agentResponse.toolData.julesStatus = await julesRes.json();
+            }
+          } catch (e) {
+            console.warn("[agents/route] builder jules fetch failed:", e.message);
+          }
+        }
+      } else if (decision.agent === "sentinel") {
+        try {
+          const summaryRes = await fetch(`${origin}/api/costs/summary`);
+          if (summaryRes.ok) agentResponse.toolData.costSummary = await summaryRes.json();
+        } catch (e) {
+           console.warn("[agents/route] sentinel summary fetch failed:", e.message);
+        }
+        try {
+          const breakdownRes = await fetch(`${origin}/api/costs/breakdown`);
+          if (breakdownRes.ok) agentResponse.toolData.costBreakdown = await breakdownRes.json();
+        } catch (e) {
+           console.warn("[agents/route] sentinel breakdown fetch failed:", e.message);
+        }
+      }
 
       // Log agent execution cost
       try {
