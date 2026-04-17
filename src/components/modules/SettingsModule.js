@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { requestPermission } from "@/lib/notifications";
 
 /**
  * Settings Module
@@ -44,6 +45,36 @@ export default function SettingsModule() {
   const [theme, setTheme] = useState("dark");
   const [accentColor, setAccentColor] = useState("#3b82f6");
   const [fontSize, setFontSize] = useState(14);
+
+  // Notifications State
+  const [pushEnabled, setPushEnabled] = useState(
+    typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted"
+  );
+  const [fcmTokenStatus, setFcmTokenStatus] = useState(
+    typeof window !== "undefined" && "Notification" in window
+      ? (Notification.permission === "granted" ? "connected" : "not connected")
+      : "unsupported"
+  );
+
+  const handlePushToggle = async (e) => {
+    const isChecked = e.target.checked;
+    if (isChecked) {
+      setFcmTokenStatus("connecting...");
+      const token = await requestPermission();
+      if (token) {
+        setPushEnabled(true);
+        setFcmTokenStatus("connected");
+      } else {
+        setPushEnabled(false);
+        setFcmTokenStatus("failed or denied");
+      }
+    } else {
+      // Browsers don't let you easily "revoke" permission via code,
+      // but we can turn off the toggle in our UI state.
+      setPushEnabled(false);
+      setFcmTokenStatus("disabled");
+    }
+  };
 
   const presetColors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
@@ -126,8 +157,23 @@ export default function SettingsModule() {
             <div>
               <div className="body">Push Notifications</div>
               <div className="caption">Receive alerts from Sentinel and agent updates via FCM</div>
+              <div className="caption" style={{ marginTop: 4 }}>
+                Status: <span style={{ color: fcmTokenStatus === "connected" ? "var(--success)" : "var(--text-secondary)" }}>{fcmTokenStatus}</span>
+              </div>
             </div>
-            <span className="badge badge-warning">Requires PWA</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span className="badge badge-warning">Requires PWA</span>
+              <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={pushEnabled}
+                  onChange={handlePushToggle}
+                  disabled={fcmTokenStatus === "unsupported"}
+                  style={{ width: 16, height: 16, accentColor: "var(--primary)" }}
+                />
+                <span style={{ marginLeft: 8 }} className="body-sm">{pushEnabled ? "Enabled" : "Disabled"}</span>
+              </label>
+            </div>
           </div>
         </div>
 
