@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const MOCK_CLIENTS = [
   { id: 1, name: "Acme Corp", email: "contact@acme.com", projectType: "website", status: "active", initials: "AC" },
@@ -8,10 +8,6 @@ const MOCK_CLIENTS = [
   { id: 3, name: "Initech", email: "hello@initech.com", projectType: "app", status: "completed", initials: "IN" },
 ];
 
-/**
- * Client Manager Module
- * Profiles, projects, intake wizard, billing
- */
 export default function ClientsModule() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -22,6 +18,77 @@ export default function ClientsModule() {
   const [error, setError] = useState(null);
   const [planResult, setPlanResult] = useState(null);
   const [clients, setClients] = useState(MOCK_CLIENTS);
+
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [activeTab, setActiveTab] = useState("overview"); // overview, billing, communications
+
+  const [billingEntries, setBillingEntries] = useState([]);
+  const [communicationsData, setCommunicationsData] = useState({ communications: [], totalEmails: 0, totalMeetings: 0 });
+  const [isFetchingData, setIsFetchingData] = useState(false);
+
+  const [newBilling, setNewBilling] = useState({ description: "", amount: "", hours: "", date: "", type: "invoice" });
+
+  useEffect(() => {
+    if (selectedClient) {
+      if (activeTab === "billing") {
+        fetchBilling();
+      } else if (activeTab === "communications") {
+        fetchCommunications();
+      }
+    }
+  }, [selectedClient, activeTab]);
+
+  const fetchBilling = async () => {
+    setIsFetchingData(true);
+    try {
+      const res = await fetch(`/api/clients/${selectedClient.id}/billing`);
+      if (res.ok) {
+        const data = await res.json();
+        setBillingEntries(data.entries || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch billing", err);
+    } finally {
+      setIsFetchingData(false);
+    }
+  };
+
+  const fetchCommunications = async () => {
+    setIsFetchingData(true);
+    try {
+      const res = await fetch(`/api/clients/${selectedClient.id}/communications`);
+      if (res.ok) {
+        const data = await res.json();
+        setCommunicationsData(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch communications", err);
+    } finally {
+      setIsFetchingData(false);
+    }
+  };
+
+  const handleAddBilling = async (e) => {
+    e.preventDefault();
+    if (!newBilling.description || !newBilling.amount || !newBilling.date || !newBilling.type) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/clients/${selectedClient.id}/billing`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newBilling)
+      });
+      if (res.ok) {
+        setNewBilling({ description: "", amount: "", hours: "", date: "", type: "invoice" });
+        fetchBilling(); // Refresh list
+      }
+    } catch (err) {
+      console.error("Failed to add billing entry", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -44,7 +111,6 @@ export default function ClientsModule() {
       const data = await res.json();
       setPlanResult(data.response || data.message || "Plan generated successfully.");
 
-      // Optionally add to clients list
       setClients(prev => [...prev, {
         id: Date.now(),
         name: formData.name,
@@ -68,6 +134,151 @@ export default function ClientsModule() {
       default: return 'badge-accent';
     }
   };
+
+  const calculateTotalBilling = () => {
+    return billingEntries.reduce((total, entry) => {
+      // Invoices and payments might add to total, expenses subtract, or just total sum based on logic
+      // Assuming simple sum for now
+      return total + Number(entry.amount || 0);
+    }, 0);
+  };
+
+  if (selectedClient) {
+    return (
+      <div>
+        <div className="module-header" style={{ marginBottom: 24 }}>
+          <div className="module-header-left">
+            <button className="btn btn-ghost btn-sm" onClick={() => setSelectedClient(null)}>← Back to Clients</button>
+            <div style={{ marginLeft: 16 }}>
+              <h1 className="module-title">{selectedClient.name}</h1>
+              <p className="module-subtitle">{selectedClient.email}</p>
+            </div>
+          </div>
+          <span className={`badge ${getStatusBadgeClass(selectedClient.status)}`}>{selectedClient.status}</span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '1px solid var(--card-border)' }}>
+          <button
+            className={`btn btn-ghost ${activeTab === 'overview' ? 'active' : ''}`}
+            style={{ borderBottom: activeTab === 'overview' ? '2px solid var(--primary)' : 'none', borderRadius: 0 }}
+            onClick={() => setActiveTab('overview')}
+          >
+            Overview
+          </button>
+          <button
+            className={`btn btn-ghost ${activeTab === 'billing' ? 'active' : ''}`}
+            style={{ borderBottom: activeTab === 'billing' ? '2px solid var(--primary)' : 'none', borderRadius: 0 }}
+            onClick={() => setActiveTab('billing')}
+          >
+            Billing
+          </button>
+          <button
+            className={`btn btn-ghost ${activeTab === 'communications' ? 'active' : ''}`}
+            style={{ borderBottom: activeTab === 'communications' ? '2px solid var(--primary)' : 'none', borderRadius: 0 }}
+            onClick={() => setActiveTab('communications')}
+          >
+            Communications
+          </button>
+        </div>
+
+        <div className="card">
+          {activeTab === 'overview' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ padding: '16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Project Type</div>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)', textTransform: 'capitalize' }}>{selectedClient.projectType}</div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'billing' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 className="h4">Billing Entries</h3>
+                <div style={{ fontWeight: 'bold' }}>Total: ${calculateTotalBilling().toFixed(2)}</div>
+              </div>
+
+              {isFetchingData ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>Loading billing data...</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '32px' }}>
+                  {billingEntries.length > 0 ? billingEntries.map(entry => (
+                    <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', border: '1px solid var(--card-border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-elevated)' }}>
+                      <div>
+                        <div style={{ fontWeight: 'bold' }}>{entry.description}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{entry.date} • {entry.type}</div>
+                      </div>
+                      <div style={{ fontWeight: 'bold', color: entry.type === 'expense' ? 'var(--error)' : 'var(--success)' }}>
+                        {entry.type === 'expense' ? '-' : '+'}${entry.amount}
+                      </div>
+                    </div>
+                  )) : (
+                    <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No billing entries found.</div>
+                  )}
+                </div>
+              )}
+
+              <h4 className="h5" style={{ marginBottom: '12px' }}>Add Entry</h4>
+              <form onSubmit={handleAddBilling} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <input className="input" placeholder="Description" required value={newBilling.description} onChange={e => setNewBilling({...newBilling, description: e.target.value})} style={{ gridColumn: '1 / -1' }} />
+                <input className="input" type="number" placeholder="Amount ($)" required value={newBilling.amount} onChange={e => setNewBilling({...newBilling, amount: e.target.value})} />
+                <input className="input" type="number" placeholder="Hours (Optional)" value={newBilling.hours} onChange={e => setNewBilling({...newBilling, hours: e.target.value})} />
+                <input className="input" type="date" required value={newBilling.date} onChange={e => setNewBilling({...newBilling, date: e.target.value})} />
+                <select className="input" value={newBilling.type} onChange={e => setNewBilling({...newBilling, type: e.target.value})} style={{ backgroundColor: 'var(--bg-primary)' }}>
+                  <option value="invoice">Invoice</option>
+                  <option value="payment">Payment</option>
+                  <option value="expense">Expense</option>
+                </select>
+                <button type="submit" className="btn btn-primary" style={{ gridColumn: '1 / -1' }} disabled={isSubmitting}>
+                  {isSubmitting ? 'Adding...' : 'Add Entry'}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {activeTab === 'communications' && (
+            <div>
+               <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+                 <div style={{ padding: '12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', flex: 1, border: '1px solid var(--card-border)' }}>
+                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Total Emails</div>
+                   <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{communicationsData.totalEmails}</div>
+                 </div>
+                 <div style={{ padding: '12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', flex: 1, border: '1px solid var(--card-border)' }}>
+                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Total Meetings</div>
+                   <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{communicationsData.totalMeetings}</div>
+                 </div>
+               </div>
+
+              {isFetchingData ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>Loading communications...</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {communicationsData.communications.length > 0 ? communicationsData.communications.map(item => (
+                    <div key={item.id} style={{ display: 'flex', gap: '16px', padding: '16px', border: '1px solid var(--card-border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-elevated)' }}>
+                      <div style={{ fontSize: '24px' }}>
+                        {item.type === 'email' ? '📧' : '🎤'}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <div style={{ fontWeight: 'bold' }}>{item.title}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{new Date(item.date).toLocaleString()}</div>
+                        </div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '14px', whiteSpace: 'pre-wrap', maxHeight: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.snippet}
+                        </div>
+                      </div>
+                    </div>
+                  )) : (
+                     <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>No communications found.</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -150,7 +361,7 @@ export default function ClientsModule() {
               </div>
 
               <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
-                <button className="btn btn-secondary btn-sm" style={{ flex: 1 }}>View Profile</button>
+                <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => setSelectedClient(client)}>View Profile</button>
                 <button className="btn btn-secondary btn-sm" style={{ flex: 1 }}>Manage</button>
               </div>
             </div>
