@@ -1,5 +1,5 @@
-import { collection, addDoc, query, where, getDocs, serverTimestamp, Timestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { adminDb } from "@/lib/firebaseAdmin";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
 export async function logUsage({
   route,
@@ -23,7 +23,7 @@ export async function logUsage({
       inputTokens: input,
       outputTokens: output,
       cost: cost || 0,
-      timestamp: serverTimestamp()
+      timestamp: FieldValue.serverTimestamp()
     };
     if (agent) {
       data.agent = agent;
@@ -32,7 +32,7 @@ export async function logUsage({
     if (modelTier) data.modelTier = modelTier;
     if (totalTokens !== undefined) data.totalTokens = totalTokens;
 
-    const docRef = await addDoc(collection(db, "api_usage"), data);
+    const docRef = await adminDb.collection("api_usage").add(data);
     return docRef.id;
   } catch (error) {
     console.error("Error logging API usage: ", error);
@@ -59,13 +59,9 @@ export async function getUsageSummary() {
   // We query from the earlier of (startOfMonth, 30 days ago) to get all needed data.
   const earliestDate = startOfMonth < thirtyDaysAgo ? startOfMonth : thirtyDaysAgo;
 
-  const usageRef = collection(db, "api_usage");
-  const q = query(
-    usageRef,
-    where("timestamp", ">=", Timestamp.fromDate(earliestDate))
-  );
+  const q = adminDb.collection("api_usage").where("timestamp", ">=", Timestamp.fromDate(earliestDate));
 
-  const querySnapshot = await getDocs(q);
+  const querySnapshot = await q.get();
 
   let totalSpendCurrentMonth = 0;
   let totalThisWeek = 0;
