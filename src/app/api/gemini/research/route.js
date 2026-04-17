@@ -1,4 +1,5 @@
 import { deepResearch } from "@/lib/geminiClient";
+import { logUsage } from "@/lib/costTracker";
 
 /**
  * POST /api/gemini/research
@@ -30,6 +31,21 @@ export async function POST(request) {
       topic,
       ...(systemPrompt && { systemPrompt }),
     });
+
+    // Log usage
+    try {
+      await logUsage({
+        route: "/api/gemini/research",
+        model: result.model,
+        modelTier: result.modelTier,
+        inputTokens: result.tokens.input,
+        outputTokens: result.tokens.output,
+        totalTokens: result.tokens.total,
+        cost: result.cost.totalCost,
+      });
+    } catch (err) {
+      console.warn("[costTracker] Failed to log:", err.message);
+    }
 
     return Response.json({
       response: result.text,

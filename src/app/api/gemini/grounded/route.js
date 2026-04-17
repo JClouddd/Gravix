@@ -1,4 +1,5 @@
 import { groundedQuery } from "@/lib/geminiClient";
+import { logUsage } from "@/lib/costTracker";
 
 /**
  * POST /api/gemini/grounded
@@ -20,6 +21,21 @@ export async function POST(request) {
       query,
       ...(systemPrompt && { systemPrompt }),
     });
+
+    // Log usage
+    try {
+      await logUsage({
+        route: "/api/gemini/grounded",
+        model: result.model,
+        modelTier: result.modelTier,
+        inputTokens: result.tokens.input,
+        outputTokens: result.tokens.output,
+        totalTokens: result.tokens.total,
+        cost: result.cost.totalCost,
+      });
+    } catch (err) {
+      console.warn("[costTracker] Failed to log:", err.message);
+    }
 
     return Response.json({
       response: result.text,

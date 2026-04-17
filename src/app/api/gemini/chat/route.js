@@ -1,8 +1,9 @@
 import { chat } from "@/lib/geminiClient";
+import { logUsage } from "@/lib/costTracker";
 
 /**
  * POST /api/gemini/chat
- * General chat endpoint with complexity routing
+ * General chat endpoint with complexity routing and cost tracking
  */
 export async function POST(request) {
   try {
@@ -29,6 +30,21 @@ export async function POST(request) {
       complexity,
       grounded,
     });
+
+    // Log usage to Firestore
+    try {
+      await logUsage({
+        route: "/api/gemini/chat",
+        model: result.model,
+        modelTier: result.modelTier,
+        inputTokens: result.tokens.input,
+        outputTokens: result.tokens.output,
+        totalTokens: result.tokens.total,
+        cost: result.cost.totalCost,
+      });
+    } catch (err) {
+      console.warn("[costTracker] Failed to log:", err.message);
+    }
 
     return Response.json({
       response: result.text,

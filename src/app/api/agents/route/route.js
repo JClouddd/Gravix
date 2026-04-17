@@ -1,91 +1,133 @@
-import { NextResponse } from 'next/server';
-import { generate } from '@/lib/geminiClient';
+import { structuredGenerate, generate } from "@/lib/geminiClient";
+import { logUsage } from "@/lib/costTracker";
 
 /**
  * POST /api/agents/route
  * Conductor agent — receives a natural language request and routes it
- * to the appropriate specialist agent.
+ * to the appropriate specialist agent, then optionally executes it.
  *
- * Body: { message: string, context?: object }
- * Returns: { agent, reasoning, action, response }
+ * Body: { message: string, context?: object, execute?: boolean }
+ * Returns: { routing, response? }
  */
 export async function POST(request) {
   try {
-    const { message, context = {} } = await request.json();
+    const { message, context = {}, execute = false } = await request.json();
 
     if (!message) {
-      return NextResponse.json(
-        { error: 'message required' },
+      return Response.json(
+        { error: "message required" },
         { status: 400 }
       );
     }
 
-    // Conductor uses a system prompt that knows about all agents
-    const routingPrompt = `You are Conductor, the orchestrator agent for Gravix.
-Your job is to analyze the user's request and decide which specialist agent should handle it.
+    // Use structured output for reliable routing decisions
+    const routingSchema = {
+      type: "object",
+      properties: {
+        agent: {
+          type: "string",
+          enum: ["conductor", "forge", "scholar", "analyst", "courier", "sentinel", "builder"],
+        },
+        reasoning: { type: "string" },
+        action: { type: "string" },
+        confidence: { type: "number" },
+      },
+      required: ["agent", "reasoning", "action", "confidence"],
+    };
+
+    const routingResult = await structuredGenerate({
+      prompt: `Analyze this user request and decide which specialist agent should handle it.
+
+User request: "${message}"
+Context: ${JSON.stringify(context)}
 
 Available agents:
-1. FORGE — Code generation, debugging, architecture. Use for: "build X", "fix this bug", "refactor Y"
-2. SCHOLAR — Research, knowledge retrieval, document analysis. Use for: "what is X", "find info about Y", "summarize this"
-3. ANALYST — Data analysis, cost reports, metrics. Use for: "show costs", "analyze performance", "generate report"
-4. COURIER — Email drafting, calendar management, communications. Use for: "write email", "schedule meeting", "send message"
-5. SENTINEL — System monitoring, security, health checks. Use for: "check status", "is X running", "security audit"
-6. BUILDER — Project scaffolding, deployments, CI/CD. Use for: "create project", "deploy to prod", "set up CI"
+1. FORGE — DevOps, infrastructure, secrets, IAM, health checks
+2. SCHOLAR — Research, knowledge retrieval, documentation, learning
+3. ANALYST — Data analysis, cost reports, metrics, notebooks
+4. COURIER — Email, calendar, tasks, communications, meetings
+5. SENTINEL — Security monitoring, cost tracking, anomalies, rules
+6. BUILDER — Code generation, deployments, CI/CD, project scaffolding
 
-Respond in this exact JSON format:
-{
-  "agent": "<agent_name>",
-  "reasoning": "<why you chose this agent>",
-  "action": "<what the agent should do>",
-  "confidence": <0.0-1.0>
-}
-
-User context: ${JSON.stringify(context)}
-User request: "${message}"`;
-
-    const result = await generate({
-      prompt: routingPrompt,
-      complexity: 'low', // routing is a fast decision
-      systemInstruction: 'You are an intelligent request router. Always respond with valid JSON.',
+Choose the best agent and explain your reasoning.`,
+      schema: routingSchema,
+      systemPrompt: "You are Conductor, the orchestrator for Gravix. Route requests intelligently.",
+      complexity: "flash",
     });
 
-    // Parse the routing decision
     let decision;
     try {
-      const jsonMatch = result.match(/\{[\s\S]*\}/);
-      decision = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+      decision = JSON.parse(routingResult.text);
     } catch {
       decision = {
-        agent: 'SCHOLAR',
-        reasoning: 'Could not parse routing decision, defaulting to Scholar',
+        agent: "scholar",
+        reasoning: "Could not parse routing decision, defaulting to Scholar",
         action: message,
         confidence: 0.5,
       };
     }
 
-    // If confidence is high enough, generate the actual response
-    let agentResponse = null;
-    if (decision && decision.confidence >= 0.7) {
-      const agentPrompt = `You are ${decision.agent}, a specialist agent in the Gravix system.
-Your task: ${decision.action}
-User's original request: "${message}"
-
-Provide a helpful, concise response.`;
-
-      agentResponse = await generate({
-        prompt: agentPrompt,
-        complexity: 'medium',
+    // Log routing cost
+    try {
+      await logUsage({
+        route: "/api/agents/route",
+        model: routingResult.model,
+        modelTier: routingResult.modelTier,
+        inputTokens: routingResult.tokens.input,
+        outputTokens: routingResult.tokens.output,
+        totalTokens: routingResult.tokens.total,
+        cost: routingResult.cost.totalCost,
+        agent: "conductor",
       });
+    } catch (err) {
+      console.warn("[costTracker] Failed to log:", err.message);
     }
 
-    return NextResponse.json({
+    // If execute flag is set and confidence is high, run the agent
+    let agentResponse = null;
+    if (execute && decision.confidence >= 0.6) {
+      const agentResult = await generate({
+        prompt: message,
+        systemPrompt: `You are ${decision.agent}, a specialist agent in Gravix. ${decision.action}`,
+        complexity: decision.agent === "scholar" ? "pro" : "flash",
+        grounded: decision.agent === "scholar" || decision.agent === "sentinel",
+      });
+
+      agentResponse = {
+        text: agentResult.text,
+        model: agentResult.model,
+        tokens: agentResult.tokens,
+        cost: agentResult.cost,
+        duration: agentResult.duration,
+        grounded: agentResult.grounded,
+      };
+
+      // Log agent execution cost
+      try {
+        await logUsage({
+          route: `/api/agents/${decision.agent}`,
+          model: agentResult.model,
+          modelTier: agentResult.modelTier,
+          inputTokens: agentResult.tokens.input,
+          outputTokens: agentResult.tokens.output,
+          totalTokens: agentResult.tokens.total,
+          cost: agentResult.cost.totalCost,
+          agent: decision.agent,
+        });
+      } catch (err) {
+        console.warn("[costTracker] Failed to log:", err.message);
+      }
+    }
+
+    return Response.json({
       routing: decision,
       response: agentResponse,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error.message },
+    console.error("[/api/agents/route]", error);
+    return Response.json(
+      { error: error.message || "Internal server error" },
       { status: 500 }
     );
   }
