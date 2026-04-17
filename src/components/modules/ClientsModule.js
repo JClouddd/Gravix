@@ -3,9 +3,9 @@
 import { useState } from "react";
 
 const MOCK_CLIENTS = [
-  { id: 1, name: "Acme Corp", company: "Acme Inc.", status: "active", retainer: "$5,000", initials: "AC" },
-  { id: 2, name: "Globex", company: "Globex Corporation", status: "onboarding", retainer: "$3,500", initials: "GL" },
-  { id: 3, name: "Initech", company: "Initech LLC", status: "paused", retainer: "$2,000", initials: "IN" },
+  { id: 1, name: "Acme Corp", email: "contact@acme.com", projectType: "website", status: "active", initials: "AC" },
+  { id: 2, name: "Globex", email: "info@globex.com", projectType: "AI", status: "pending", initials: "GL" },
+  { id: 3, name: "Initech", email: "hello@initech.com", projectType: "app", status: "completed", initials: "IN" },
 ];
 
 /**
@@ -14,74 +14,57 @@ const MOCK_CLIENTS = [
  */
 export default function ClientsModule() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [wizardStep, setWizardStep] = useState(1);
   const [formData, setFormData] = useState({
-    name: "", company: "", email: "", phone: "",
-    services: [],
-    retainer: "", billingCycle: "monthly", startDate: ""
+    name: "", email: "", projectType: "website", description: "", budget: "<5k"
   });
 
-  const handleServiceToggle = (service) => {
-    setFormData(prev => {
-      const services = prev.services.includes(service)
-        ? prev.services.filter(s => s !== service)
-        : [...prev.services, service];
-      return { ...prev, services };
-    });
-  };
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [planResult, setPlanResult] = useState(null);
+  const [clients, setClients] = useState(MOCK_CLIENTS);
 
-  const renderWizardStep = () => {
-    switch(wizardStep) {
-      case 1:
-        return (
-          <div className="flex-col gap-md" style={{ display: 'flex' }}>
-            <h3 className="h4">Basic Info</h3>
-            <input className="input" placeholder="Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-            <input className="input" placeholder="Company" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} />
-            <input className="input" placeholder="Email" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-            <input className="input" placeholder="Phone" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-          </div>
-        );
-      case 2:
-        return (
-          <div className="flex-col gap-md" style={{ display: 'flex' }}>
-            <h3 className="h4">Service Selection</h3>
-            {['Web Dev', 'AI Integration', 'SEO', 'Content', 'Consulting'].map(service => (
-              <label key={service} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)' }}>
-                <input
-                  type="checkbox"
-                  checked={formData.services.includes(service)}
-                  onChange={() => handleServiceToggle(service)}
-                  style={{ accentColor: 'var(--accent)', width: '16px', height: '16px' }}
-                />
-                {service}
-              </label>
-            ))}
-          </div>
-        );
-      case 3:
-        return (
-          <div className="flex-col gap-md" style={{ display: 'flex' }}>
-            <h3 className="h4">Billing</h3>
-            <input className="input" placeholder="Monthly Retainer Amount ($)" type="number" value={formData.retainer} onChange={e => setFormData({...formData, retainer: e.target.value})} />
-            <select className="input" value={formData.billingCycle} onChange={e => setFormData({...formData, billingCycle: e.target.value})} style={{ backgroundColor: 'var(--bg-primary)' }}>
-              <option value="monthly">Monthly</option>
-              <option value="quarterly">Quarterly</option>
-              <option value="annually">Annually</option>
-            </select>
-            <input className="input" type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} />
-          </div>
-        );
-      default:
-        return null;
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setError(null);
+    setPlanResult(null);
+
+    const message = `New client intake: ${formData.name}, needs ${formData.projectType}. Description: ${formData.description}. Budget: ${formData.budget}`;
+
+    try {
+      const res = await fetch('/api/agents/route', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, execute: true })
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to generate plan');
+      }
+
+      const data = await res.json();
+      setPlanResult(data.response || data.message || "Plan generated successfully.");
+
+      // Optionally add to clients list
+      setClients(prev => [...prev, {
+        id: Date.now(),
+        name: formData.name,
+        email: formData.email,
+        projectType: formData.projectType,
+        status: "pending",
+        initials: formData.name.substring(0, 2).toUpperCase()
+      }]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
       case 'active': return 'badge-success';
-      case 'onboarding': return 'badge-info';
-      case 'paused': return 'badge-warning';
+      case 'completed': return 'badge-info';
+      case 'pending': return 'badge-warning';
       default: return 'badge-accent';
     }
   };
@@ -96,27 +79,7 @@ export default function ClientsModule() {
             <p className="module-subtitle">Client profiles, projects, and billing management</p>
           </div>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => { setIsWizardOpen(true); setWizardStep(1); }}>+ Add Client</button>
-      </div>
-
-      {/* Stats Bar */}
-      <div className="grid-4" style={{ marginBottom: 24 }}>
-        <div className="card" style={{ padding: "16px" }}>
-          <div className="caption" style={{ color: "var(--text-secondary)", marginBottom: 4 }}>Total Clients</div>
-          <div className="h2" style={{ color: "var(--text-primary)" }}>{MOCK_CLIENTS.length}</div>
-        </div>
-        <div className="card" style={{ padding: "16px" }}>
-          <div className="caption" style={{ color: "var(--text-secondary)", marginBottom: 4 }}>Active</div>
-          <div className="h2" style={{ color: "var(--success)" }}>{MOCK_CLIENTS.filter(c => c.status === 'active').length}</div>
-        </div>
-        <div className="card" style={{ padding: "16px" }}>
-          <div className="caption" style={{ color: "var(--text-secondary)", marginBottom: 4 }}>Monthly Revenue</div>
-          <div className="h2" style={{ color: "var(--accent)" }}>$10,500</div>
-        </div>
-        <div className="card" style={{ padding: "16px" }}>
-          <div className="caption" style={{ color: "var(--text-secondary)", marginBottom: 4 }}>Avg Retainer</div>
-          <div className="h2" style={{ color: "var(--info)" }}>$3,500</div>
-        </div>
+        <button className="btn btn-primary btn-sm" onClick={() => { setIsWizardOpen(true); setPlanResult(null); }}>+ New Client</button>
       </div>
 
       {isWizardOpen ? (
@@ -126,46 +89,47 @@ export default function ClientsModule() {
             <button className="btn btn-ghost btn-sm" onClick={() => setIsWizardOpen(false)}>Cancel</button>
           </div>
 
-          {/* Progress Bar */}
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '14px', color: 'var(--text-secondary)' }}>
-              <span>Step {wizardStep} of 3</span>
-              <span>{wizardStep === 1 ? 'Basic Info' : wizardStep === 2 ? 'Services' : 'Billing'}</span>
-            </div>
-            <div style={{ width: '100%', height: '6px', background: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{ width: `${(wizardStep / 3) * 100}%`, height: '100%', background: 'var(--accent)', transition: 'width var(--duration-normal) var(--ease-out)' }} />
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: 32 }}>
+            <input className="input" placeholder="Client name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+            <input className="input" placeholder="Contact email" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+
+            <select className="input" value={formData.projectType} onChange={e => setFormData({...formData, projectType: e.target.value})} style={{ backgroundColor: 'var(--bg-primary)' }}>
+              <option value="website">Website</option>
+              <option value="app">App</option>
+              <option value="dashboard">Dashboard</option>
+              <option value="AI">AI</option>
+              <option value="data">Data</option>
+              <option value="automation">Automation</option>
+            </select>
+
+            <textarea className="input" placeholder="Description" rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} style={{ resize: 'vertical' }} />
+
+            <select className="input" value={formData.budget} onChange={e => setFormData({...formData, budget: e.target.value})} style={{ backgroundColor: 'var(--bg-primary)' }}>
+              <option value="<5k">&lt;5k</option>
+              <option value="5-15k">5-15k</option>
+              <option value="15-50k">15-50k</option>
+              <option value="50k+">50k+</option>
+            </select>
           </div>
 
-          {/* Wizard Content */}
-          <div style={{ marginBottom: 32 }}>
-            {renderWizardStep()}
-          </div>
+          {error && <div style={{ color: 'var(--error)', marginBottom: '16px' }}>{error}</div>}
 
-          {/* Wizard Controls */}
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setWizardStep(prev => prev - 1)}
-              disabled={wizardStep === 1}
-              style={{ opacity: wizardStep === 1 ? 0.5 : 1, cursor: wizardStep === 1 ? 'not-allowed' : 'pointer' }}
-            >
-              Back
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <button className="btn btn-primary" onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? 'Generating Plan...' : 'Submit'}
             </button>
-            {wizardStep < 3 ? (
-              <button className="btn btn-primary" onClick={() => setWizardStep(prev => prev + 1)}>
-                Next
-              </button>
-            ) : (
-              <button className="btn btn-primary" onClick={() => { setIsWizardOpen(false); setFormData({ name: "", company: "", email: "", phone: "", services: [], retainer: "", billingCycle: "monthly", startDate: "" }); }}>
-                Submit
-              </button>
-            )}
           </div>
+
+          {planResult && (
+             <div style={{ marginTop: '24px', padding: '16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+               <h3 className="h5" style={{ marginBottom: '12px' }}>Generated Project Plan</h3>
+               <div style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>{planResult}</div>
+             </div>
+          )}
         </div>
       ) : (
         <div className="grid-3">
-          {MOCK_CLIENTS.map(client => (
+          {clients.map(client => (
             <div key={client.id} className="card-glass" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -174,15 +138,15 @@ export default function ClientsModule() {
                   </div>
                   <div>
                     <h3 className="h5" style={{ color: 'var(--text-primary)', margin: 0, fontSize: '16px' }}>{client.name}</h3>
-                    <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '13px' }}>{client.company}</p>
+                    <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '13px' }}>{client.email}</p>
                   </div>
                 </div>
                 <span className={`badge ${getStatusBadgeClass(client.status)}`}>{client.status}</span>
               </div>
 
               <div style={{ padding: '12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Monthly Retainer</div>
-                <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>{client.retainer}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Project Type</div>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)', textTransform: 'capitalize' }}>{client.projectType}</div>
               </div>
 
               <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
