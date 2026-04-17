@@ -15,9 +15,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /* ── Model Definitions ────────────────────────────────────────── */
 const MODELS = {
-  flash: "gemini-2.5-flash-preview-05-20",
-  pro: "gemini-2.5-pro-preview-05-06",
-  deep: "gemini-2.5-pro-preview-05-06", // Deep Research uses Pro with extended thinking
+  flash: "gemini-2.5-flash",
+  pro: "gemini-2.5-pro",
+  deep: "gemini-2.5-pro", // Deep Research uses Pro with extended thinking
 };
 
 const MODEL_COSTS = {

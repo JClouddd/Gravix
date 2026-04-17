@@ -16,7 +16,7 @@ const AGENT_REGISTRY = [
     color: "#6C5CE7",
     icon: "🎯",
     backend: "gemini",
-    model: "gemini-2.5-flash-preview-05-20",
+    model: "gemini-2.5-flash",
   },
   {
     id: "forge",
@@ -27,7 +27,7 @@ const AGENT_REGISTRY = [
     color: "#E17055",
     icon: "🔧",
     backend: "pending",
-    model: "gemini-2.5-flash-preview-05-20",
+    model: "gemini-2.5-flash",
   },
   {
     id: "scholar",
@@ -38,7 +38,7 @@ const AGENT_REGISTRY = [
     color: "#00B894",
     icon: "📚",
     backend: "discovery_engine",
-    model: "gemini-2.5-pro-preview-05-06",
+    model: "gemini-2.5-pro",
     dataStoreId: "gravix-knowledge",
     engineId: "gravix-scholar",
   },
@@ -51,7 +51,7 @@ const AGENT_REGISTRY = [
     color: "#A29BFE",
     icon: "📈",
     backend: "pending",
-    model: "gemini-2.5-pro-preview-05-06",
+    model: "gemini-2.5-pro",
   },
   {
     id: "courier",
@@ -62,7 +62,7 @@ const AGENT_REGISTRY = [
     color: "#4299E1",
     icon: "📨",
     backend: "pending",
-    model: "gemini-2.5-flash-preview-05-20",
+    model: "gemini-2.5-flash",
   },
   {
     id: "sentinel",
@@ -73,7 +73,7 @@ const AGENT_REGISTRY = [
     color: "#E74C3C",
     icon: "🛡️",
     backend: "gemini",
-    model: "gemini-2.5-flash-preview-05-20",
+    model: "gemini-2.5-flash",
   },
   {
     id: "builder",
@@ -84,7 +84,7 @@ const AGENT_REGISTRY = [
     color: "#F1C40F",
     icon: "🏗️",
     backend: "pending",
-    model: "gemini-2.5-pro-preview-05-06",
+    model: "gemini-2.5-pro",
   },
 ];
 
