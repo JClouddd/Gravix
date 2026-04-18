@@ -40,3 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 dev_server.log
+
+# Service account keys - NEVER commit
+gravix-sa-key.json
+gravix-sa-key.b64
