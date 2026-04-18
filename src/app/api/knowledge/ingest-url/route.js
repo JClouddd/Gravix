@@ -1,4 +1,63 @@
 import { classifyContent, createStagingEntry } from "@/lib/knowledgeEngine";
+import dns from "dns";
+
+/**
+ * Validates if an IP is private/local.
+ */
+function isPrivateIP(ip) {
+  // Handle IPv4-mapped IPv6 addresses (e.g., ::ffff:127.0.0.1)
+  if (ip.startsWith("::ffff:")) {
+    ip = ip.substring(7);
+  }
+
+  if (ip.includes(":")) {
+    return (
+      ip === "::1" ||
+      ip.startsWith("fc") ||
+      ip.startsWith("fd") ||
+      ip.startsWith("fe8") ||
+      ip.startsWith("fe9") ||
+      ip.startsWith("fea") ||
+      ip.startsWith("feb")
+    );
+  }
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4) return false;
+  if (parts[0] === 10) return true;
+  if (parts[0] === 127) return true;
+  if (parts[0] === 169 && parts[1] === 254) return true;
+  if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+  if (parts[0] === 192 && parts[1] === 168) return true;
+  if (parts[0] === 0) return true;
+  return false;
+}
+
+/**
+ * Validates URL to prevent SSRF by checking protocol, hostname, and resolved IP.
+ */
+async function validateUrlForSSRF(urlString) {
+  try {
+    const parsedUrl = new URL(urlString);
+
+    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+      throw new Error("Only HTTP and HTTPS protocols are allowed");
+    }
+
+    const localHostnames = ["localhost", "metadata.google.internal"];
+    if (localHostnames.includes(parsedUrl.hostname.toLowerCase())) {
+      throw new Error("Access to local hostnames is forbidden");
+    }
+
+    const lookupResult = await dns.promises.lookup(parsedUrl.hostname);
+    if (isPrivateIP(lookupResult.address)) {
+      throw new Error("URL resolves to a private or local IP address");
+    }
+
+    return true;
+  } catch (err) {
+    throw new Error(`Invalid URL or SSRF prevention blocked access: ${err.message}`);
+  }
+}
 
 /**
  * POST /api/knowledge/ingest-url
@@ -25,7 +84,12 @@ export async function POST(request) {
     } else {
       // Default to webpage
       try {
-        const response = await fetch(url);
+        // Validate URL for SSRF protection before fetching
+        await validateUrlForSSRF(url);
+
+        const response = await fetch(url, {
+          redirect: 'error' // Prevent following redirects to bypass SSRF protection
+        });
         if (!response.ok) {
           throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
         }
