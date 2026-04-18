@@ -88,13 +88,18 @@ ${changesText.slice(0, 50000)} // Limit to avoid token overflow`;
     // 4. Store in Firestore
     let storedCount = 0;
     if (parsedData.patterns && Array.isArray(parsedData.patterns)) {
+      const batch = adminDb.batch();
       for (const pattern of parsedData.patterns) {
         const docId = pattern.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-        await adminDb.collection("code_patterns").doc(docId).set( {
+        const docRef = adminDb.collection("code_patterns").doc(docId);
+        batch.set(docRef, {
           ...pattern,
           updatedAt: new Date()
         });
         storedCount++;
+      }
+      if (storedCount > 0) {
+        await batch.commit();
       }
     }
 
