@@ -39,6 +39,25 @@ export default function EmailModule() {
   const [isSending, setIsSending] = useState(false);
   const [draftText, setDraftText] = useState("");
 
+  // Templates State
+  const [templates, setTemplates] = useState([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+
+  const fetchTemplates = async () => {
+    setIsLoadingTemplates(true);
+    try {
+      const res = await fetch("/api/agents/courier/templates");
+      if (res.ok) {
+        const data = await res.json();
+        setTemplates(data.templates || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch templates:", err);
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  };
+
   const fetchInbox = async () => {
     setIsLoading(true);
     setError(null);
@@ -515,19 +534,50 @@ export default function EmailModule() {
 
         {activeTab === "compose" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <button
-                className={`btn btn-sm ${isAiDraftMode ? "btn-primary" : "btn-secondary"}`}
-                onClick={() => setIsAiDraftMode(true)}
-              >
-                ✨ AI Draft
-              </button>
-              <button
-                className={`btn btn-sm ${!isAiDraftMode ? "btn-primary" : "btn-secondary"}`}
-                onClick={() => setIsAiDraftMode(false)}
-              >
-                ✍️ Manual
-              </button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  className={`btn btn-sm ${isAiDraftMode ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setIsAiDraftMode(true)}
+                >
+                  ✨ AI Draft
+                </button>
+                <button
+                  className={`btn btn-sm ${!isAiDraftMode ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setIsAiDraftMode(false)}
+                >
+                  ✍️ Manual
+                </button>
+              </div>
+
+              {/* Templates Dropdown Area */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {templates.length === 0 && (
+                  <button className="btn btn-sm btn-secondary" onClick={fetchTemplates} disabled={isLoadingTemplates}>
+                    {isLoadingTemplates ? "Loading..." : "Load Templates"}
+                  </button>
+                )}
+                {templates.length > 0 && (
+                  <select
+                    className="input"
+                    style={{ padding: "4px 8px", fontSize: 13, height: "auto" }}
+                    onChange={(e) => {
+                      const t = templates.find(temp => temp.name === e.target.value);
+                      if (t) {
+                        setComposeSubject(t.subject || "");
+                        setComposeBody(t.bodyTemplate || "");
+                        setIsAiDraftMode(false); // Switch to manual to show body
+                      }
+                    }}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Select Template</option>
+                    {templates.map((t, idx) => (
+                      <option key={idx} value={t.name}>{t.name} {t.tags && t.tags.length > 0 ? `(${t.tags.join(', ')})` : ''}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
 
             <div>
