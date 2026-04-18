@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { adminDb } from "@/lib/firebaseAdmin";
+
 import crypto from 'crypto';
 
 /**
@@ -64,8 +64,8 @@ export async function POST(request) {
     }
 
     // 1. Get FCM Token from Firestore
-    const fcmDoc = await getDoc(doc(db, "settings", "fcm_token"));
-    if (!fcmDoc.exists() || !fcmDoc.data().token) {
+    const fcmDoc = await adminDb.collection("settings").doc("fcm_token").get();
+    if (!fcmDoc.exists || !fcmDoc.data().token) {
       return NextResponse.json({ error: 'No FCM token found. User might not have enabled notifications.' }, { status: 404 });
     }
     const fcmToken = fcmDoc.data().token;

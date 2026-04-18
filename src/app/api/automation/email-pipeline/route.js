@@ -1,5 +1,5 @@
-import { getFirestore, doc, getDoc, collection, addDoc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+
+import { adminDb } from "@/lib/firebaseAdmin";
 import { refreshAccessToken } from "@/lib/googleAuth";
 
 export async function POST(request) {
@@ -24,15 +24,15 @@ export async function POST(request) {
       // 1. Task creation for action-required or high urgency
       if (category === "action-required" || urgency === "high") {
         if (!accessToken) {
-          const tokensDoc = await getDoc(doc(db, "settings", "google_oauth"));
-          if (tokensDoc.exists()) {
+          const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
+          if (tokensDoc.exists) {
             const tokens = tokensDoc.data();
             accessToken = tokens.accessToken;
 
             if (Date.now() > tokens.expiresAt) {
               const refreshed = await refreshAccessToken(tokens.refreshToken);
               accessToken = refreshed.access_token;
-              await updateDoc(doc(db, "settings", "google_oauth"), {
+              await adminDb.collection("settings").doc("google_oauth").update( {
                 accessToken: refreshed.access_token,
                 expiresAt: Date.now() + (refreshed.expires_in * 1000),
               });
@@ -63,7 +63,7 @@ export async function POST(request) {
       // 2. Client linkage
       if (category === "client") {
         try {
-          await addDoc(collection(db, "client_emails"), {
+          await adminDb.collection("client_emails").add( {
             emailId: id,
             from,
             matchedClient: from, // simplified for now
@@ -79,7 +79,7 @@ export async function POST(request) {
       const lowerSubject = (subject || "").toLowerCase();
       if (category === "invoice" || lowerSubject.includes("invoice") || lowerSubject.includes("receipt")) {
         try {
-          await addDoc(collection(db, "income_entries"), {
+          await adminDb.collection("income_entries").add( {
             from,
             subject,
             timestamp: new Date().toISOString(),

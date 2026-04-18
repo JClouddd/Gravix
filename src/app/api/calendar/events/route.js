@@ -39,7 +39,7 @@ export async function GET() {
     const rawEvents = eventsResponse.items || eventsResponse || [];
 
     // Fetch clients to check for attendee matches
-    const clientsSnapshot = await getDocs(collection(db, "clients"));
+    const clientsSnapshot = await adminDb.collection("clients").get();
     const clientEmails = new Set();
     clientsSnapshot.forEach(doc => {
       const data = doc.data();

@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, setDoc, doc, serverTimestamp } from "firebase/firestore";
+import { adminDb } from "@/lib/firebaseAdmin";
 import { generate } from "@/lib/geminiClient";
 
 export async function GET() {
   try {
-    const patternsRef = collection(db, "code_patterns");
-    const snapshot = await getDocs(patternsRef);
+    const patternsRef = adminDb.collection("code_patterns");
+    const snapshot = await patternsRef.get();
     const patterns = snapshot.docs.map(doc => doc.data());
     return NextResponse.json({ patterns });
   } catch (error) {
@@ -91,9 +90,9 @@ ${changesText.slice(0, 50000)} // Limit to avoid token overflow`;
     if (parsedData.patterns && Array.isArray(parsedData.patterns)) {
       for (const pattern of parsedData.patterns) {
         const docId = pattern.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-        await setDoc(doc(db, "code_patterns", docId), {
+        await adminDb.collection("code_patterns").doc(docId).set( {
           ...pattern,
-          updatedAt: serverTimestamp()
+          updatedAt: new Date()
         });
         storedCount++;
       }

@@ -1,7 +1,6 @@
 import { logUsage, getUsageSummary } from "@/lib/costTracker";
-import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 
-import { db as clientDb } from "@/lib/firebase";
+import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function GET(request) {
   try {
@@ -18,13 +17,10 @@ export async function GET(request) {
     startDate.setDate(now.getDate() - daysToFetch);
     startDate.setHours(0, 0, 0, 0);
 
-    const usageRef = collection(clientDb, "api_usage");
-    const q = query(
-      usageRef,
-      where("timestamp", ">=", Timestamp.fromDate(startDate))
-    );
+    const usageRef = adminDb.collection("api_usage");
+    const q = usageRef.where("timestamp", ">=", startDate);
 
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await q.get();
 
     let totalSpend = 0;
     const historyMap = {};

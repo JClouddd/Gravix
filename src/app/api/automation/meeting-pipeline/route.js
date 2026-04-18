@@ -1,5 +1,5 @@
-import { doc, getDoc, updateDoc, collection, addDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+
+import { adminDb } from "@/lib/firebaseAdmin";
 import { refreshAccessToken, googleApiRequest } from "@/lib/googleAuth";
 import { generate } from "@/lib/geminiClient";
 
@@ -15,8 +15,8 @@ export async function POST(request) {
     const { actionItems = [], followUps = [], decisions = [] } = analysis;
 
     // Get and manage OAuth tokens
-    const tokensDoc = await getDoc(doc(db, "settings", "google_oauth"));
-    if (!tokensDoc.exists()) {
+    const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
+    if (!tokensDoc.exists) {
       return Response.json({ error: "Google Workspace not connected" }, { status: 401 });
     }
 
@@ -27,7 +27,7 @@ export async function POST(request) {
       try {
         const refreshed = await refreshAccessToken(tokens.refreshToken);
         accessToken = refreshed.access_token;
-        await updateDoc(doc(db, "settings", "google_oauth"), {
+        await adminDb.collection("settings").doc("google_oauth").update( {
           accessToken: refreshed.access_token,
           expiresAt: Date.now() + (refreshed.expires_in * 1000),
         });
@@ -111,7 +111,7 @@ export async function POST(request) {
       try {
         const decisionText = typeof decision === "string" ? decision : decision.decision;
         if (decisionText) {
-          await addDoc(collection(db, "meeting_decisions"), {
+          await adminDb.collection("meeting_decisions").add( {
             meetingId,
             decision: decisionText,
             timestamp: new Date().toISOString(),
@@ -140,7 +140,7 @@ export async function POST(request) {
          complexity: "flash"
       });
 
-      await addDoc(collection(db, "email_drafts"), {
+      await adminDb.collection("email_drafts").add( {
         meetingId,
         subject: `Meeting Summary: ${meetingId}`,
         body: generatedEmail,

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+
+import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function GET(request, { params }) {
   try {
@@ -16,9 +16,9 @@ export async function GET(request, { params }) {
 
     // 1. Fetch client_emails
     try {
-      const emailsRef = collection(db, 'client_emails');
-      const emailsQuery = query(emailsRef, where('matchedClient', '==', id));
-      const emailsSnapshot = await getDocs(emailsQuery);
+      const emailsRef = adminDb.collection('client_emails');
+      const emailsQuery = emailsRef.where('matchedClient', '==', id);
+      const emailsSnapshot = await emailsQuery.get();
 
       emailsSnapshot.forEach(doc => {
         const data = doc.data();
@@ -38,10 +38,10 @@ export async function GET(request, { params }) {
 
     // 2. Fetch meeting_decisions
     try {
-      const meetingsRef = collection(db, 'meeting_decisions');
+      const meetingsRef = adminDb.collection('meeting_decisions');
       // Look for meetings related to this client
-      const meetingsQuery = query(meetingsRef, where('clientId', '==', id));
-      const meetingsSnapshot = await getDocs(meetingsQuery);
+      const meetingsQuery = meetingsRef.where('clientId', '==', id);
+      const meetingsSnapshot = await meetingsQuery.get();
 
       meetingsSnapshot.forEach(doc => {
         const data = doc.data();

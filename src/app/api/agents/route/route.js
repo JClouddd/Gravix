@@ -1,7 +1,7 @@
 import { structuredGenerate, generate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
-import { collection, addDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+
+import { adminDb } from "@/lib/firebaseAdmin";
 
 /**
  * POST /api/agents/route
@@ -71,7 +71,7 @@ Choose the best agent and explain your reasoning.`,
 
     // Log routing decision to Firestore for Conductor analysis
     try {
-      await addDoc(collection(db, "agent_routing_log"), {
+      await adminDb.collection("agent_routing_log").add( {
         message: message.substring(0, 100),
         selectedAgent: decision.agent,
         timestamp: new Date().toISOString()

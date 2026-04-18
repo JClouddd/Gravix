@@ -1,12 +1,12 @@
-import { collection, query, orderBy, limit, getDocs, addDoc, doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+
+import { adminDb } from "@/lib/firebaseAdmin";
 import { structuredGenerate } from "@/lib/geminiClient";
 
 export async function POST(request) {
   try {
-    const logsRef = collection(db, "agent_routing_log");
-    const q = query(logsRef, orderBy("timestamp", "desc"), limit(100));
-    const querySnapshot = await getDocs(q);
+    const logsRef = adminDb.collection("agent_routing_log");
+    const q = logsRef.orderBy("timestamp", "desc").limit(100);
+    const querySnapshot = await q.get();
 
     const logs = [];
     querySnapshot.forEach((doc) => {
@@ -61,11 +61,11 @@ export async function POST(request) {
       console.error("[conductor/analyze] Error parsing gemini response", e);
     }
 
-    const proposalsRef = collection(db, "agent_proposals");
+    const proposalsRef = adminDb.collection("agent_proposals");
     const timestamp = new Date().toISOString();
 
     for (const proposal of generatedProposals) {
-      await addDoc(proposalsRef, {
+      await proposalsRef.add( {
         ...proposal,
         status: "pending",
         timestamp,
@@ -81,9 +81,9 @@ export async function POST(request) {
 
 export async function GET(request) {
   try {
-    const proposalsRef = collection(db, "agent_proposals");
-    const q = query(proposalsRef, orderBy("timestamp", "desc"));
-    const querySnapshot = await getDocs(q);
+    const proposalsRef = adminDb.collection("agent_proposals");
+    const q = proposalsRef.orderBy("timestamp", "desc");
+    const querySnapshot = await q.get();
 
     const proposals = [];
     querySnapshot.forEach((doc) => {
@@ -104,8 +104,8 @@ export async function PUT(request) {
       return Response.json({ error: "Missing id or status" }, { status: 400 });
     }
 
-    const proposalDoc = doc(db, "agent_proposals", id);
-    await updateDoc(proposalDoc, { status });
+    const proposalDoc = adminDb.collection("agent_proposals").doc(id);
+    await proposalDoc.update( { status });
 
     return Response.json({ success: true, id, status });
   } catch (error) {

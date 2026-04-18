@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, query, orderBy, limit, getDocs } from "firebase/firestore";
+import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function GET() {
   try {
-    const checksRef = collection(db, "health_checks");
-    const q = query(checksRef, orderBy("timestamp", "desc"), limit(30));
-    const snapshot = await getDocs(q);
+    const checksRef = adminDb.collection("health_checks");
+    const q = checksRef.orderBy("timestamp", "desc").limit(30);
+    const snapshot = await q.get();
 
     const checks = [];
     let healthyCount = 0;
@@ -31,8 +30,8 @@ export async function GET() {
 export async function POST(request) {
   try {
     const data = await request.json();
-    const checksRef = collection(db, "health_checks");
-    await addDoc(checksRef, data);
+    const checksRef = adminDb.collection("health_checks");
+    await checksRef.add( data);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error writing health history:", error);
