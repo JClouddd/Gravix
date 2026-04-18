@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import HelpTooltip from "@/components/HelpTooltip";
 
 /**
@@ -324,7 +325,9 @@ function OverviewTab({ summary, credits, historyData, breakdown }) {
                 {stockResult.chartUrls && stockResult.chartUrls.length > 0 && (
                   <div style={{ marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     {stockResult.chartUrls.map((url, i) => (
-                      <img key={i} src={url} alt={`Chart ${i+1}`} style={{ maxWidth: '100%', borderRadius: "var(--radius-md)" }} />
+                      <div key={i} style={{ position: "relative", width: "100%", height: "300px", maxWidth: "600px" }}>
+                        <Image key={i} src={url} alt={`Chart ${i+1}`} fill style={{ objectFit: "contain", borderRadius: "var(--radius-md)" }} unoptimized />
+                      </div>
                     ))}
                   </div>
                 )}
