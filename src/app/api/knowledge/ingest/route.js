@@ -71,6 +71,27 @@ export async function POST(request) {
     // const db = getFirestore();
     // await db.collection('ingestion').doc(entry.id).set(entry);
 
+    // Call /api/knowledge/crossref internally
+    let crossrefAnalysis = null;
+    try {
+      const crossrefUrl = new URL('/api/knowledge/crossref', request.url);
+      const crossrefRes = await fetch(crossrefUrl.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: finalTitle,
+          content: processedContent,
+          source: source,
+        }),
+      });
+      if (crossrefRes.ok) {
+        const crossrefData = await crossrefRes.json();
+        crossrefAnalysis = crossrefData.data?.analysis || null;
+      }
+    } catch (err) {
+      console.warn("[knowledge/ingest] Internal crossref call failed:", err);
+    }
+
     return Response.json({
       success: true,
       entry: {
@@ -82,6 +103,7 @@ export async function POST(request) {
         summary: classification.summary,
         tags: classification.tags,
         status: entry.status,
+        crossref: crossrefAnalysis,
         ...processedMeta,
       },
       message: `Content staged for review. Category: ${classification.category} (${(classification.confidence * 100).toFixed(0)}% confidence)`,
