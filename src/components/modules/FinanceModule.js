@@ -12,20 +12,28 @@ export default function FinanceModule() {
   const [activeTab, setActiveTab] = useState("Overview");
   const [summary, setSummary] = useState(null);
   const [breakdown, setBreakdown] = useState(null);
+  const [historyData, setHistoryData] = useState(null);
+  const [credits, setCredits] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/costs/summary").then((r) => r.json()),
       fetch("/api/costs/breakdown").then((r) => r.json()),
+      fetch("/api/costs/history?period=30d&groupBy=day").then((r) => r.json()),
+      fetch("/api/costs/credits").then((r) => r.json()),
     ])
-      .then(([summaryData, breakdownData]) => {
+      .then(([summaryData, breakdownData, historyRes, creditsRes]) => {
         setSummary(summaryData);
         setBreakdown(breakdownData);
+        setHistoryData(historyRes);
+        setCredits(creditsRes);
         setLoading(false);
       })
-      .catch((error) => {
-        console.error("Error fetching finance data:", error);
+      .catch((err) => {
+        console.error("Error fetching finance data:", err);
+        setError(true);
         setLoading(false);
       });
   }, []);
@@ -89,7 +97,7 @@ export default function FinanceModule() {
       </div>
 
       {activeTab === "Overview" && (
-        <OverviewTab summary={summary} />
+        <OverviewTab summary={summary} historyData={historyData} credits={credits} breakdown={breakdown} />
       )}
 
       {activeTab === "By Model" && (
@@ -237,7 +245,7 @@ function ByAgentTab({ breakdown }) {
   );
 }
 
-function OverviewTab({ summary }) {
+function OverviewTab({ summary, credits, historyData, breakdown }) {
   const totalSpend = summary?.totalSpend || 0;
 
   // Calculate projected cost dynamically
@@ -246,78 +254,216 @@ function OverviewTab({ summary }) {
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const projectedCost = currentDay > 0 ? (totalSpend / currentDay) * daysInMonth : 0;
 
-  const cloudTotal = summary?.credits?.cloud?.total || 100;
-  const cloudUsed = summary?.credits?.cloud?.used || 0;
-  const cloudRemaining = Math.max(0, cloudTotal - cloudUsed);
-  const cloudPct = cloudTotal > 0 ? Math.min((cloudUsed / cloudTotal) * 100, 100) : 0;
-
-  const genaiTotal = summary?.credits?.genai?.total || 1000;
-  const genaiUsed = summary?.credits?.genai?.used || 0;
-  const genaiRemaining = Math.max(0, genaiTotal - genaiUsed);
-  const genaiPct = genaiTotal > 0 ? Math.min((genaiUsed / genaiTotal) * 100, 100) : 0;
+  const cloudCredit = credits?.cloudCredit || { total: 100, used: 0, remaining: 100 };
+  const genaiCredit = credits?.genaiCredit || { total: 1000, used: 0, remaining: 1000 };
 
   return (
-    <div className="grid-3" style={{ marginBottom: 24 }}>
-      <div className="card" style={{ padding: 20 }}>
-        <div className="caption" style={{ marginBottom: 6 }}>Monthly Spend</div>
-        <div className="h2" style={{ color: "var(--error)" }}>
-          <AnimatedCounter value={totalSpend} />
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div className="grid-3">
+        <div className="card" style={{ padding: 20 }}>
+          <div className="caption" style={{ marginBottom: 6 }}>Monthly Spend</div>
+          <div className="h2" style={{ color: "var(--error)" }}>
+            <AnimatedCounter value={totalSpend} />
+          </div>
+          <div className="caption" style={{ marginTop: 4 }}>
+            Projected: ${projectedCost.toFixed(2)}
+          </div>
         </div>
-        <div className="caption" style={{ marginTop: 4 }}>
-          Projected: ${projectedCost.toFixed(2)}
-        </div>
+
+        <CircularGaugeCard
+          title="Cloud Credit"
+          total={cloudCredit.total}
+          used={cloudCredit.used}
+        />
+
+        <CircularGaugeCard
+          title="GenAI Credit"
+          total={genaiCredit.total}
+          used={genaiCredit.used}
+        />
       </div>
 
-      <GaugeCard
-        title="Cloud Credits Remaining"
-        remaining={cloudRemaining}
-        used={cloudUsed}
-        total={cloudTotal}
-        color="var(--info)"
-      />
+      <CostTrendsChart historyData={historyData} />
 
-      <GaugeCard
-        title="GenAI Credits Remaining"
-        remaining={genaiRemaining}
-        used={genaiUsed}
-        total={genaiTotal}
-        color="var(--accent)"
-      />
+      <PerApiBreakdownTable breakdown={breakdown} />
+
     </div>
   );
 }
 
-function GaugeCard({ title, remaining, used, total, color }) {
-  const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
+function PerApiBreakdownTable({ breakdown }) {
+  const routes = breakdown?.perRoute || [];
+
+  if (routes.length === 0) {
+    return null;
+  }
+
+  // Sort by cost descending
+  const sortedRoutes = [...routes].sort((a, b) => b.cost - a.cost);
 
   return (
-    <div className="card" style={{ padding: 20 }}>
-      <div className="caption" style={{ marginBottom: 6 }}>{title}</div>
-      <div className="h2" style={{ color }}>
-        ${remaining.toFixed(2)}
+    <div className="card">
+      <div className="h3" style={{ marginBottom: 16 }}>Per-API Breakdown</div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--card-border)", color: "var(--text-secondary)" }}>
+              <th style={{ padding: "12px 8px", fontWeight: 500 }}>Route</th>
+              <th style={{ padding: "12px 8px", fontWeight: 500, textAlign: "right" }}>Calls</th>
+              <th style={{ padding: "12px 8px", fontWeight: 500, textAlign: "right" }}>Avg Cost</th>
+              <th style={{ padding: "12px 8px", fontWeight: 500, textAlign: "right" }}>Total Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedRoutes.map((r, i) => {
+              const avgCost = r.calls > 0 ? r.cost / r.calls : 0;
+              return (
+                <tr key={r.route} style={{ borderBottom: i === sortedRoutes.length - 1 ? "none" : "1px solid var(--card-border)" }}>
+                  <td style={{ padding: "12px 8px" }}><span className="badge" style={{ background: "var(--bg-tertiary)" }}>{r.route}</span></td>
+                  <td style={{ padding: "12px 8px", textAlign: "right" }}>{r.calls.toLocaleString()}</td>
+                  <td style={{ padding: "12px 8px", textAlign: "right", color: "var(--text-secondary)" }}>${avgCost.toFixed(5)}</td>
+                  <td style={{ padding: "12px 8px", textAlign: "right", color: "var(--accent)", fontWeight: 600 }}>${r.cost.toFixed(4)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
-      <div className="caption" style={{ marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
-        <span>Used: ${used.toFixed(2)}</span>
-        <span>Total: ${total.toFixed(0)}</span>
+    </div>
+  );
+}
+
+function CostTrendsChart({ historyData }) {
+  if (!historyData || !historyData.history || historyData.history.length === 0) {
+    return (
+      <div className="card">
+        <div className="empty-state">
+          <div className="empty-state-icon">📈</div>
+          <p className="empty-state-title">No Cost Data</p>
+          <p className="empty-state-desc">Waiting for API usage to populate trends.</p>
+        </div>
       </div>
-      <div
-        style={{
-          marginTop: 12,
-          height: 6,
-          background: "var(--bg-tertiary)",
-          borderRadius: 3,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            background: color,
-            borderRadius: 3,
-            transition: "width 0.6s var(--ease-out)",
-          }}
-        />
+    );
+  }
+
+  const history = [...historyData.history].reverse(); // oldest to newest for left-to-right
+  const maxCost = Math.max(...history.map(d => d.totalCost), 0.01); // avoid division by zero
+
+  return (
+    <div className="card">
+      <div className="h3" style={{ marginBottom: 16 }}>Cost Trends</div>
+      <div style={{ display: "flex", alignItems: "flex-end", height: 200, gap: 4, paddingBottom: 24, position: "relative" }}>
+        {history.map((day, i) => {
+          const heightPct = (day.totalCost / maxCost) * 100;
+          return (
+            <div
+              key={day.date}
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "flex-end",
+                position: "relative",
+                height: "100%",
+                group: "bar"
+              }}
+              title={`${day.date}: $${day.totalCost.toFixed(4)}`}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  height: `${heightPct}%`,
+                  background: "var(--accent)",
+                  borderRadius: "4px 4px 0 0",
+                  minHeight: day.totalCost > 0 ? 2 : 0,
+                  transition: "height 0.3s ease",
+                  cursor: "pointer"
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = "var(--accent-hover)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = "var(--accent)";
+                }}
+              />
+              {/* Show dates sparsely */}
+              {i % Math.ceil(history.length / 5) === 0 && (
+                <div style={{
+                  position: "absolute",
+                  bottom: -20,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  fontSize: 10,
+                  color: "var(--text-secondary)",
+                  whiteSpace: "nowrap"
+                }}>
+                  {day.date.slice(5)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CircularGaugeCard({ title, total, used }) {
+  const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
+  let color = "var(--success)";
+  if (pct >= 80) color = "var(--error)";
+  else if (pct >= 50) color = "var(--warning)";
+
+  const radius = 36;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (pct / 100) * circumference;
+
+  return (
+    <div className="card" style={{ padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
+      <div style={{ position: "relative", width: 80, height: 80 }}>
+        <svg width="80" height="80" viewBox="0 0 80 80" style={{ transform: "rotate(-90deg)" }}>
+          <circle
+            cx="40"
+            cy="40"
+            r={radius}
+            fill="transparent"
+            stroke="var(--bg-tertiary)"
+            strokeWidth="6"
+          />
+          <circle
+            cx="40"
+            cy="40"
+            r={radius}
+            fill="transparent"
+            stroke={color}
+            strokeWidth="6"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            style={{ transition: "stroke-dashoffset 0.6s var(--ease-out)" }}
+          />
+        </svg>
+        <div style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 14,
+          fontWeight: 600
+        }}>
+          {Math.round(pct)}%
+        </div>
+      </div>
+      <div>
+        <div className="h4">{title}</div>
+        <div className="caption" style={{ marginTop: 4 }}>
+          Used: ${used.toFixed(2)}<br/>
+          Total: ${total.toFixed(0)}
+        </div>
       </div>
     </div>
   );
