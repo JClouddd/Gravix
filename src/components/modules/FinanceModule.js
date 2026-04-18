@@ -7,6 +7,8 @@ import HelpTooltip from "@/components/HelpTooltip";
  * Finance Module
  * Income tracker + Cost dashboard + Credit allocation
  */
+import Image from "next/image";
+
 const TABS = ["Overview", "By Model", "By Agent"];
 
 export default function FinanceModule() {
@@ -324,7 +326,7 @@ function OverviewTab({ summary, credits, historyData, breakdown }) {
                 {stockResult.chartUrls && stockResult.chartUrls.length > 0 && (
                   <div style={{ marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     {stockResult.chartUrls.map((url, i) => (
-                      <img key={i} src={url} alt={`Chart ${i+1}`} style={{ maxWidth: '100%', borderRadius: "var(--radius-md)" }} />
+                      <Image key={i} src={url} alt={`Chart ${i+1}`} width={800} height={400} style={{ maxWidth: '100%', height: 'auto', borderRadius: "var(--radius-md)" }} />
                     ))}
                   </div>
                 )}
