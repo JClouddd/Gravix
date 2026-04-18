@@ -22,7 +22,7 @@ export default function OnboardingTour() {
   useEffect(() => {
     const isComplete = localStorage.getItem("gravix-onboarding-complete");
     if (isComplete !== "true") {
-      setIsVisible(true);
+      setTimeout(() => setIsVisible(true), 0);
     }
   }, []);
 
