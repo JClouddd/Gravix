@@ -29,20 +29,29 @@ export async function POST() {
     const mergedPrs = prs.filter(pr => pr.merged_at);
 
     // 2. For each PR, get file changes
-    const allChanges = [];
-    for (const pr of mergedPrs) {
-      const filesRes = await fetch(`https://api.github.com/repos/JClouddd/Gravix/pulls/${pr.number}/files`, {
-        headers: { "User-Agent": "Gravix-Builder-Agent" }
-      });
-      if (filesRes.ok) {
-        const files = await filesRes.json();
-        files.forEach(f => {
-          if (f.patch) {
-            allChanges.push(`File: ${f.filename}\nDiff:\n${f.patch}\n`);
-          }
+    const fetchPromises = mergedPrs.map(async (pr) => {
+      try {
+        const filesRes = await fetch(`https://api.github.com/repos/JClouddd/Gravix/pulls/${pr.number}/files`, {
+          headers: { "User-Agent": "Gravix-Builder-Agent" }
         });
+        if (filesRes.ok) {
+          const files = await filesRes.json();
+          const changes = [];
+          files.forEach(f => {
+            if (f.patch) {
+              changes.push(`File: ${f.filename}\nDiff:\n${f.patch}\n`);
+            }
+          });
+          return changes;
+        }
+      } catch (err) {
+        console.error(`Error fetching files for PR ${pr.number}:`, err);
       }
-    }
+      return [];
+    });
+
+    const results = await Promise.all(fetchPromises);
+    const allChanges = results.flat();
 
     if (allChanges.length === 0) {
       return NextResponse.json({ patternsFound: 0, message: "No recent changes found." });
