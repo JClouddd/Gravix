@@ -1,98 +1,41 @@
-import { performance } from 'perf_hooks';
+import { POST } from './src/app/api/automation/meeting-pipeline/route.js';
 
-// Mock dependencies directly to avoid module resolution issues
-const mockAdminDb = {
-  collection: () => ({
-    doc: () => ({
-      get: async () => ({
-        exists: true,
-        data: () => ({ accessToken: "test_token", expiresAt: Date.now() + 10000 })
-      }),
-      update: async () => {}
-    }),
-    add: async () => {}
-  })
-};
-
-const mockGoogleApiRequest = async (token, url, opts) => {
-    return new Promise((resolve) => setTimeout(resolve, 50)); // Mock 50ms network request
-};
-
-const mockGenerate = async () => "Draft email body.";
-
-async function POST_simulated(actionItemsCount) {
-    let tasksCreated = 0;
-    const actionItems = Array(actionItemsCount).fill({ task: "Task", owner: "User" });
-
-    // Create Tasks
-    for (const item of actionItems) {
-      try {
-        const taskPayload = {
-          title: item.task || "Meeting Action Item",
-          notes: `From meeting: test\nOwner: ${item.owner || "Unassigned"}`,
-        };
-
-        await mockGoogleApiRequest(
-          "token",
-          "https://tasks.googleapis.com/tasks/v1/lists/@default/tasks",
-          {
-            method: "POST",
-            body: JSON.stringify(taskPayload),
-          }
-        );
-        tasksCreated++;
-      } catch (err) {
-        console.error("Failed to create task", err);
+async function run() {
+  const req = {
+    json: async () => ({
+      meetingId: "test-meeting-123",
+      transcript: "This is a test transcript",
+      analysis: {
+        actionItems: [
+          { task: "Task 1", owner: "Alice" },
+          { task: "Task 2", owner: "Bob" }
+        ],
+        followUps: [
+          { item: "Follow up 1" },
+          { item: "Follow up 2" },
+          { item: "Follow up 3" },
+          { item: "Follow up 4" },
+          { item: "Follow up 5" },
+        ],
+        decisions: [
+          { decision: "Decision 1" },
+          { decision: "Decision 2" }
+        ]
       }
-    }
-    return tasksCreated;
+    })
+  };
+
+  const start = Date.now();
+  const res = await POST(req);
+  const end = Date.now();
+  console.log(`Execution time: ${end - start}ms`);
+  const data = await res.json();
+  console.log(data);
 }
 
-async function POST_optimized(actionItemsCount) {
-    let tasksCreated = 0;
-    const actionItems = Array(actionItemsCount).fill({ task: "Task", owner: "User" });
+// Mocking dependencies to avoid actual API calls and DB queries
+import * as adminDbMock from './src/lib/firebaseAdmin.js';
+import * as googleAuthMock from './src/lib/googleAuth.js';
+import * as geminiClientMock from './src/lib/geminiClient.js';
 
-    // Create Tasks
-    const taskPromises = actionItems.map(async (item) => {
-      try {
-        const taskPayload = {
-          title: item.task || "Meeting Action Item",
-          notes: `From meeting: test\nOwner: ${item.owner || "Unassigned"}`,
-        };
-
-        await mockGoogleApiRequest(
-          "token",
-          "https://tasks.googleapis.com/tasks/v1/lists/@default/tasks",
-          {
-            method: "POST",
-            body: JSON.stringify(taskPayload),
-          }
-        );
-        tasksCreated++;
-      } catch (err) {
-        console.error("Failed to create task", err);
-      }
-    });
-
-    await Promise.all(taskPromises);
-
-    return tasksCreated;
-}
-
-
-async function runBenchmark() {
-    console.log("Starting benchmark...");
-    const itemsCount = 20; // 20 tasks
-
-    let startTime = performance.now();
-    await POST_simulated(itemsCount);
-    let endTime = performance.now();
-    console.log(`Baseline Execution time (Sequential): ${endTime - startTime} ms`);
-
-    startTime = performance.now();
-    await POST_optimized(itemsCount);
-    endTime = performance.now();
-    console.log(`Optimized Execution time (Concurrent): ${endTime - startTime} ms`);
-}
-
-runBenchmark();
+// Setup mocks if possible, or create a mock module replacement script.
