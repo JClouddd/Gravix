@@ -680,7 +680,7 @@ input, textarea, select {
 @media (max-width: 768px) {
   .app-main {
     margin-left: 0;
-    padding-bottom: 72px;
+    padding-bottom: 100px;
   }
 
   .sidebar {
