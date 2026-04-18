@@ -231,7 +231,19 @@ export default function SettingsModule() {
                   onChange={e => setProfile({...profile, email: e.target.value})}
                 />
               </div>
-              <button className="btn btn-primary btn-sm" style={{ alignSelf: "flex-start" }}>Save</button>
+              <button className="btn btn-primary btn-sm" style={{ alignSelf: "flex-start" }} onClick={async () => {
+                try {
+                  await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile })
+                  });
+                  alert('Profile saved!');
+                } catch (err) {
+                  console.error('Failed to save profile:', err);
+                  alert('Failed to save profile');
+                }
+              }}>Save</button>
             </div>
           </div>
         </div>

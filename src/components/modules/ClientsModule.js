@@ -512,7 +512,7 @@ export default function ClientsModule() {
 
               <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
                 <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => setSelectedClient(client)}>View Profile</button>
-                <button className="btn btn-secondary btn-sm" style={{ flex: 1 }}>Manage</button>
+                <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => { setSelectedClient(client); setActiveTab('billing'); }}>Manage</button>
               </div>
             </div>
           ))}

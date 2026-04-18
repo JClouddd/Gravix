@@ -483,7 +483,7 @@ export default function PlannerModule() {
           </div>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
-          <button className="btn btn-primary btn-sm">+ New Event</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { setActiveTab('calendar'); }}>+ New Event</button>
         </div>
       </div>
 
