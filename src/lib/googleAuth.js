@@ -156,8 +156,12 @@ export async function getGmailInbox(accessToken, maxResults = 20) {
  * Send a Gmail message
  */
 export async function sendGmail(accessToken, { to, subject, body }) {
+  // Sanitize headers to prevent email header injection
+  const safeTo = to.replace(/[\r\n]/g, "");
+  const safeSubject = subject.replace(/[\r\n]/g, "");
+
   const raw = btoa(
-    `To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${body}`
+    `To: ${safeTo}\r\nSubject: ${safeSubject}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${body}`
   ).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
   return googleApiRequest(
@@ -198,6 +202,17 @@ export async function getTasks(accessToken, taskListId = "@default") {
   );
 }
 
+export async function updateTask(accessToken, taskListId, taskId, data) {
+  return googleApiRequest(
+    accessToken,
+    `https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks/${taskId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
 const defaultExport = {
   getAuthUrl,
   exchangeCode,
@@ -207,7 +222,8 @@ const defaultExport = {
   sendGmail,
   getCalendarEvents,
   getTaskLists,
-  getTasks,
+getTasks,
+  updateTask,
   SCOPES,
 };
 export default defaultExport;

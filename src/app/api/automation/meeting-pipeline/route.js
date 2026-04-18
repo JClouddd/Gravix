@@ -41,7 +41,7 @@ export async function POST(request) {
     let decisionsStored = 0;
 
     // Create Tasks
-    for (const item of actionItems) {
+    const taskPromises = actionItems.map(async (item) => {
       try {
         const taskPayload = {
           title: item.task || "Meeting Action Item",
@@ -68,10 +68,10 @@ export async function POST(request) {
       } catch (err) {
         console.error("Failed to create task", err);
       }
-    }
+    });
 
     // Create Calendar Events for follow-ups
-    for (const item of followUps) {
+    const eventPromises = followUps.map(async (item) => {
       try {
         const eventStart = new Date();
         eventStart.setDate(eventStart.getDate() + 7); // 1 week from now
@@ -104,52 +104,69 @@ export async function POST(request) {
       } catch (err) {
         console.error("Failed to create follow-up event", err);
       }
-    }
+    });
 
     // Store Decisions in Firestore
-    for (const decision of decisions) {
-      try {
-        const decisionText = typeof decision === "string" ? decision : decision.decision;
-        if (decisionText) {
-          await adminDb.collection("meeting_decisions").add( {
-            meetingId,
-            decision: decisionText,
-            timestamp: new Date().toISOString(),
-          });
-          decisionsStored++;
+    const decisionsPromise = (async () => {
+      if (decisions.length > 0) {
+        try {
+          const batch = adminDb.batch();
+          for (const decision of decisions) {
+            const decisionText = typeof decision === "string" ? decision : decision.decision;
+            if (decisionText) {
+              const docRef = adminDb.collection("meeting_decisions").doc();
+              batch.set(docRef, {
+                meetingId,
+                decision: decisionText,
+                timestamp: new Date().toISOString(),
+              });
+              decisionsStored++;
+            }
+          }
+          await batch.commit();
+        } catch (err) {
+          console.error("Failed to store decisions batch", err);
         }
-      } catch (err) {
-        console.error("Failed to store decision", err);
       }
-    }
+    })();
 
     // Draft Email Summary using Gemini
     let emailDrafted = false;
-    try {
-      const prompt = `
-        Summarize the following meeting for the attendees.
-        Include a brief overview, list the key decisions, and clearly list the action items with their owners.
+    const emailPromise = (async () => {
+      try {
+        const prompt = `
+          Summarize the following meeting for the attendees.
+          Include a brief overview, list the key decisions, and clearly list the action items with their owners.
 
-        Meeting Transcript/Notes:
-        ${transcript ? transcript : JSON.stringify(analysis)}
-      `;
+          Meeting Transcript/Notes:
+          ${transcript ? transcript : JSON.stringify(analysis)}
+        `;
 
-      const generatedEmail = await generate({
-         prompt,
-         systemPrompt: "You are an assistant creating a professional meeting summary email draft. Output plain text suitable for the body of an email.",
-         complexity: "flash"
-      });
+        const generatedEmail = await generate({
+           prompt,
+           systemPrompt: "You are an assistant creating a professional meeting summary email draft. Output plain text suitable for the body of an email.",
+           complexity: "flash"
+        });
 
-      await adminDb.collection("email_drafts").add( {
-        meetingId,
-        subject: `Meeting Summary: ${meetingId}`,
-        body: generatedEmail,
-        createdAt: new Date().toISOString(),
-      });
-      emailDrafted = true;
-    } catch (err) {
-      console.error("Failed to draft email", err);
-    }
+        await adminDb.collection("email_drafts").add( {
+          meetingId,
+          subject: `Meeting Summary: ${meetingId}`,
+          body: generatedEmail,
+          createdAt: new Date().toISOString(),
+        });
+        emailDrafted = true;
+      } catch (err) {
+        console.error("Failed to draft email", err);
+      }
+    })();
+
+    // Await all concurrent operations
+    await Promise.all([
+      Promise.all(taskPromises),
+      Promise.all(eventPromises),
+      decisionsPromise,
+      emailPromise
+    ]);
 
     return Response.json({
       success: true,

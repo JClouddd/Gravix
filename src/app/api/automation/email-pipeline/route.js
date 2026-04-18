@@ -16,6 +16,7 @@ export async function POST(request) {
     let invoicesLogged = 0;
 
     let accessToken = null;
+    const batch = adminDb.batch();
 
     for (const email of emails) {
       const { id, from, subject, snippet, category, urgency } = email;
@@ -63,15 +64,17 @@ export async function POST(request) {
       // 2. Client linkage
       if (category === "client") {
         try {
-          await adminDb.collection("client_emails").add( {
+          const docRef = adminDb.collection("client_emails").doc();
+          batch.set(docRef, {
             emailId: id,
             from,
             matchedClient: from, // simplified for now
             timestamp: new Date().toISOString(),
           });
           clientsLinked++;
+          batchCount++;
         } catch (err) {
-          console.error("Failed to link client email", id, err);
+          console.error("Failed to prepare client email for batch", id, err);
         }
       }
 
@@ -79,16 +82,26 @@ export async function POST(request) {
       const lowerSubject = (subject || "").toLowerCase();
       if (category === "invoice" || lowerSubject.includes("invoice") || lowerSubject.includes("receipt")) {
         try {
-          await adminDb.collection("income_entries").add( {
+          const docRef = adminDb.collection("income_entries").doc();
+          batch.set(docRef, {
             from,
             subject,
             timestamp: new Date().toISOString(),
             source: "email-auto",
           });
           invoicesLogged++;
+          batchCount++;
         } catch (err) {
-          console.error("Failed to log invoice for email", id, err);
+          console.error("Failed to prepare invoice for batch", id, err);
         }
+      }
+    }
+
+    if (clientsLinked > 0 || invoicesLogged > 0) {
+      try {
+        await batch.commit();
+      } catch (err) {
+        console.error("Failed to commit batch", err);
       }
     }
 

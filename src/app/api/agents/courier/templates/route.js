@@ -55,8 +55,7 @@ export async function POST() {
     }
 
     // Fetch message details
-    const emailTexts = [];
-    for (const msg of sentMessages) {
+    const fetchPromises = sentMessages.map(async (msg) => {
       try {
         const fullMsg = await googleApiRequest(
           access_token,
@@ -70,11 +69,15 @@ export async function POST() {
 
         // Try to get body snippet or plain text
         let body = fullMsg.snippet || "";
-        emailTexts.push(`Subject: ${subject}\nBody:\n${body}\n`);
+        return `Subject: ${subject}\nBody:\n${body}\n`;
       } catch (e) {
         console.error(`Failed to fetch details for msg ${msg.id}`, e);
+        return null; // Return null on failure so it can be filtered out
       }
-    }
+    });
+
+    const results = await Promise.all(fetchPromises);
+    const emailTexts = results.filter(text => text !== null);
 
     if (emailTexts.length === 0) {
        return NextResponse.json({ templatesCreated: 0, message: "No email content extracted." });
@@ -119,13 +122,18 @@ ${emailsCombinedText.slice(0, 50000)} // Limit to avoid token overflow`;
     // 4. Store in Firestore
     let storedCount = 0;
     if (parsedData.templates && Array.isArray(parsedData.templates)) {
+      const batch = adminDb.batch();
       for (const template of parsedData.templates) {
         const docId = template.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-        await adminDb.collection("email_templates").doc(docId).set( {
+        const docRef = adminDb.collection("email_templates").doc(docId);
+        batch.set(docRef, {
           ...template,
           updatedAt: new Date()
         });
         storedCount++;
+      }
+      if (storedCount > 0) {
+        await batch.commit();
       }
     }
 

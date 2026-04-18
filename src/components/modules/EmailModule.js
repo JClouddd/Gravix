@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 
 /**
@@ -83,9 +83,22 @@ export default function EmailModule() {
     }
   };
 
-  const classifyEmails = async (emailsToClassify) => {
+  const classifyEmails = useCallback(async (emailsToClassify) => {
     if (!emailsToClassify || emailsToClassify.length === 0) return;
     setIsClassifying(true);
+
+    const newClassifications = {};
+
+    // Initialize with default/fallback to prevent infinite loops if fetch fails entirely or omits items
+    emailsToClassify.forEach(e => {
+      newClassifications[e.id] = {
+        emailId: e.id,
+        category: "unknown",
+        urgency: "low",
+        reason: "Failed to classify"
+      };
+    });
+
     try {
       const payload = emailsToClassify.map(e => ({
         id: e.id,
@@ -103,19 +116,18 @@ export default function EmailModule() {
       if (res.ok) {
         const data = await res.json();
         if (data.classifications) {
-          const newClassifications = {};
           data.classifications.forEach(c => {
             newClassifications[c.emailId] = c;
           });
-          setClassifications(prev => ({...prev, ...newClassifications}));
         }
       }
     } catch (err) {
       console.error("Error classifying emails:", err);
     } finally {
+      setClassifications(prev => ({...prev, ...newClassifications}));
       setIsClassifying(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -127,14 +139,6 @@ export default function EmailModule() {
           setIsConnected(data.connected);
           if (data.connected && data.inbox) {
             setInbox(data.inbox);
-            // We use functional state updater below so we don't need 'classifications' in dependency array
-            // But we will just ignore the lint warning or fetch then classify everything
-            // Better to just classify top 10 from inbox without relying on current state for unclassified check
-            // To simplify and fix exhaustive-deps, we just classify the first 10 on initial load.
-            const toClassify = data.inbox.slice(0, 10);
-            if (toClassify.length > 0) {
-              classifyEmails(toClassify);
-            }
           }
         }
       } catch (err) {
@@ -148,6 +152,23 @@ export default function EmailModule() {
     loadData();
     return () => { isMounted = false; };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (inbox.length > 0 && !isClassifying) {
+      const unclassified = inbox.filter(e => !classifications[e.id]);
+      if (unclassified.length > 0) {
+        // Run classification asynchronously to avoid triggering setState
+        // synchronously within the effect, which React warns about.
+        Promise.resolve().then(() => {
+          if (active) {
+            classifyEmails(unclassified);
+          }
+        });
+      }
+    }
+    return () => { active = false; };
+  }, [inbox, classifications, isClassifying, classifyEmails]);
 
   const handleSummarizeThread = async () => {
     if (!selectedEmail) return;
