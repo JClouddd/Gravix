@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import HelpTooltip from "@/components/HelpTooltip";
 
 function IncomeTrackerTab() {
@@ -358,33 +357,7 @@ function ByAgentTab({ breakdown }) {
 }
 
 function OverviewTab({ summary, credits, historyData, breakdown }) {
-  const [stockTicker, setStockTicker] = useState("");
-  const [stockRunning, setStockRunning] = useState(false);
-  const [stockResult, setStockResult] = useState(null);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
-
-  const handleRunStockAnalysis = async (e) => {
-    e.preventDefault();
-    if (!stockTicker) return;
-    setStockRunning(true);
-    setStockResult(null);
-    try {
-      const response = await fetch("/api/colab/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          notebookId: "stock_analysis",
-          parameters: { ticker: stockTicker, period: "1y" }
-        })
-      });
-      const data = await response.json();
-      setStockResult(data);
-    } catch (err) {
-      setStockResult({ error: err.message });
-    } finally {
-      setStockRunning(false);
-    }
-  };
 
   const totalSpend = summary?.totalSpend || 0;
 
@@ -413,45 +386,6 @@ function OverviewTab({ summary, credits, historyData, breakdown }) {
              )}
           </div>
         </div>
-        <form onSubmit={handleRunStockAnalysis} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <input
-            type="text"
-            className="input"
-            placeholder="Ticker (e.g. AAPL)"
-            value={stockTicker}
-            onChange={e => setStockTicker(e.target.value)}
-            style={{ maxWidth: 200 }}
-            required
-          />
-          <button type="submit" className="btn btn-primary" disabled={stockRunning}>
-            {stockRunning ? "Running..." : "Run Stock Analysis"}
-          </button>
-        </form>
-        {stockResult && (
-          <div style={{ marginTop: 16, padding: 16, background: "var(--bg-secondary)", borderRadius: "var(--radius-md)", border: "1px solid var(--card-border)" }}>
-            {stockResult.error ? (
-              <div className="badge badge-error">Error: {stockResult.error}</div>
-            ) : (
-              <div>
-                <p className="body-sm" style={{ fontWeight: 600, marginBottom: 8 }}>Analysis for {stockTicker.toUpperCase()}:</p>
-                {stockResult.executionTime && <p className="body-sm" style={{ color: "var(--text-tertiary)", marginBottom: 8 }}>Time: {(stockResult.executionTime / 1000).toFixed(2)}s</p>}
-                <div style={{ overflowX: "auto" }}>
-                  <pre className="body-sm" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                    {typeof stockResult.results === 'object' ? JSON.stringify(stockResult.results, null, 2) : stockResult.results}
-                  </pre>
-                </div>
-                {stockResult.chartUrls && stockResult.chartUrls.length > 0 && (
-                  <div style={{ marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    {stockResult.chartUrls.map((url, i) => (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img key={i} src={url} alt={`Chart ${i+1}`} style={{ maxWidth: '100%', borderRadius: "var(--radius-md)" }} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       <div className="grid-3">

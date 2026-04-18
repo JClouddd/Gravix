@@ -22,16 +22,7 @@ export default function ColabModule() {
   const [executionMessage, setExecutionMessage] = useState("");
 
   // Results history state
-  const [executionHistory, setExecutionHistory] = useState([
-    {
-      id: "mock_exec_1",
-      notebook: "Health Trends",
-      status: "completed",
-      time: "Just now",
-      parameters: { date_range: "30d" },
-      message: "Analysis completed. 3 anomalies found."
-    }
-  ]);
+  const [executionHistory, setExecutionHistory] = useState([]);
 
   useEffect(() => {
     async function fetchNotebooks() {
