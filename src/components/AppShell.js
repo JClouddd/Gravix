@@ -2,6 +2,7 @@
 
 import { useState, useCallback, Suspense, lazy, useEffect, useRef } from "react";
 import NotificationCenter from "@/components/NotificationCenter";
+
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
 import CommandPalette from "@/components/CommandPalette";
