@@ -7,6 +7,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
 import CommandPalette from "@/components/CommandPalette";
 import InstallPrompt from "@/components/InstallPrompt";
+
 import { registerShortcuts } from "@/lib/keyboardShortcuts";
 import QuickActions from "@/components/QuickActions";
 

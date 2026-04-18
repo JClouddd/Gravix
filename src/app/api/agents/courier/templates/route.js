@@ -119,13 +119,18 @@ ${emailsCombinedText.slice(0, 50000)} // Limit to avoid token overflow`;
     // 4. Store in Firestore
     let storedCount = 0;
     if (parsedData.templates && Array.isArray(parsedData.templates)) {
+      const batch = adminDb.batch();
       for (const template of parsedData.templates) {
         const docId = template.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-        await adminDb.collection("email_templates").doc(docId).set( {
+        const docRef = adminDb.collection("email_templates").doc(docId);
+        batch.set(docRef, {
           ...template,
           updatedAt: new Date()
         });
         storedCount++;
+      }
+      if (storedCount > 0) {
+        await batch.commit();
       }
     }
 
