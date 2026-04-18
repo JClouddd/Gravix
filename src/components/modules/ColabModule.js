@@ -8,7 +8,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 /**
  * Colab Module — Notebook runner + Results viewer
  */
-import Image from 'next/image';
+
 
 export default function ColabModule() {
   const [notebooks, setNotebooks] = useState([]);
