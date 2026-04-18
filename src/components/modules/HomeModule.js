@@ -16,12 +16,60 @@ export default function HomeModule() {
   const [loading, setLoading] = useState(true);
   const [healthData, setHealthData] = useState(null);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+
+  // Activity Feed state
+  const [activityFeed, setActivityFeed] = useState([]);
+  const [feedError, setFeedError] = useState(null);
+  const [showAllFeed, setShowAllFeed] = useState(false);
+
   const fetchHealth = () => {
     fetch("/api/health")
       .then((r) => r.json())
       .then((data) => setHealthData(data))
       .catch((err) => console.error("Health fetch error:", err));
   };
+
+  const fetchActivityFeed = () => {
+    fetch("/api/activity/feed")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.feed) setActivityFeed(data.feed);
+      })
+      .catch((err) => {
+        console.error("Activity feed fetch error:", err);
+        setFeedError(err.message);
+      });
+  };
+
+  useEffect(() => {
+    let timeoutId;
+    if (searchQuery.length >= 2) {
+      timeoutId = setTimeout(() => {
+        setIsSearching(true);
+        setShowSearchDropdown(true);
+        fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`)
+          .then((r) => r.json())
+          .then((data) => {
+            setSearchResults(data.results || []);
+            setIsSearching(false);
+          })
+          .catch((err) => {
+            console.error("Search error:", err);
+            setIsSearching(false);
+          });
+      }, 300);
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+    }
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   useEffect(() => {
     Promise.all([
@@ -50,7 +98,11 @@ export default function HomeModule() {
       });
 
     fetchHealth();
-    const interval = setInterval(fetchHealth, 60000);
+    fetchActivityFeed();
+    const interval = setInterval(() => {
+      fetchHealth();
+      fetchActivityFeed();
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -70,6 +122,95 @@ export default function HomeModule() {
 
   return (
     <div>
+      {/* Search Bar */}
+      <div style={{ position: "relative", marginBottom: "24px", zIndex: 100 }}>
+        <div style={{ position: "relative", width: "100%", maxWidth: "600px", margin: "0 auto" }}>
+          <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "18px", color: "var(--text-secondary)" }}>
+            🔍
+          </span>
+          <input
+            type="text"
+            className="input w-full"
+            placeholder="Search agents, docs, clients, or commands..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => {
+              if (searchQuery.length >= 2) setShowSearchDropdown(true);
+            }}
+            onBlur={() => {
+              // Delay hiding to allow clicks
+              setTimeout(() => setShowSearchDropdown(false), 200);
+            }}
+            style={{ paddingLeft: "40px", fontSize: "16px" }}
+          />
+        </div>
+
+        {showSearchDropdown && (
+          <div className="card" style={{
+            position: "absolute",
+            top: "100%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "100%",
+            maxWidth: "600px",
+            marginTop: "8px",
+            maxHeight: "400px",
+            overflowY: "auto",
+            zIndex: 1000,
+            padding: "8px 0"
+          }}>
+            {isSearching ? (
+              <div style={{ padding: "16px", textAlign: "center", color: "var(--text-secondary)" }}>
+                Searching...
+              </div>
+            ) : searchResults.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {searchResults.map((result, idx) => (
+                  <div
+                    key={`${result.action}-${idx}`}
+                    style={{
+                      padding: "12px 16px",
+                      display: "flex",
+                      gap: "12px",
+                      alignItems: "center",
+                      cursor: "pointer",
+                      borderBottom: idx < searchResults.length - 1 ? "1px solid var(--card-border)" : "none"
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--bg-secondary)"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                    onClick={() => {
+                      setSearchQuery("");
+                      setShowSearchDropdown(false);
+                      // In a real app we'd use Next.js router or a context action,
+                      // but since we are relying on window location hash or top-level layout state,
+                      // let's simulate navigation via a hash change or a global event, or just simple href update
+                      // Looking at CommandPalette.js, it seems to take `setActiveModule` as a prop.
+                      // Since we don't have setActiveModule passed to HomeModule,
+                      // let's just trigger a hash change if Gravix uses it, or log a useful message for the user
+                      // that handles module switching.
+                      // Actually, let's just set window.location.hash = result.module
+                      window.location.hash = result.module;
+                    }}
+                  >
+                    <span style={{ fontSize: "20px" }}>{result.icon}</span>
+                    <div>
+                      <div className="body-sm" style={{ fontWeight: 600 }}>{result.title}</div>
+                      <div className="caption" style={{ color: "var(--text-secondary)" }}>
+                        {result.type} • {result.description}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: "16px", textAlign: "center", color: "var(--text-secondary)" }}>
+                No results found for &quot;{searchQuery}&quot;
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Module Header */}
       <div className="module-header">
         <div className="module-header-left">
@@ -237,7 +378,7 @@ export default function HomeModule() {
         {fetchError ? (
           <div className="empty-state" style={{ padding: "20px" }}>
             <div className="empty-state-icon" style={{ color: "var(--error)" }}>⚠️</div>
-            <p className="empty-state-title" style={{ color: "var(--error)" }}>Failed to load activity</p>
+            <p className="empty-state-title" style={{ color: "var(--error)" }}>Failed to load task activity</p>
             <p className="empty-state-desc">{fetchError}</p>
           </div>
         ) : julesTasks && julesTasks.length > 0 ? (
@@ -260,9 +401,84 @@ export default function HomeModule() {
         ) : (
           <div className="empty-state" style={{ padding: "40px 20px" }}>
             <div className="empty-state-icon">📋</div>
+            <p className="empty-state-title">No task activity yet</p>
+            <p className="empty-state-desc">
+              Task activity will appear here.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Activity Feed */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <h3 className="h4" style={{ marginBottom: 16 }}>System Activity Feed</h3>
+        {feedError ? (
+          <div className="empty-state" style={{ padding: "20px" }}>
+            <div className="empty-state-icon" style={{ color: "var(--error)" }}>⚠️</div>
+            <p className="empty-state-title" style={{ color: "var(--error)" }}>Failed to load activity feed</p>
+            <p className="empty-state-desc">{feedError}</p>
+          </div>
+        ) : activityFeed && activityFeed.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {(showAllFeed ? activityFeed.slice(0, 15) : activityFeed.slice(0, 5)).map((item, idx) => {
+              const date = new Date(item.timestamp);
+              const isToday = date.toDateString() === new Date().toDateString();
+              const timeString = isToday
+                ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+              return (
+                <div key={idx} style={{ display: "flex", gap: "16px" }}>
+                  <div style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    background: "var(--bg-secondary)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "20px",
+                    flexShrink: 0
+                  }}>
+                    {item.icon}
+                  </div>
+                  <div style={{ flex: 1, borderBottom: idx < (showAllFeed ? Math.min(activityFeed.length, 15) : Math.min(activityFeed.length, 5)) - 1 ? "1px solid var(--card-border)" : "none", paddingBottom: "16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
+                      <span className="body-sm" style={{ fontWeight: 600 }}>{item.title}</span>
+                      <span className="caption" style={{ color: "var(--text-tertiary)" }}>{timeString}</span>
+                    </div>
+                    <div className="caption" style={{ color: "var(--text-secondary)" }}>
+                      {item.description}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {activityFeed.length > 5 && !showAllFeed && (
+              <button
+                className="btn btn-secondary btn-sm"
+                style={{ alignSelf: "center", marginTop: "8px" }}
+                onClick={() => setShowAllFeed(true)}
+              >
+                Show More Activity
+              </button>
+            )}
+            {showAllFeed && (
+              <button
+                className="btn btn-secondary btn-sm"
+                style={{ alignSelf: "center", marginTop: "8px" }}
+                onClick={() => setShowAllFeed(false)}
+              >
+                Show Less
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="empty-state" style={{ padding: "40px 20px" }}>
+            <div className="empty-state-icon">📡</div>
             <p className="empty-state-title">No activity yet</p>
             <p className="empty-state-desc">
-              Activity from agents, tasks, and system events will appear here as Gravix comes online.
+              System events, routing logs, and data ingestion will appear here.
             </p>
           </div>
         )}
