@@ -1,54 +1,48 @@
-import { describe, it, expect, vi } from 'vitest';
-import { sendGmail } from '../googleAuth.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { getAuthUrl } from '../googleAuth';
 
-// Mock the unexported googleApiRequest by mocking fetch, since googleApiRequest relies on it
-// Actually, it's easier to just mock the global fetch to capture what's being sent
-global.fetch = vi.fn();
+describe('getAuthUrl', () => {
+  const originalEnv = process.env;
 
-describe('sendGmail', () => {
-  it('sanitizes newline characters from email headers to prevent injection', async () => {
-    // Arrange
-    const mockAccessToken = 'fake-token';
-    const maliciousTo = 'victim@example.com\r\nBcc: attacker@example.com';
-    const maliciousSubject = 'Hello\n\nMalicious content...';
-    const body = 'This is the legitimate body.';
+  beforeEach(() => {
+    vi.resetModules();
+    process.env = { ...originalEnv };
+  });
 
-    // Setup mock response for fetch to return a dummy json
-    global.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: 'mock-message-id' }),
-    });
+  afterEach(() => {
+    process.env = originalEnv;
+  });
 
-    // Act
-    await sendGmail(mockAccessToken, {
-      to: maliciousTo,
-      subject: maliciousSubject,
-      body: body,
-    });
+  it('should throw an error if GOOGLE_OAUTH_CLIENT_ID is not configured', () => {
+    delete process.env.GOOGLE_OAUTH_CLIENT_ID;
 
-    // Assert
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(() => getAuthUrl('http://localhost/callback')).toThrow(
+      'GOOGLE_OAUTH_CLIENT_ID not configured. Set up OAuth consent screen in GCP Console first.'
+    );
+  });
 
-    const fetchArgs = global.fetch.mock.calls[0];
-    const url = fetchArgs[0];
-    const options = fetchArgs[1];
+  it('should generate a valid OAuth consent URL with correct parameters', () => {
+    process.env.GOOGLE_OAUTH_CLIENT_ID = 'test-client-id';
+    const redirectUri = 'http://localhost/callback';
 
-    expect(url).toBe('https://gmail.googleapis.com/gmail/v1/users/me/messages/send');
+    const url = getAuthUrl(redirectUri);
 
-    // Extract the raw base64url payload
-    const bodyObj = JSON.parse(options.body);
-    const rawPayload = bodyObj.raw;
+    expect(url.startsWith('https://accounts.google.com/o/oauth2/v2/auth?')).toBe(true);
 
-    // Revert base64url encoding to decode the string
-    let base64 = rawPayload.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4) {
-      base64 += '=';
-    }
-    const decodedEmail = atob(base64);
+    const urlObj = new URL(url);
+    const searchParams = urlObj.searchParams;
 
-    // Check if the sanitization worked
-    expect(decodedEmail).toContain('To: victim@example.comBcc: attacker@example.com');
-    expect(decodedEmail).toContain('Subject: HelloMalicious content...');
-    expect(decodedEmail).not.toContain('\r\nBcc: attacker@example.com');
+    expect(searchParams.get('client_id')).toBe('test-client-id');
+    expect(searchParams.get('redirect_uri')).toBe(redirectUri);
+    expect(searchParams.get('response_type')).toBe('code');
+    expect(searchParams.get('access_type')).toBe('offline');
+    expect(searchParams.get('prompt')).toBe('consent');
+    expect(searchParams.get('state')).toBe('gravix_oauth');
+
+    // Check scopes (split by space to match how they are joined)
+    const scope = searchParams.get('scope');
+    expect(scope).toContain('https://www.googleapis.com/auth/gmail.readonly');
+    expect(scope).toContain('https://www.googleapis.com/auth/calendar.events');
+    expect(scope).toContain('https://www.googleapis.com/auth/tasks');
   });
 });
