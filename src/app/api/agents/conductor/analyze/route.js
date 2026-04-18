@@ -64,12 +64,17 @@ export async function POST(request) {
     const proposalsRef = adminDb.collection("agent_proposals");
     const timestamp = new Date().toISOString();
 
-    for (const proposal of generatedProposals) {
-      await proposalsRef.add( {
-        ...proposal,
-        status: "pending",
-        timestamp,
-      });
+    if (generatedProposals.length > 0) {
+      const batch = adminDb.batch();
+      for (const proposal of generatedProposals) {
+        const docRef = proposalsRef.doc();
+        batch.set(docRef, {
+          ...proposal,
+          status: "pending",
+          timestamp,
+        });
+      }
+      await batch.commit();
     }
 
     return Response.json({ analyzed: true, proposals: generatedProposals, timestamp });
