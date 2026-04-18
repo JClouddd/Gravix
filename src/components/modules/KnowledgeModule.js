@@ -542,7 +542,7 @@ export default function KnowledgeModule() {
                           <div>
                             <div className="caption" style={{ fontWeight: 600, marginBottom: 2, color: "var(--info)" }}>💡 Suggestions</div>
                             {entry.crossref.updateSuggestions.map((sugg, idx) => (
-                              <div key={idx} className="caption" style={{ color: "var(--text-secondary)" }}>• Update '{sugg.target}': {sugg.suggestion}</div>
+                              <div key={idx} className="caption" style={{ color: "var(--text-secondary)" }}>• Update &apos;{sugg.target}&apos;: {sugg.suggestion}</div>
                             ))}
                           </div>
                         )}
