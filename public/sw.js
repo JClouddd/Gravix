@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gravix-cache-v1';
+const CACHE_NAME = 'gravix-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -36,13 +36,7 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          return caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, response.clone());
-            return response;
-          });
-        })
-        .catch(() => caches.match(request))
+        .catch(() => caches.match(request)) // only fallback if fetch fails, but do not cache API
     );
     return;
   }
@@ -62,10 +56,12 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return response;
+      }).catch(() => {
+        // Offline fallback
+        if (request.mode === 'navigate') {
+          return caches.match('/');
+        }
       });
-    }).catch(() => {
-      // Offline fallback
-      return caches.match('/');
     })
   );
 });

@@ -4,6 +4,7 @@ import { useState, useCallback, Suspense, lazy, useEffect, useRef } from "react"
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
 import CommandPalette from "@/components/CommandPalette";
+import InstallPrompt from "@/components/InstallPrompt";
 
 /* ── Module Registry ─────────────────────────────────────────── */
 const MODULES = [
@@ -150,6 +151,7 @@ export default function AppShell() {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEndHandler}
       >
+        <InstallPrompt />
 
         {/* ── Top Bar (Mobile / Theme Toggle) ──────────────── */}
         <header style={{
