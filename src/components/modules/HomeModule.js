@@ -497,7 +497,7 @@ function CreditCard({ title, used, total, unit, color, label }) {
     <div className="card" style={{ padding: "20px" }}>
       <div className="caption" style={{ marginBottom: 8 }}>{title}</div>
       <div className="h2" style={{ color }}>
-        {unit}{used}
+        {unit}{unit === "$" ? Number(used).toFixed(2) : used}
         <span style={{ fontSize: 14, color: "var(--text-tertiary)", fontWeight: 400 }}>
           {" / "}{unit}{total} {label || ""}
         </span>
