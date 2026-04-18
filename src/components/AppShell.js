@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, Suspense, lazy } from "react";
+import { useState, useCallback, Suspense, lazy, useEffect, useRef } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
 import CommandPalette from "@/components/CommandPalette";
@@ -36,6 +36,63 @@ export default function AppShell() {
   const [activeModule, setActiveModule] = useState("home");
   const [collapsed, setCollapsed] = useState(false);
 
+  const [theme, setTheme] = useState("dark");
+  const [isMobile, setIsMobile] = useState(false);
+  const touchStartRef = useRef(null);
+  const touchEndRef = useRef(null);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+
+    const savedTheme = localStorage.getItem("gravix-theme");
+    if (savedTheme) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTheme(savedTheme);
+      document.documentElement.setAttribute("data-theme", savedTheme);
+    }
+
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    const newTheme = theme === "dark" ? "light" : "dark";
+    setTheme(newTheme);
+    localStorage.setItem("gravix-theme", newTheme);
+    document.documentElement.setAttribute("data-theme", newTheme);
+  }, [theme]);
+
+  // Swipe gesture handlers
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e) => {
+    touchEndRef.current = null;
+    touchStartRef.current = e.targetTouches[0].clientX;
+  };
+
+  const onTouchMove = (e) => {
+    touchEndRef.current = e.targetTouches[0].clientX;
+  };
+
+  const onTouchEndHandler = () => {
+    if (!touchStartRef.current || !touchEndRef.current) return;
+    const distance = touchStartRef.current - touchEndRef.current;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe || isRightSwipe) {
+      const currentIndex = MODULES.findIndex((m) => m.id === activeModule);
+      if (isLeftSwipe && currentIndex < MODULES.length - 1) {
+        handleModuleChange(MODULES[currentIndex + 1].id);
+      }
+      if (isRightSwipe && currentIndex > 0) {
+        handleModuleChange(MODULES[currentIndex - 1].id);
+      }
+    }
+  };
+
+
   const handleModuleChange = useCallback((id) => {
     setActiveModule(id);
   }, []);
@@ -49,10 +106,12 @@ export default function AppShell() {
 
       {/* ── Sidebar ──────────────────────────────────────── */}
       <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
-        <div className="sidebar-header">
-          <div className="sidebar-logo">G</div>
-          <span className="sidebar-title">Gravix</span>
-        </div>
+        {!isMobile && (
+          <div className="sidebar-header">
+            <div className="sidebar-logo">G</div>
+            <span className="sidebar-title">Gravix</span>
+          </div>
+        )}
 
         <nav className="sidebar-nav" role="navigation" aria-label="Main navigation">
           {MODULES.map((mod) => (
@@ -65,25 +124,51 @@ export default function AppShell() {
               aria-current={activeModule === mod.id ? "page" : undefined}
             >
               <span className="nav-icon">{mod.icon}</span>
-              <span className="nav-label">{mod.label}</span>
+              {!isMobile && <span className="nav-label">{mod.label}</span>}
             </button>
           ))}
         </nav>
 
-        <div className="sidebar-footer">
-          <button
-            className="sidebar-toggle"
-            onClick={() => setCollapsed(!collapsed)}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? "→" : "←"}
-          </button>
-        </div>
+        {!isMobile && (
+          <div className="sidebar-footer">
+            <button
+              className="sidebar-toggle"
+              onClick={() => setCollapsed(!collapsed)}
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? "→" : "←"}
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* ── Main Content ─────────────────────────────────── */}
-      <main className={`app-main ${collapsed ? "collapsed" : ""}`}>
+      <main
+        className={`app-main ${collapsed ? "collapsed" : ""}`}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEndHandler}
+      >
+
+        {/* ── Top Bar (Mobile / Theme Toggle) ──────────────── */}
+        <header style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          padding: "12px 20px",
+          borderBottom: "1px solid var(--card-border)",
+          background: "var(--bg-primary)"
+        }}>
+          <button
+            className="btn btn-icon btn-ghost"
+            onClick={toggleTheme}
+            title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            aria-label="Toggle theme"
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+        </header>
+
         <div className="module-container">
           <ErrorBoundary name={activeConfig?.label} key={activeModule}>
             <Suspense fallback={<LoadingSkeleton rows={4} cards={3} />}>
