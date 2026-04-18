@@ -34,6 +34,7 @@ export default function SettingsModule() {
   useEffect(() => {
     // Check if app is running as PWA
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setInstalled(isStandalone);
 
     const handler = (e) => {
