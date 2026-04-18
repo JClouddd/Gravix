@@ -109,9 +109,7 @@ function IncomeTrackerTab() {
  * Finance Module
  * Income tracker + Cost dashboard + Credit allocation
  */
-import Image from "next/image";
-
-const TABS = ["Overview", "By Model", "By Agent"];
+const TABS = ["Overview", "Income Tracker", "By Model", "By Agent"];
 
 export default function FinanceModule() {
   const [showExportDropdown, setShowExportDropdown] = useState(false);

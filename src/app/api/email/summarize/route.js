@@ -54,13 +54,19 @@ export async function POST(request) {
          }
       }
     } else if (emailIds) {
-      for (const id of emailIds) {
-        const msg = await googleApiRequest(
-          accessToken,
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`
-        );
+      const messages = await Promise.all(
+        emailIds.map(id =>
+          googleApiRequest(
+            accessToken,
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`
+          )
+        )
+      );
+
+      for (const msg of messages) {
         if (msg) {
-          fullTextContent += `\n--- Email from ${msg.payload.headers.find(h => h.name === 'From')?.value || 'Unknown'} ---\n`;
+          const from = msg.payload?.headers?.find(h => h.name === 'From')?.value || 'Unknown';
+          fullTextContent += `\n--- Email from ${from} ---\n`;
           if (msg.snippet) {
              fullTextContent += msg.snippet + "\n";
           }
