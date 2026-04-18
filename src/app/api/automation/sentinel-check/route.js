@@ -31,6 +31,16 @@ export async function POST(request) {
 
     // 3. Evaluate rules
     const triggeredRules = [];
+
+    // Pre-compute aggregate metrics for all rules to avoid recalculating per-rule
+    let maxLatency = 0;
+    let failedServicesCount = 0;
+    if (healthData.services) {
+      const servicesList = Object.values(healthData.services);
+      maxLatency = Math.max(...servicesList.map(s => s.latency || 0), 0);
+      failedServicesCount = servicesList.filter(s => s.status === "fail").length;
+    }
+
     for (const rule of rules) {
       const { condition, threshold, action } = rule;
       let thresholdExceeded = false;
@@ -49,15 +59,13 @@ export async function POST(request) {
             }
           } else {
             // Check max latency across services
-            const maxLatency = Math.max(...Object.values(healthData.services).map(s => s.latency || 0));
             if (maxLatency > numThreshold) {
               thresholdExceeded = true;
             }
           }
         } else if (condition.includes("error") || condition.includes("fail")) {
           // If condition is just "error" and threshold is > 0
-          const failedServices = Object.values(healthData.services).filter(s => s.status === "fail").length;
-          if (failedServices >= numThreshold) {
+          if (failedServicesCount >= numThreshold) {
             thresholdExceeded = true;
           }
         }
