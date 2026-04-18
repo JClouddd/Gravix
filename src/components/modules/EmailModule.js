@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 /**
  * Email Module — Gmail inbox with AI classification
@@ -266,7 +267,10 @@ export default function EmailModule() {
           <div className="module-header-left">
             <div className="module-icon" style={{ background: "var(--info-subtle)" }}>✉️</div>
             <div>
-              <h1 className="module-title">Email</h1>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <h1 className="module-title">Email</h1>
+                <HelpTooltip module="email" />
+              </div>
               <p className="module-subtitle">Gmail inbox with AI-powered classification</p>
             </div>
           </div>
@@ -302,7 +306,10 @@ export default function EmailModule() {
         <div className="module-header-left">
           <div className="module-icon" style={{ background: "var(--info-subtle)" }}>✉️</div>
           <div>
-            <h1 className="module-title">Email</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 className="module-title">Email</h1>
+              <HelpTooltip module="email" />
+            </div>
             <p className="module-subtitle">Gmail inbox with AI-powered classification</p>
           </div>
         </div>

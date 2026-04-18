@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { requestPermission } from "@/lib/notifications";
+import HelpTooltip from "@/components/HelpTooltip";
 
 /**
  * Settings Module
@@ -107,7 +108,10 @@ export default function SettingsModule() {
         <div className="module-header-left">
           <div className="module-icon" style={{ background: "var(--bg-tertiary)" }}>⚙️</div>
           <div>
-            <h1 className="module-title">Settings</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 className="module-title">Settings</h1>
+              <HelpTooltip module="settings" />
+            </div>
             <p className="module-subtitle">System preferences and configuration</p>
           </div>
         </div>

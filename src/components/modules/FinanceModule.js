@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 /**
  * Finance Module
@@ -49,7 +50,10 @@ export default function FinanceModule() {
         <div className="module-header-left">
           <div className="module-icon" style={{ background: "var(--success-subtle)" }}>💰</div>
           <div>
-            <h1 className="module-title">Finance</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 className="module-title">Finance</h1>
+              <HelpTooltip module="finance" />
+            </div>
             <p className="module-subtitle">Income, API costs, and credit allocation</p>
           </div>
         </div>

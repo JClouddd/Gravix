@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 /**
  * Home / Dashboard Module
@@ -74,7 +75,10 @@ export default function HomeModule() {
         <div className="module-header-left">
           <div className="module-icon" style={{ background: "var(--accent-subtle)" }}>🏠</div>
           <div>
-            <h1 className="module-title">Dashboard</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 className="module-title">Dashboard</h1>
+              <HelpTooltip module="home" />
+            </div>
             <p className="module-subtitle">Welcome back — here&apos;s your system overview</p>
           </div>
         </div>

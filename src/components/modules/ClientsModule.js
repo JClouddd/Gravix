@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 const MOCK_CLIENTS = [
   { id: 1, name: "Acme Corp", email: "contact@acme.com", projectType: "website", status: "active", initials: "AC" },
@@ -288,7 +289,10 @@ export default function ClientsModule() {
         <div className="module-header-left">
           <div className="module-icon" style={{ background: "hsla(45, 90%, 52%, 0.12)" }}>👥</div>
           <div>
-            <h1 className="module-title">Clients</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 className="module-title">Clients</h1>
+              <HelpTooltip module="clients" />
+            </div>
             <p className="module-subtitle">Client profiles, projects, and billing management</p>
           </div>
         </div>

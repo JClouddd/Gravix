@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 const TABS = ["Roster", "Workflow", "Tasks", "Proposals"];
 
@@ -180,6 +181,7 @@ export default function AgentsModule() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <h1 className="module-title">Agent Orchestrator</h1>
+              <HelpTooltip module="agents" />
               <span className="badge badge-info">{executionMode} Mode</span>
             </div>
             <p className="module-subtitle">7 agents — deploy, monitor, and orchestrate</p>

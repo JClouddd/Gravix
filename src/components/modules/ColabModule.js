@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 /**
  * Colab Module — Notebook runner + Results viewer
@@ -144,7 +145,10 @@ export default function ColabModule() {
         <div className="module-header-left">
           <div className="module-icon" style={{ background: "hsla(280, 65%, 55%, 0.12)" }}>📊</div>
           <div>
-            <h1 className="module-title">Colab</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 className="module-title">Colab</h1>
+              <HelpTooltip module="colab" />
+            </div>
             <p className="module-subtitle">Notebook execution and data analysis — powered by Analyst</p>
           </div>
         </div>

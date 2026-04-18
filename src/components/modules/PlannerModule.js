@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 /**
  * Planner Module — Calendar + Tasks combined
@@ -445,7 +446,10 @@ export default function PlannerModule() {
           <div className="module-header-left">
             <div className="module-icon" style={{ background: "var(--info-subtle)" }}>📅</div>
             <div>
-              <h1 className="module-title">Planner</h1>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <h1 className="module-title">Planner</h1>
+                <HelpTooltip module="planner" />
+              </div>
               <p className="module-subtitle">Calendar, tasks, and deadlines — managed by Courier</p>
             </div>
           </div>
@@ -471,7 +475,10 @@ export default function PlannerModule() {
         <div className="module-header-left">
           <div className="module-icon" style={{ background: "var(--info-subtle)" }}>📅</div>
           <div>
-            <h1 className="module-title">Planner</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 className="module-title">Planner</h1>
+              <HelpTooltip module="planner" />
+            </div>
             <p className="module-subtitle">Calendar, tasks, and deadlines — managed by Courier</p>
           </div>
         </div>
