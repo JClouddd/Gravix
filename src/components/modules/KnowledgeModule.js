@@ -427,13 +427,53 @@ export default function KnowledgeModule() {
                 <p className="body-sm" style={{ color: "var(--text-secondary)", marginBottom: 8 }}>
                   {lastEntry.summary}
                 </p>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: lastEntry.crossref ? 12 : 0 }}>
                   {lastEntry.tags?.map((tag) => (
                     <span key={tag} className="badge badge-accent" style={{ fontSize: 11 }}>
                       {tag}
                     </span>
                   ))}
+                  {lastEntry.crossref?.suggestedTags?.filter(tag => !lastEntry.tags?.includes(tag)).map(tag => (
+                    <span key={tag} className="badge badge-accent" style={{ fontSize: 11, border: "1px dashed var(--accent)" }}>
+                      {tag}*
+                    </span>
+                  ))}
                 </div>
+                {lastEntry.crossref && (
+                  <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+                    {lastEntry.crossref.relatedDocs?.length > 0 && (
+                      <div>
+                        <div className="caption" style={{ fontWeight: 600, marginBottom: 4 }}>🔗 Related Knowledge</div>
+                        {lastEntry.crossref.relatedDocs.map((doc, idx) => (
+                          <div key={idx} className="body-sm" style={{ display: "flex", justifyContent: "space-between", color: "var(--text-secondary)" }}>
+                            <span>• {doc.title}</span>
+                            <span className="caption">{doc.relevance}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {lastEntry.crossref.contradictions?.length > 0 && (
+                      <div>
+                        <div className="caption" style={{ fontWeight: 600, marginBottom: 4, color: "var(--warning)" }}>⚠️ Potential Contradictions</div>
+                        {lastEntry.crossref.contradictions.map((contra, idx) => (
+                          <div key={idx} style={{ background: "rgba(255, 170, 0, 0.1)", borderLeft: "2px solid var(--warning)", padding: "4px 8px", marginBottom: 4 }}>
+                            <div className="caption" style={{ color: "var(--warning)" }}>{contra.description}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {lastEntry.crossref.updateSuggestions?.length > 0 && (
+                      <div>
+                        <div className="caption" style={{ fontWeight: 600, marginBottom: 4, color: "var(--info)" }}>💡 Update Suggestions</div>
+                        {lastEntry.crossref.updateSuggestions.map((sugg, idx) => (
+                          <div key={idx} className="body-sm" style={{ color: "var(--text-secondary)" }}>
+                            <strong>{sugg.target}:</strong> {sugg.suggestion}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -468,13 +508,46 @@ export default function KnowledgeModule() {
                     <p className="body-sm" style={{ color: "var(--text-secondary)", marginBottom: 8 }}>
                       {entry.summary}
                     </p>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: entry.crossref ? 12 : 0 }}>
                       {entry.tags?.map((tag) => (
                         <span key={tag} className="badge badge-accent" style={{ fontSize: 11 }}>
                           {tag}
                         </span>
                       ))}
+                      {entry.crossref?.suggestedTags?.filter(tag => !entry.tags?.includes(tag)).map(tag => (
+                        <span key={tag} className="badge badge-accent" style={{ fontSize: 11, border: "1px dashed var(--accent)" }}>
+                          {tag}*
+                        </span>
+                      ))}
                     </div>
+                    {entry.crossref && (
+                      <div style={{ background: "var(--bg-tertiary)", padding: 12, borderRadius: "var(--radius-sm)", marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+                        {entry.crossref.relatedDocs?.length > 0 && (
+                          <div>
+                            <div className="caption" style={{ fontWeight: 600, marginBottom: 2 }}>🔗 Related</div>
+                            {entry.crossref.relatedDocs.map((doc, idx) => (
+                              <div key={idx} className="caption" style={{ color: "var(--text-secondary)" }}>• {doc.title} ({doc.relevance})</div>
+                            ))}
+                          </div>
+                        )}
+                        {entry.crossref.contradictions?.length > 0 && (
+                          <div>
+                            <div className="caption" style={{ fontWeight: 600, marginBottom: 2, color: "var(--warning)" }}>⚠️ Contradictions</div>
+                            {entry.crossref.contradictions.map((contra, idx) => (
+                              <div key={idx} className="caption" style={{ color: "var(--warning)" }}>• {contra.description}</div>
+                            ))}
+                          </div>
+                        )}
+                        {entry.crossref.updateSuggestions?.length > 0 && (
+                          <div>
+                            <div className="caption" style={{ fontWeight: 600, marginBottom: 2, color: "var(--info)" }}>💡 Suggestions</div>
+                            {entry.crossref.updateSuggestions.map((sugg, idx) => (
+                              <div key={idx} className="caption" style={{ color: "var(--text-secondary)" }}>• Update '{sugg.target}': {sugg.suggestion}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                       <button className="btn btn-primary btn-sm">✅ Approve</button>
                       <button className="btn btn-ghost btn-sm">❌ Dismiss</button>

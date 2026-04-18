@@ -72,7 +72,8 @@ describe('POST /api/knowledge/ingest', () => {
       confidence: 0.9,
       summary: 'Test summary',
       tags: ['test'],
-      status: 'staged'
+      status: 'staged',
+      crossref: null
     });
     expect(data.message).toContain('Content staged for review');
   });
@@ -132,6 +133,7 @@ describe('POST /api/knowledge/ingest', () => {
     classifyContent.mockRejectedValueOnce(new Error(errorMsg));
 
     const req = {
+      url: 'http://localhost/api/knowledge/ingest',
       json: async () => ({
         content: 'Failing content',
         type: 'text',
@@ -167,6 +169,7 @@ describe('POST /api/knowledge/ingest', () => {
     const base64Content = Buffer.from('File content').toString('base64');
 
     const req = {
+      url: 'http://localhost/api/knowledge/ingest',
       json: async () => ({
         content: base64Content,
         type: 'file',
@@ -196,7 +199,8 @@ describe('POST /api/knowledge/ingest', () => {
       confidence: 0.9,
       summary: 'Test summary',
       tags: ['test'],
-      status: 'staged'
+      status: 'staged',
+      crossref: null
     });
   });
 });
