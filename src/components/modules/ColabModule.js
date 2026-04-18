@@ -6,6 +6,8 @@ import HelpTooltip from "@/components/HelpTooltip";
 /**
  * Colab Module — Notebook runner + Results viewer
  */
+import Image from 'next/image';
+
 export default function ColabModule() {
   const [notebooks, setNotebooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -312,8 +314,7 @@ export default function ColabModule() {
                 {exec.chartUrls && exec.chartUrls.length > 0 && (
                   <div style={{ marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     {exec.chartUrls.map((url, i) => (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img key={i} src={url} alt={`Chart ${i+1}`} style={{ maxWidth: '100%', borderRadius: "var(--radius-md)" }} />
+                      <Image key={i} src={url} alt={`Chart ${i+1}`} width={800} height={400} style={{ maxWidth: '100%', height: 'auto', borderRadius: "var(--radius-md)" }} />
                     ))}
                   </div>
                 )}
