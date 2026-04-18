@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { structuredGenerate, generate } from "@/lib/geminiClient";
-import { db } from "@/lib/firebase";
-import { doc, getDoc, collection, addDoc } from "firebase/firestore";
+import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function POST(request) {
   try {
@@ -17,8 +16,8 @@ export async function POST(request) {
     let welcomeDrafted = false;
 
     // 1. Fetch OAuth token
-    const oauthDoc = await getDoc(doc(db, "settings", "google_oauth"));
-    if (!oauthDoc.exists() || !oauthDoc.data().access_token) {
+    const oauthDoc = await adminDb.collection("settings").doc("google_oauth").get();
+    if (!oauthDoc.exists || !oauthDoc.data().access_token) {
       return NextResponse.json({ error: "Google Workspace not connected (no OAuth token)" }, { status: 401 });
     }
     const accessToken = oauthDoc.data().access_token;
@@ -133,7 +132,7 @@ export async function POST(request) {
           systemPrompt: "You are the Gravix Courier agent, drafting professional client communications."
         });
 
-        await addDoc(collection(db, "email_drafts"), {
+        await adminDb.collection("email_drafts").add( {
           to: clientEmail,
           subject: `Welcome to Gravix, ${clientName}!`,
           body: emailResponse.text,

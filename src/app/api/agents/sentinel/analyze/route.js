@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, query, orderBy, limit, getDocs, addDoc } from "firebase/firestore";
+import { adminDb } from "@/lib/firebaseAdmin";
+
 import { generate } from "@/lib/geminiClient";
 
 export async function POST(request) {
   try {
     // Read last 30 health check results from Firestore collection health_checks
-    const checksRef = collection(db, "health_checks");
-    const q = query(checksRef, orderBy("timestamp", "desc"), limit(30));
-    const snapshot = await getDocs(q);
+    const checksRef = adminDb.collection("health_checks");
+    const q = checksRef.orderBy("timestamp", "desc").limit(30);
+    const snapshot = await q.get();
 
     const healthData = [];
     snapshot.forEach(doc => healthData.push(doc.data()));
-
 
     // Prepare prompt
     const prompt = `Analyze these health check results looking for cost patterns, error frequency, and latency trends. If you detect anomalies, propose monitoring rules.
@@ -33,10 +32,9 @@ Return JSON: { anomalies: [{ type, description, severity }], proposedRules: [{ c
       analysisResult = { anomalies: [], proposedRules: [] };
     }
 
-
     // Store proposals in Firestore collection rule_proposals
-    const proposalsRef = collection(db, "rule_proposals");
-    const docRef = await addDoc(proposalsRef, {
+    const proposalsRef = adminDb.collection("rule_proposals");
+    const docRef = await proposalsRef.add( {
       ...analysisResult,
       createdAt: new Date().toISOString()
     });
@@ -55,9 +53,9 @@ Return JSON: { anomalies: [{ type, description, severity }], proposedRules: [{ c
 
 export async function GET() {
   try {
-    const proposalsRef = collection(db, "rule_proposals");
-    const q = query(proposalsRef, orderBy("createdAt", "desc"), limit(10));
-    const snapshot = await getDocs(q);
+    const proposalsRef = adminDb.collection("rule_proposals");
+    const q = proposalsRef.orderBy("createdAt", "desc").limit(10);
+    const snapshot = await q.get();
 
     const proposals = [];
     snapshot.forEach(doc => {

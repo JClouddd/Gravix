@@ -1,7 +1,7 @@
 import { refreshAccessToken, googleApiRequest } from "@/lib/googleAuth";
 import { generate } from "@/lib/geminiClient";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+
+import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function POST(request) {
   try {
@@ -13,8 +13,8 @@ export async function POST(request) {
     }
 
     // 1. Get OAuth tokens
-    const tokensDoc = await getDoc(doc(db, "settings", "google_oauth"));
-    if (!tokensDoc.exists()) {
+    const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
+    if (!tokensDoc.exists) {
       return Response.json({ error: "Gmail is not connected." }, { status: 401 });
     }
 
@@ -26,7 +26,7 @@ export async function POST(request) {
       try {
         const refreshed = await refreshAccessToken(tokens.refreshToken);
         accessToken = refreshed.access_token;
-        await updateDoc(doc(db, "settings", "google_oauth"), {
+        await adminDb.collection("settings").doc("google_oauth").update( {
           accessToken: refreshed.access_token,
           expiresAt: Date.now() + (refreshed.expires_in * 1000),
         });

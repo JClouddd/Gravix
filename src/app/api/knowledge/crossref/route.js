@@ -1,5 +1,5 @@
-import { db } from "@/lib/firebase";
-import { collection, addDoc, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { adminDb } from "@/lib/firebaseAdmin";
+
 import { structuredGenerate } from "@/lib/geminiClient";
 
 /**
@@ -130,7 +130,7 @@ ${existingKnowledgeContext}
     };
 
     try {
-      await addDoc(collection(db, "knowledge_crossrefs"), crossrefData);
+      await adminDb.collection("knowledge_crossrefs").add( crossrefData);
     } catch (dbErr) {
       console.warn("[knowledge/crossref] Failed to save to Firestore:", dbErr);
     }
@@ -148,13 +148,9 @@ ${existingKnowledgeContext}
  */
 export async function GET(request) {
   try {
-    const q = query(
-      collection(db, "knowledge_crossrefs"),
-      orderBy("createdAt", "desc"),
-      limit(20)
-    );
+    const q = adminDb.collection("knowledge_crossrefs").orderBy("createdAt", "desc").limit(20);
 
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await q.get();
     const results = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()

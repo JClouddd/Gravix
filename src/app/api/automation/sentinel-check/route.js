@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, addDoc } from "firebase/firestore";
+import { adminDb } from "@/lib/firebaseAdmin";
+
 // Import health checks logic
 import { GET as getHealth } from "@/app/api/health/route";
 // Import analyze logic
 import { POST as runAnalyze } from "@/app/api/agents/sentinel/analyze/route";
-
 
 export async function POST(request) {
   try {
@@ -24,9 +23,9 @@ export async function POST(request) {
     }
 
     // 2. Fetch active rules
-    const rulesRef = collection(db, "sentinel_rules");
-    const q = query(rulesRef, where("active", "==", true));
-    const rulesSnapshot = await getDocs(q);
+    const rulesRef = adminDb.collection("sentinel_rules");
+    const q = rulesRef.where("active", "==", true);
+    const rulesSnapshot = await q.get();
     const rules = [];
     rulesSnapshot.forEach(doc => rules.push({ id: doc.id, ...doc.data() }));
 
@@ -69,8 +68,8 @@ export async function POST(request) {
         // Execute action (simulate FCM notification by writing to a notifications collection)
         console.log(`Sentinel rule triggered: ${condition} > ${threshold}. Action: ${action}`);
         try {
-          const notificationsRef = collection(db, "notifications");
-          await addDoc(notificationsRef, {
+          const notificationsRef = adminDb.collection("notifications");
+          await notificationsRef.add( {
             title: "Sentinel Alert",
             message: `Rule triggered: ${condition} exceeded threshold ${threshold}`,
             action: action,

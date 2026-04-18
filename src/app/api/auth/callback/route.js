@@ -1,6 +1,6 @@
 import { exchangeCode } from "@/lib/googleAuth";
-import { getFirestore, doc, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+
+import { adminDb } from "@/lib/firebaseAdmin";
 
 /**
  * GET /api/auth/callback
@@ -31,7 +31,7 @@ export async function GET(request) {
     const tokens = await exchangeCode(code, redirectUri);
 
     // Store tokens in Firestore (will be encrypted at rest by Firebase)
-    await setDoc(doc(db, "settings", "google_oauth"), {
+    await adminDb.collection("settings").doc("google_oauth").set( {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       expiresAt: Date.now() + (tokens.expires_in * 1000),

@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, setDoc, doc, getDoc, serverTimestamp } from "firebase/firestore";
+import { adminDb } from "@/lib/firebaseAdmin";
 import { generate } from "@/lib/geminiClient";
 import { googleApiRequest, refreshAccessToken } from "@/lib/googleAuth";
 
 export async function GET() {
   try {
-    const templatesRef = collection(db, "email_templates");
-    const snapshot = await getDocs(templatesRef);
+    const templatesRef = adminDb.collection("email_templates");
+    const snapshot = await templatesRef.get();
     const templates = snapshot.docs.map(doc => doc.data());
     return NextResponse.json({ templates });
   } catch (error) {
@@ -19,8 +18,8 @@ export async function GET() {
 export async function POST() {
   try {
     // 1. Get OAuth token from Firestore
-    const oauthDoc = await getDoc(doc(db, "settings", "google_oauth"));
-    if (!oauthDoc.exists()) {
+    const oauthDoc = await adminDb.collection("settings").doc("google_oauth").get();
+    if (!oauthDoc.exists) {
       return NextResponse.json({ error: "Google OAuth not configured" }, { status: 400 });
     }
 
@@ -122,9 +121,9 @@ ${emailsCombinedText.slice(0, 50000)} // Limit to avoid token overflow`;
     if (parsedData.templates && Array.isArray(parsedData.templates)) {
       for (const template of parsedData.templates) {
         const docId = template.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-        await setDoc(doc(db, "email_templates", docId), {
+        await adminDb.collection("email_templates").doc(docId).set( {
           ...template,
-          updatedAt: serverTimestamp()
+          updatedAt: new Date()
         });
         storedCount++;
       }

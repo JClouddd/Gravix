@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { collection, doc, getDocs, addDoc, query, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+
+import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function GET(request, { params }) {
   try {
@@ -10,9 +10,9 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Client ID is required" }, { status: 400 });
     }
 
-    const billingRef = collection(db, 'clients', id, 'billing');
-    const q = query(billingRef, orderBy('date', 'desc'));
-    const snapshot = await getDocs(q);
+    const billingRef = adminDb.collection('clients').doc(id).collection('billing');
+    const q = billingRef.orderBy('date', 'desc');
+    const snapshot = await q.get();
 
     const entries = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -46,8 +46,8 @@ export async function POST(request, { params }) {
        return NextResponse.json({ error: "Invalid type" }, { status: 400 });
     }
 
-    const billingRef = collection(db, 'clients', id, 'billing');
-    const newDocRef = await addDoc(billingRef, {
+    const billingRef = adminDb.collection('clients').doc(id).collection('billing');
+    const newDocRef = await billingRef.add( {
       description,
       amount: Number(amount),
       hours: hours ? Number(hours) : null,
