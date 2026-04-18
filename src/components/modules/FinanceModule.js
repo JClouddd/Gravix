@@ -10,6 +10,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 const TABS = ["Overview", "By Model", "By Agent"];
 
 export default function FinanceModule() {
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
   const [summary, setSummary] = useState(null);
   const [breakdown, setBreakdown] = useState(null);
@@ -293,6 +294,16 @@ function OverviewTab({ summary, credits, historyData, breakdown }) {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 className="h4">Quick Actions</h3>
+          <div style={{ position: 'relative' }}>
+             <button className="btn btn-secondary btn-sm" onClick={() => setShowExportDropdown(!showExportDropdown)} >Export Reports ▾</button>
+             {showExportDropdown && (
+               <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: 'var(--bg-elevated)', border: '1px solid var(--card-border)', borderRadius: 'var(--radius-md)', padding: '8px', minWidth: '180px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+               <button className="btn btn-ghost btn-sm" style={{ textAlign: 'left', width: '100%' }} onClick={() => window.open('/api/export?type=costs&format=csv')}>Export Costs CSV</button>
+               <button className="btn btn-ghost btn-sm" style={{ textAlign: 'left', width: '100%' }} onClick={() => window.open('/api/export?type=income&format=csv')}>Export Income CSV</button>
+               <button className="btn btn-ghost btn-sm" style={{ textAlign: 'left', width: '100%' }} onClick={() => window.open('/api/export?type=finance_full&format=json')}>Export Full Report JSON</button>
+               </div>
+             )}
+          </div>
         </div>
         <form onSubmit={handleRunStockAnalysis} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <input
