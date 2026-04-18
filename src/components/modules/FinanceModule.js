@@ -1,4 +1,4 @@
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -442,7 +442,6 @@ function OverviewTab({ summary, credits, historyData, breakdown }) {
                 {stockResult.chartUrls && stockResult.chartUrls.length > 0 && (
                   <div style={{ marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     {stockResult.chartUrls.map((url, i) => (
-                      /* eslint-disable-next-line @next/next/no-img-element */
                       <img key={i} src={url} alt={`Chart ${i+1}`} style={{ maxWidth: '100%', borderRadius: "var(--radius-md)" }} />
                     ))}
                   </div>
