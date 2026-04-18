@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+import Image from "next/image";
 "use client";
 
 import { useState, useEffect } from "react";
@@ -316,7 +316,7 @@ export default function ColabModule() {
                 {exec.chartUrls && exec.chartUrls.length > 0 && (
                   <div style={{ marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     {exec.chartUrls.map((url, i) => (
-                      <Image key={i} src={url} alt={`Chart ${i+1}`} width={500} height={300} style={{ maxWidth: '100%', height: 'auto', borderRadius: "var(--radius-md)" }} unoptimized />
+                      <Image unoptimized key={i} src={url} alt={`Chart ${i+1}`} width={500} height={300} style={{ maxWidth: '100%', height: 'auto', borderRadius: "var(--radius-md)" }} />
                     ))}
                   </div>
                 )}
