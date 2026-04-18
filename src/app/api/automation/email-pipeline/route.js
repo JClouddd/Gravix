@@ -17,80 +17,93 @@ export async function POST(request) {
 
     let accessToken = null;
 
+    // Pre-fetch access token if any email needs task creation
+    const needsTask = emails.some(e => e.category === "action-required" || e.urgency === "high");
+    if (needsTask) {
+      const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
+      if (tokensDoc.exists) {
+        const tokens = tokensDoc.data();
+        accessToken = tokens.accessToken;
+
+        if (Date.now() > tokens.expiresAt) {
+          const refreshed = await refreshAccessToken(tokens.refreshToken);
+          accessToken = refreshed.access_token;
+          await adminDb.collection("settings").doc("google_oauth").update({
+            accessToken: refreshed.access_token,
+            expiresAt: Date.now() + (refreshed.expires_in * 1000),
+          });
+        }
+      }
+    }
+
+    const taskPromises = [];
+    const batch = adminDb.batch();
+
     for (const email of emails) {
       const { id, from, subject, snippet, category, urgency } = email;
       processed++;
 
       // 1. Task creation for action-required or high urgency
       if (category === "action-required" || urgency === "high") {
-        if (!accessToken) {
-          const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
-          if (tokensDoc.exists) {
-            const tokens = tokensDoc.data();
-            accessToken = tokens.accessToken;
-
-            if (Date.now() > tokens.expiresAt) {
-              const refreshed = await refreshAccessToken(tokens.refreshToken);
-              accessToken = refreshed.access_token;
-              await adminDb.collection("settings").doc("google_oauth").update( {
-                accessToken: refreshed.access_token,
-                expiresAt: Date.now() + (refreshed.expires_in * 1000),
-              });
-            }
-          }
-        }
-
         if (accessToken) {
-          try {
-            await fetch("https://tasks.googleapis.com/tasks/v1/lists/@default/tasks", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                title: subject,
-                notes: `From: ${from}\nSnippet: ${snippet}`,
-              }),
-            });
+          const taskPromise = fetch("https://tasks.googleapis.com/tasks/v1/lists/@default/tasks", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: subject,
+              notes: `From: ${from}\nSnippet: ${snippet}`,
+            }),
+          }).then(res => {
+            if (!res.ok) throw new Error(`Tasks API error: ${res.status}`);
             tasksCreated++;
-          } catch (err) {
+          }).catch(err => {
             console.error("Failed to create task for email", id, err);
-          }
+          });
+          taskPromises.push(taskPromise);
         }
       }
 
       // 2. Client linkage
       if (category === "client") {
-        try {
-          await adminDb.collection("client_emails").add( {
-            emailId: id,
-            from,
-            matchedClient: from, // simplified for now
-            timestamp: new Date().toISOString(),
-          });
-          clientsLinked++;
-        } catch (err) {
-          console.error("Failed to link client email", id, err);
-        }
+        const clientRef = adminDb.collection("client_emails").doc();
+        batch.set(clientRef, {
+          emailId: id,
+          from,
+          matchedClient: from, // simplified for now
+          timestamp: new Date().toISOString(),
+        });
+        clientsLinked++;
       }
 
       // 3. Invoice logging
       const lowerSubject = (subject || "").toLowerCase();
       if (category === "invoice" || lowerSubject.includes("invoice") || lowerSubject.includes("receipt")) {
-        try {
-          await adminDb.collection("income_entries").add( {
-            from,
-            subject,
-            timestamp: new Date().toISOString(),
-            source: "email-auto",
-          });
-          invoicesLogged++;
-        } catch (err) {
-          console.error("Failed to log invoice for email", id, err);
-        }
+        const incomeRef = adminDb.collection("income_entries").doc();
+        batch.set(incomeRef, {
+          from,
+          subject,
+          timestamp: new Date().toISOString(),
+          source: "email-auto",
+        });
+        invoicesLogged++;
       }
     }
+
+    // Execute API requests and batch writes concurrently
+    await Promise.all([
+      ...taskPromises,
+      batch.commit().catch(err => {
+        console.error("Failed to commit batch writes", err);
+        // We'll reset counts if batch fails to reflect truth, but keeping simple
+        // Normally, we'd only increment counts upon success.
+        // For batch, it's all or nothing. So if it fails, clientsLinked and invoicesLogged shouldn't be counted.
+        clientsLinked = 0;
+        invoicesLogged = 0;
+      })
+    ]);
 
     return Response.json({
       processed,
