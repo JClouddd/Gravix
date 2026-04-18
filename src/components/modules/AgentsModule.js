@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 
-const TABS = ["Roster", "Workflow", "Tasks", "Proposals"];
+const TABS = ["Roster", "Workflow", "Tasks", "Proposals", "History"];
 
 export default function AgentsModule() {
   const [activeTab, setActiveTab] = useState("Roster");
@@ -29,6 +29,12 @@ export default function AgentsModule() {
   // Proposals state
   const [proposals, setProposals] = useState([]);
   const [isLoadingProposals, setIsLoadingProposals] = useState(true);
+
+  // History state
+  const [historyAgent, setHistoryAgent] = useState("conductor");
+  const [agentHistory, setAgentHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -91,6 +97,46 @@ export default function AgentsModule() {
     fetchCosts();
     fetchProposals();
   }, []);
+
+  // Fetch History whenever historyAgent or activeTab changes
+  useEffect(() => {
+    if (activeTab !== "History") return;
+
+    async function fetchHistory() {
+      setIsLoadingHistory(true);
+      try {
+        const res = await fetch(`/api/agents/memory?agentName=${historyAgent}`);
+        if (res.ok) {
+          const data = await res.json();
+          setAgentHistory(data.conversations || []);
+        } else {
+          setAgentHistory([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch agent history", err);
+        setAgentHistory([]);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    }
+
+    fetchHistory();
+  }, [activeTab, historyAgent]);
+
+  const handleClearHistory = async () => {
+    if (!confirm(`Are you sure you want to clear ${historyAgent}'s history?`)) return;
+
+    try {
+      const res = await fetch(`/api/agents/memory?agentName=${historyAgent}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        setAgentHistory([]);
+      }
+    } catch (err) {
+      console.error("Failed to clear agent history", err);
+    }
+  };
 
   // Task Board Action
   const handleNewTask = async () => {
@@ -599,6 +645,90 @@ export default function AgentsModule() {
                       Dismiss
                     </button>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "History" && (
+        <div>
+          <div className="card" style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <h3 className="h3">Agent Memory</h3>
+              <select
+                className="input"
+                style={{ width: 200, padding: "8px 12px" }}
+                value={historyAgent}
+                onChange={(e) => setHistoryAgent(e.target.value)}
+              >
+                <option value="conductor">Conductor</option>
+                <option value="forge">Forge</option>
+                <option value="scholar">Scholar</option>
+                <option value="analyst">Analyst</option>
+                <option value="courier">Courier</option>
+                <option value="sentinel">Sentinel</option>
+                <option value="builder">Builder</option>
+              </select>
+            </div>
+
+            <button
+              className="button button-danger"
+              style={{ background: "transparent", border: "1px solid var(--error)", color: "var(--error)" }}
+              onClick={handleClearHistory}
+              disabled={isLoadingHistory || agentHistory.length === 0}
+            >
+              Clear History
+            </button>
+          </div>
+
+          {isLoadingHistory ? (
+            <p className="caption">Loading history...</p>
+          ) : agentHistory.length === 0 ? (
+            <div className="empty-state card" style={{ padding: 48, textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🧠</div>
+              <h4 className="h4" style={{ marginBottom: 8 }}>No Memories Found</h4>
+              <p className="body-sm" style={{ color: "var(--text-secondary)" }}>
+                {historyAgent} has no conversation history.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {agentHistory.map((conv) => (
+                <div key={conv.id} className="card card-glass" style={{ padding: "16px 24px" }}>
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+                    onClick={() => setExpandedHistoryId(expandedHistoryId === conv.id ? null : conv.id)}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <p className="body-sm" style={{ fontWeight: 600, marginBottom: 4 }}>{conv.summary}</p>
+                      <p className="caption" style={{ color: "var(--text-secondary)" }}>
+                        {new Date(conv.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                    <div style={{ fontSize: 18, color: "var(--text-secondary)" }}>
+                      {expandedHistoryId === conv.id ? "▲" : "▼"}
+                    </div>
+                  </div>
+
+                  {expandedHistoryId === conv.id && conv.messages && (
+                    <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--card-border)", display: "flex", flexDirection: "column", gap: 12 }}>
+                      {conv.messages.map((msg, idx) => (
+                        <div key={idx} style={{
+                          background: msg.role === "user" ? "var(--bg-secondary)" : "rgba(var(--accent-rgb), 0.05)",
+                          padding: 12,
+                          borderRadius: 8,
+                          borderLeft: msg.role === "agent" ? "3px solid var(--accent)" : "none"
+                        }}>
+                          <p className="caption" style={{ fontWeight: 600, marginBottom: 4, color: msg.role === "agent" ? "var(--accent)" : "var(--text-secondary)" }}>
+                            {msg.role === "user" ? "User" : historyAgent.charAt(0).toUpperCase() + historyAgent.slice(1)}
+                          </p>
+                          <p className="body-sm" style={{ whiteSpace: "pre-wrap" }}>{msg.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -1,6 +1,6 @@
 import { structuredGenerate, generate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 /**
@@ -99,9 +99,29 @@ Choose the best agent and explain your reasoning.`,
     // If execute flag is set and confidence is high, run the agent
     let agentResponse = null;
     if (execute && decision.confidence >= 0.6) {
+
+      // Load last 5 conversations for this agent
+      let previousSummaries = [];
+      try {
+        const memoryQuery = query(
+          collection(db, "agent_conversations"),
+          where("agentName", "==", decision.agent),
+          orderBy("timestamp", "desc"),
+          limit(5)
+        );
+        const memSnapshot = await getDocs(memoryQuery);
+        previousSummaries = memSnapshot.docs.map(d => d.data().summary).reverse();
+      } catch (err) {
+        console.warn("[agents/route] failed to fetch memory context:", err.message);
+      }
+
+      const contextString = previousSummaries.length > 0
+        ? `\n\nPrevious conversations for context:\n${previousSummaries.map((s, i) => `${i+1}. ${s}`).join("\n")}`
+        : "";
+
       const agentResult = await generate({
         prompt: message,
-        systemPrompt: `You are ${decision.agent}, a specialist agent in Gravix. ${decision.action}`,
+        systemPrompt: `You are ${decision.agent}, a specialist agent in Gravix. ${decision.action}${contextString}`,
         complexity: decision.agent === "scholar" ? "pro" : "flash",
         grounded: decision.agent === "scholar" || decision.agent === "sentinel",
       });
@@ -223,6 +243,27 @@ Choose the best agent and explain your reasoning.`,
         });
       } catch (err) {
         console.warn("[costTracker] Failed to log:", err.message);
+      }
+
+      // Generate a 1-line summary and save the conversation
+      try {
+        const summaryResult = await generate({
+          prompt: `User said: "${message}"\nAgent replied: "${agentResult.text}"\n\nProvide a very brief 1-line summary of this interaction.`,
+          systemPrompt: "You are a summarizing assistant. Provide only a 1-line summary.",
+          complexity: "flash",
+        });
+
+        await addDoc(collection(db, "agent_conversations"), {
+          agentName: decision.agent,
+          messages: [
+            { role: "user", content: message },
+            { role: "agent", content: agentResult.text }
+          ],
+          summary: summaryResult.text.trim(),
+          timestamp: new Date().toISOString()
+        });
+      } catch (err) {
+         console.warn("[agents/route] failed to save memory:", err.message);
       }
     }
 
