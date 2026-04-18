@@ -1,4 +1,4 @@
-import { getTaskLists, getTasks, refreshAccessToken } from "@/lib/googleAuth";
+import { getTaskLists, getTasks, refreshAccessToken, updateTask } from "@/lib/googleAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function GET() {
@@ -97,6 +97,59 @@ export async function GET() {
       });
     }
 
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+export async function POST(request) {
+  try {
+    const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
+
+    if (!tokensDoc.exists) {
+      return Response.json({ connected: false, message: "Not connected" }, { status: 401 });
+    }
+
+    const tokens = tokensDoc.data();
+    let accessToken = tokens.accessToken;
+
+    if (Date.now() > tokens.expiresAt) {
+      try {
+        const refreshed = await refreshAccessToken(tokens.refreshToken);
+        accessToken = refreshed.access_token;
+        await adminDb.collection("settings").doc("google_oauth").update({
+          accessToken: refreshed.access_token,
+          expiresAt: Date.now() + (refreshed.expires_in * 1000),
+        });
+      } catch (err) {
+        return Response.json({ error: "Token expired and refresh failed." }, { status: 401 });
+      }
+    }
+
+    const listsResponse = await getTaskLists(accessToken);
+    const taskLists = listsResponse.items || [];
+
+    let closedCount = 0;
+
+    for (const list of taskLists) {
+      try {
+        const tasksRes = await getTasks(accessToken, list.id);
+        const tasks = tasksRes.items || [];
+
+        for (const task of tasks) {
+           if (task.notes && task.notes.includes("Agent: completed") && task.status !== 'completed') {
+               await updateTask(accessToken, list.id, task.id, { id: task.id, title: task.title, status: 'completed' });
+               closedCount++;
+           }
+        }
+      } catch (e) {
+        console.error(`Failed to process tasks for list ${list.id}`, e);
+      }
+    }
+
+    return Response.json({ success: true, closedTasksCount: closedCount });
+  } catch (error) {
+    console.error("[/api/tasks/list POST]", error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 }
