@@ -100,9 +100,20 @@ export default function CommandPalette({ setActiveModule }) {
           .map(s => `${s.label}: ${s.desc}`)
           .join("\n")
       );
-    } else {
-      console.log("Executed action:", cmd.label);
-      // Here you would trigger real actions
+    } else if (cmd.type === "Action" && setActiveModule) {
+      // Map actions to their target modules
+      const actionModuleMap = {
+        "act-email": "email",
+        "act-task": "planner",
+        "act-client": "clients",
+        "act-notebook": "colab",
+        "act-search": "knowledge",
+        "act-health": "home",
+      };
+      const targetModule = actionModuleMap[cmd.id];
+      if (targetModule) setActiveModule(targetModule);
+    } else if (cmd.type === "Agent" && setActiveModule) {
+      setActiveModule("agents");
     }
     setIsOpen(false);
   };

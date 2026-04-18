@@ -7,7 +7,7 @@ import HelpTooltip from "@/components/HelpTooltip";
  * Home / Dashboard Module
  * Live data from API routes — credit bar, agent summary, recent activity
  */
-export default function HomeModule() {
+export default function HomeModule({ setActiveModule }) {
   const [agents, setAgents] = useState([]);
   const [costs, setCosts] = useState(null);
   const [knowledge, setKnowledge] = useState(null);
@@ -189,7 +189,9 @@ export default function HomeModule() {
                       // let's just trigger a hash change if Gravix uses it, or log a useful message for the user
                       // that handles module switching.
                       // Actually, let's just set window.location.hash = result.module
-                      window.location.hash = result.module;
+                      if (setActiveModule && result.module) {
+                        setActiveModule(result.module);
+                      }
                     }}
                   >
                     <span style={{ fontSize: "20px" }}>{result.icon}</span>
@@ -280,16 +282,16 @@ export default function HomeModule() {
         <div className="card">
           <h3 className="h4" style={{ marginBottom: 16 }}>Quick Actions</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: "flex-start" }}>
+            <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: "flex-start" }} onClick={() => setActiveModule && setActiveModule("knowledge")}>
               📝 Ingest a Document
             </button>
-            <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: "flex-start" }}>
+            <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: "flex-start" }} onClick={() => setActiveModule && setActiveModule("agents")}>
               💬 Chat with Scholar
             </button>
-            <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: "flex-start" }}>
+            <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: "flex-start" }} onClick={() => setActiveModule && setActiveModule("colab")}>
               📊 Run Analysis Notebook
             </button>
-            <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: "flex-start" }}>
+            <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: "flex-start" }} onClick={() => setActiveModule && setActiveModule("agents")}>
               🤖 Deploy an Agent
             </button>
           </div>

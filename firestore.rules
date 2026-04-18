@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── PUBLIC READ (client-side components) ───
+    // Settings and agent roster are read by the frontend
+    match /settings/{doc} {
+      allow read: if true;
+      allow write: if false;  // Server-only via Admin SDK
+    }
+
+    // ─── SERVER-ONLY COLLECTIONS ───
+    // All writes go through Admin SDK (bypasses these rules)
+    // Block all client-side access to protect data
+
+    match /api_usage/{doc} {
+      allow read, write: if false;
+    }
+
+    match /agent_routing_log/{doc} {
+      allow read, write: if false;
+    }
+
+    match /agent_conversations/{doc} {
+      allow read, write: if false;
+    }
+
+    match /health_checks/{doc} {
+      allow read, write: if false;
+    }
+
+    match /sentinel_rules/{doc} {
+      allow read, write: if false;
+    }
+
+    match /rule_proposals/{doc} {
+      allow read, write: if false;
+    }
+
+    match /code_patterns/{doc} {
+      allow read, write: if false;
+    }
+
+    match /email_templates/{doc} {
+      allow read, write: if false;
+    }
+
+    match /knowledge_crossrefs/{doc} {
+      allow read, write: if false;
+    }
+
+    match /knowledge_items/{doc} {
+      allow read, write: if false;
+    }
+
+    match /ingestion_staging/{doc} {
+      allow read, write: if false;
+    }
+
+    match /clients/{doc} {
+      allow read, write: if false;
+    }
+
+    match /clients/{clientId}/{sub=**} {
+      allow read, write: if false;
+    }
+
+    match /income_entries/{doc} {
+      allow read, write: if false;
+    }
+
+    match /notifications/{doc} {
+      allow read, write: if false;
+    }
+
+    match /automation_events/{doc} {
+      allow read, write: if false;
+    }
+
+    // ─── CATCH-ALL: deny everything else ───
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

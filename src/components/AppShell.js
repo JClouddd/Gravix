@@ -6,6 +6,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
 import CommandPalette from "@/components/CommandPalette";
 import InstallPrompt from "@/components/InstallPrompt";
+import NotificationCenter from "@/components/NotificationCenter";
 import { registerShortcuts } from "@/lib/keyboardShortcuts";
 import QuickActions from "@/components/QuickActions";
 
@@ -182,6 +183,7 @@ export default function AppShell() {
           borderBottom: "1px solid var(--card-border)",
           background: "var(--bg-primary)"
         }}>
+          <NotificationCenter />
           <button
             className="btn btn-icon btn-ghost"
             onClick={toggleTheme}
@@ -195,7 +197,7 @@ export default function AppShell() {
         <div className="module-container">
           <ErrorBoundary name={activeConfig?.label} key={activeModule}>
             <Suspense fallback={<LoadingSkeleton rows={4} cards={3} />}>
-              <ActiveComponent />
+              <ActiveComponent setActiveModule={handleModuleChange} />
             </Suspense>
           </ErrorBoundary>
         </div>
