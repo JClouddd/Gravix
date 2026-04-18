@@ -202,6 +202,17 @@ export async function getTasks(accessToken, taskListId = "@default") {
   );
 }
 
+export async function updateTask(accessToken, taskListId, taskId, data) {
+  return googleApiRequest(
+    accessToken,
+    `https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks/${taskId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
 const defaultExport = {
   getAuthUrl,
   exchangeCode,
@@ -211,7 +222,8 @@ const defaultExport = {
   sendGmail,
   getCalendarEvents,
   getTaskLists,
-  getTasks,
+getTasks,
+  updateTask,
   SCOPES,
 };
 export default defaultExport;
