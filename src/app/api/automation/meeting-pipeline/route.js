@@ -41,7 +41,7 @@ export async function POST(request) {
     let decisionsStored = 0;
 
     // Create Tasks
-    const taskPromises = actionItems.map(async (item) => {
+    for (const item of actionItems) {
       try {
         const taskPayload = {
           title: item.task || "Meeting Action Item",
@@ -68,10 +68,10 @@ export async function POST(request) {
       } catch (err) {
         console.error("Failed to create task", err);
       }
-    });
+    }
 
     // Create Calendar Events for follow-ups
-    const eventPromises = followUps.map(async (item) => {
+    for (const item of followUps) {
       try {
         const eventStart = new Date();
         eventStart.setDate(eventStart.getDate() + 7); // 1 week from now
@@ -104,29 +104,22 @@ export async function POST(request) {
       } catch (err) {
         console.error("Failed to create follow-up event", err);
       }
-    });
+    }
 
     // Store Decisions in Firestore
-    const decisionsPromise = (async () => {
-      if (decisions.length > 0) {
-        try {
-          const batch = adminDb.batch();
-          for (const decision of decisions) {
-            const decisionText = typeof decision === "string" ? decision : decision.decision;
-            if (decisionText) {
-              const docRef = adminDb.collection("meeting_decisions").doc();
-              batch.set(docRef, {
-                meetingId,
-                decision: decisionText,
-                timestamp: new Date().toISOString(),
-              });
-              decisionsStored++;
-            }
-          }
-          await batch.commit();
-        } catch (err) {
-          console.error("Failed to store decisions batch", err);
+    for (const decision of decisions) {
+      try {
+        const decisionText = typeof decision === "string" ? decision : decision.decision;
+        if (decisionText) {
+          await adminDb.collection("meeting_decisions").add( {
+            meetingId,
+            decision: decisionText,
+            timestamp: new Date().toISOString(),
+          });
+          decisionsStored++;
         }
+      } catch (err) {
+        console.error("Failed to store decision", err);
       }
     })();
 
