@@ -29,6 +29,42 @@ export default function SettingsModule() {
   // Profile State
   const [profile, setProfile] = useState({ name: "Jane Doe", email: "jane.doe@example.com" });
 
+  // PWA Install State
+  const [installed, setInstalled] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  useEffect(() => {
+    // Check if app is running as PWA
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setInstalled(isStandalone);
+
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    window.addEventListener('appinstalled', () => {
+      setInstalled(true);
+      setDeferredPrompt(null);
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
+
   // Integrations State
   const [integrations, setIntegrations] = useState({
     gmail: true,
@@ -297,9 +333,22 @@ export default function SettingsModule() {
               <div className="body">Install Gravix as PWA</div>
               <div className="caption">Add to home screen for native app experience</div>
             </div>
-            <button className="btn btn-primary btn-sm" disabled>
-              Install
-            </button>
+            {installed ? (
+              <span className="badge badge-success" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Installed
+              </span>
+            ) : (
+              <button
+                className="btn btn-primary btn-sm"
+                disabled={!deferredPrompt}
+                onClick={handleInstallClick}
+              >
+                Install
+              </button>
+            )}
           </div>
         </div>
 
