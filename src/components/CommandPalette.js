@@ -1,18 +1,26 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { SHORTCUTS } from "@/lib/keyboardShortcuts";
+
+const getShortcutLabel = (actionType, actionName) => {
+  const entry = Object.entries(SHORTCUTS).find(
+    ([_, val]) => val.type === actionType && val.action === actionName
+  );
+  return entry ? entry[1].label : null;
+};
 
 const COMMANDS = [
   // Navigation
-  { id: "nav-home", type: "Navigation", label: "Go to Home", icon: "🏠", action: "home" },
-  { id: "nav-finance", type: "Navigation", label: "Go to Finance", icon: "💰", action: "finance" },
-  { id: "nav-email", type: "Navigation", label: "Go to Email", icon: "✉️", action: "email" },
-  { id: "nav-planner", type: "Navigation", label: "Go to Planner", icon: "📅", action: "planner" },
-  { id: "nav-agents", type: "Navigation", label: "Go to Agents", icon: "🤖", action: "agents" },
-  { id: "nav-knowledge", type: "Navigation", label: "Go to Knowledge", icon: "🧠", action: "knowledge" },
-  { id: "nav-clients", type: "Navigation", label: "Go to Clients", icon: "👥", action: "clients" },
-  { id: "nav-colab", type: "Navigation", label: "Go to Colab", icon: "📊", action: "colab" },
-  { id: "nav-settings", type: "Navigation", label: "Go to Settings", icon: "⚙️", action: "settings" },
+  { id: "nav-home", type: "Navigation", label: "Go to Home", icon: "🏠", action: "home", shortcut: getShortcutLabel("nav", "home") },
+  { id: "nav-finance", type: "Navigation", label: "Go to Finance", icon: "💰", action: "finance", shortcut: getShortcutLabel("nav", "finance") },
+  { id: "nav-email", type: "Navigation", label: "Go to Email", icon: "✉️", action: "email", shortcut: getShortcutLabel("nav", "email") },
+  { id: "nav-planner", type: "Navigation", label: "Go to Planner", icon: "📅", action: "planner", shortcut: getShortcutLabel("nav", "planner") },
+  { id: "nav-agents", type: "Navigation", label: "Go to Agents", icon: "🤖", action: "agents", shortcut: getShortcutLabel("nav", "agents") },
+  { id: "nav-knowledge", type: "Navigation", label: "Go to Knowledge", icon: "🧠", action: "knowledge", shortcut: getShortcutLabel("nav", "knowledge") },
+  { id: "nav-clients", type: "Navigation", label: "Go to Clients", icon: "👥", action: "clients", shortcut: getShortcutLabel("nav", "clients") },
+  { id: "nav-colab", type: "Navigation", label: "Go to Colab", icon: "📊", action: "colab", shortcut: getShortcutLabel("nav", "colab") },
+  { id: "nav-settings", type: "Navigation", label: "Go to Settings", icon: "⚙️", action: "settings", shortcut: getShortcutLabel("nav", "settings") },
 
   // Actions
   { id: "act-email", type: "Action", label: "Compose Email", icon: "✏️", desc: "Draft a new email" },
@@ -21,6 +29,7 @@ const COMMANDS = [
   { id: "act-notebook", type: "Action", label: "Run Notebook", icon: "▶️", desc: "Execute a Colab notebook" },
   { id: "act-search", type: "Action", label: "Search Knowledge", icon: "🔍", desc: "Search through ingested docs" },
   { id: "act-health", type: "Action", label: "Check Health", icon: "🩺", desc: "Run system diagnostics" },
+  { id: "act-shortcuts", type: "Action", label: "Keyboard Shortcuts", icon: "⌨️", desc: "View all shortcuts" },
 
   // Agents
   { id: "agt-conductor", type: "Agent", label: "Ask Conductor", icon: "⚡", desc: "Route a complex request" },
@@ -84,6 +93,13 @@ export default function CommandPalette({ setActiveModule }) {
   const executeCommand = (cmd) => {
     if (cmd.type === "Navigation" && setActiveModule) {
       setActiveModule(cmd.action);
+    } else if (cmd.id === "act-shortcuts") {
+      alert(
+        "Keyboard Shortcuts:\n" +
+        Object.values(SHORTCUTS)
+          .map(s => `${s.label}: ${s.desc}`)
+          .join("\n")
+      );
     } else {
       console.log("Executed action:", cmd.label);
       // Here you would trigger real actions
@@ -173,6 +189,18 @@ export default function CommandPalette({ setActiveModule }) {
                       <div className="caption" style={{ marginTop: "2px" }}>{cmd.desc}</div>
                     )}
                   </div>
+                  {cmd.shortcut && (
+                    <span style={{
+                      fontSize: "12px",
+                      marginRight: "8px",
+                      color: "var(--text-tertiary)",
+                      backgroundColor: "var(--bg-tertiary)",
+                      padding: "2px 6px",
+                      borderRadius: "4px"
+                    }}>
+                      {cmd.shortcut}
+                    </span>
+                  )}
                   <span className="badge badge-info" style={{ fontSize: "11px", opacity: 0.8 }}>
                     {cmd.type}
                   </span>

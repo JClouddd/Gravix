@@ -5,6 +5,9 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
 import CommandPalette from "@/components/CommandPalette";
 import InstallPrompt from "@/components/InstallPrompt";
+import NotificationCenter from "@/components/NotificationCenter";
+import { registerShortcuts } from "@/lib/keyboardShortcuts";
+import QuickActions from "@/components/QuickActions";
 
 /* ── Module Registry ─────────────────────────────────────────── */
 const MODULES = [
@@ -42,6 +45,10 @@ export default function AppShell() {
   const touchStartRef = useRef(null);
   const touchEndRef = useRef(null);
 
+  const handleModuleChange = useCallback((id) => {
+    setActiveModule(id);
+  }, []);
+
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -56,6 +63,22 @@ export default function AppShell() {
 
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  useEffect(() => {
+    const handleAction = (action) => {
+      console.log("Keyboard action triggered:", action);
+      if (action === "new") {
+        console.log("Trigger context sensitive new action for module:", activeModule);
+      } else if (action === "help") {
+        console.log("Toggle help triggered");
+      } else if (action === "gemini") {
+        console.log("Toggle Gemini widget triggered");
+      }
+    };
+
+    const cleanupShortcuts = registerShortcuts(handleModuleChange, handleAction);
+    return cleanupShortcuts;
+  }, [activeModule, handleModuleChange]);
 
   const toggleTheme = useCallback(() => {
     const newTheme = theme === "dark" ? "light" : "dark";
@@ -92,11 +115,6 @@ export default function AppShell() {
       }
     }
   };
-
-
-  const handleModuleChange = useCallback((id) => {
-    setActiveModule(id);
-  }, []);
 
   const ActiveComponent = moduleComponents[activeModule];
   const activeConfig = MODULES.find((m) => m.id === activeModule);
@@ -152,6 +170,7 @@ export default function AppShell() {
         onTouchEnd={onTouchEndHandler}
       >
         <InstallPrompt />
+        <QuickActions activeModule={activeModule} setActiveModule={handleModuleChange} />
 
         {/* ── Top Bar (Mobile / Theme Toggle) ──────────────── */}
         <header style={{
