@@ -57,7 +57,7 @@ export async function POST(request) {
 
     // 3. Create Google Tasks
     if (plan && plan.tasks) {
-      for (const task of plan.tasks) {
+      const taskResults = await Promise.all(plan.tasks.map(async (task) => {
         try {
           const dueDate = new Date();
           dueDate.setDate(dueDate.getDate() + (task.dueDaysFromNow || 0));
@@ -76,14 +76,18 @@ export async function POST(request) {
           });
 
           if (taskRes.ok) {
-            tasksCreated++;
+            return true;
           } else {
             console.error("Failed to create task:", await taskRes.text());
+            return false;
           }
         } catch (err) {
           console.error("Task creation error:", err);
+          return false;
         }
-      }
+      }));
+
+      tasksCreated = taskResults.filter(Boolean).length;
     }
 
     // 4. Schedule kickoff meeting via Calendar API
