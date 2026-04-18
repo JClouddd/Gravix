@@ -361,6 +361,7 @@ function OverviewTab({ summary, credits, historyData, breakdown }) {
   const [stockTicker, setStockTicker] = useState("");
   const [stockRunning, setStockRunning] = useState(false);
   const [stockResult, setStockResult] = useState(null);
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
 
   const handleRunStockAnalysis = async (e) => {
     e.preventDefault();

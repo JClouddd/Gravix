@@ -10,14 +10,19 @@ export default function SourcesTab({ status }) {
 
     setIngesting(true);
     setResults(null);
+    const outcomes = [];
     try {
-      const res = await fetch("/api/knowledge/ingest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sources: pending.map(s => ({ url: s.url, name: s.name })) })
-      });
-      const data = await res.json();
-      setResults(data);
+      for (const source of pending) {
+        const res = await fetch("/api/knowledge/ingest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: source.url, type: "url", title: source.name, source: "scheduled" })
+        });
+        const data = await res.json();
+        outcomes.push({ name: source.name, success: res.ok, message: data.message || data.error });
+      }
+      const succeeded = outcomes.filter(o => o.success).length;
+      setResults({ message: `Ingested ${succeeded}/${pending.length} sources` });
     } catch (err) {
       setResults({ error: err.message });
     } finally {
