@@ -17,7 +17,6 @@ export async function POST(request) {
 
     let accessToken = null;
     const batch = adminDb.batch();
-    let batchCount = 0;
 
     for (const email of emails) {
       const { id, from, subject, snippet, category, urgency } = email;
@@ -98,8 +97,12 @@ export async function POST(request) {
       }
     }
 
-    if (batchCount > 0) {
-      await batch.commit();
+    if (clientsLinked > 0 || invoicesLogged > 0) {
+      try {
+        await batch.commit();
+      } catch (err) {
+        console.error("Failed to commit batch", err);
+      }
     }
 
     return Response.json({
