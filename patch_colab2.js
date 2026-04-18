@@ -1,76 +1,8 @@
-/**
- * POST /api/colab/execute — Execute a notebook
- * GET /api/colab/execute — List available notebooks
- */
+import fs from 'fs';
 
-import { generate } from "@/lib/geminiClient";
-import { logUsage } from "@/lib/costTracker";
+let content = fs.readFileSync('src/app/api/colab/execute/route.js', 'utf8');
 
-const NOTEBOOKS = [
-  {
-    id: "stock_analysis",
-    name: "Stock Analysis",
-    description: "Stock analysis with RSI and MACD",
-    costEstimate: "$0.05-0.10",
-    parameters: [
-      { name: "ticker", type: "string", required: true, description: "Stock ticker symbol" },
-      { name: "period", type: "string", default: "1y", description: "Analysis period" },
-    ],
-  },
-  {
-    id: "portfolio_optimizer",
-    name: "Portfolio Optimizer",
-    description: "Portfolio optimization",
-    costEstimate: "$0.05-0.10",
-    parameters: [
-      { name: "tickers", type: "array", required: true, description: "Current portfolio holdings" },
-      { name: "risk_tolerance", type: "string", default: "moderate", description: "Risk level" },
-    ],
-  },
-  {
-    id: "health_trends",
-    name: "Health Trends",
-    description: "Health data trend analysis",
-    costEstimate: "$0.05-0.10",
-    parameters: [
-      { name: "data_json", type: "string", required: true, description: "Health data JSON" },
-    ],
-  },
-  {
-    id: "document_processor",
-    name: "Document Processor",
-    description: "Batch document NLP",
-    costEstimate: "$0.05-0.10",
-    parameters: [
-      { name: "documents_json", type: "string", required: true, description: "Documents data" },
-    ],
-  },
-  {
-    id: "data_pipeline",
-    name: "Data Pipeline",
-    description: "Generic ETL",
-    costEstimate: "$0.05-0.10",
-    parameters: [
-      { name: "source_url", type: "string", required: true, description: "Input data source" },
-      { name: "output_format", type: "string", default: "json", description: "Output format" },
-    ],
-  },
-];
-
-export async function GET() {
-  return Response.json({
-    notebooks: NOTEBOOKS.map((nb) => ({
-      ...nb,
-      status: "available",
-      lastRun: null,
-    })),
-    runtime: {
-      available: true,
-      message: "Colab Enterprise runtime ready.",
-    },
-  });
-}
-
+const postHandler = `
 export async function POST(request) {
   try {
     let body;
@@ -89,7 +21,7 @@ export async function POST(request) {
 
     const notebook = NOTEBOOKS.find((nb) => nb.id === notebookId);
     if (!notebook) {
-      return Response.json({ error: `Notebook '${notebookId}' not found` }, { status: 404 });
+      return Response.json({ error: \`Notebook '\${notebookId}' not found\` }, { status: 404 });
     }
 
     const targetUrl = 'https://colab-worker-426017291723.us-central1.run.app/execute';
@@ -125,12 +57,12 @@ export async function POST(request) {
 
       if (missing.length > 0) {
         return Response.json({
-          error: `Missing required parameters: ${missing.join(", ")}`,
+          error: \`Missing required parameters: \${missing.join(", ")}\`,
         }, { status: 400 });
       }
 
       const startTime = Date.now();
-      const prompt = `Execute analysis for ${notebookId} with parameters: ${JSON.stringify(parameters)}`;
+      const prompt = \`Execute analysis for \${notebookId} with parameters: \${JSON.stringify(parameters)}\`;
 
       // Execute with Gemini
       const result = await generate({ prompt, complexity: "pro" });
@@ -162,3 +94,9 @@ export async function POST(request) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 }
+`;
+
+content = content.replace(/export async function POST\(request\) \{[\s\S]*\}\s*$/m, postHandler.trim());
+
+fs.writeFileSync('src/app/api/colab/execute/route.js', content);
+console.log('patched POST handler');

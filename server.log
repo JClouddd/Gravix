@@ -1,0 +1,202 @@
+
+> gravix@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+✓ Ready in 581ms
+⚠ turbopack.root should be absolute, using: /app
+
+ GET / 200 in 567ms (next.js: 303ms, application-code: 263ms)
+ GET / 200 in 104ms (next.js: 7ms, application-code: 96ms)
+ GET /api/agents/roster 200 in 563ms (next.js: 543ms, application-code: 21ms)
+ GET /api/knowledge/status 200 in 668ms (next.js: 660ms, application-code: 8ms)
+[/api/jules/tasks GET] Error: JULES_API_KEY environment variable is not set
+    at getApiKey (src/lib/julesClient.js:19:11)
+    at julesRequest (src/lib/julesClient.js:27:23)
+    at listSessions (src/lib/julesClient.js:83:10)
+    at GET (src/app/api/jules/tasks/route.js:56:40)
+  17 |   const key = process.env.JULES_API_KEY;
+  18 |   if (!key) {
+> 19 |     throw new Error("JULES_API_KEY environment variable is not set");
+     |           ^
+  20 |   }
+  21 |   return key;
+  22 | }
+ GET /api/jules/tasks 503 in 1011ms (next.js: 698ms, application-code: 313ms)
+ GET /api/costs/history?period=30d&groupBy=day 200 in 960ms (next.js: 258ms, application-code: 702ms)
+ GET /api/costs/history?period=30d&groupBy=day 200 in 40ms (next.js: 5ms, application-code: 35ms)
+[/api/costs/summary] Error: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.
+    at getUsageSummary (src/lib/costTracker.js:64:33)
+    at GET (src/app/api/costs/summary/route.js:10:42)
+  62 |   const q = adminDb.collection("api_usage").where("timestamp", ">=", Timestamp.fromDate(ea...
+  63 |
+> 64 |   const querySnapshot = await q.get();
+     |                                 ^
+  65 |
+  66 |   let totalSpendCurrentMonth = 0;
+  67 |   let totalThisWeek = 0;
+ GET /api/costs/summary 500 in 7.5s (next.js: 612ms, application-code: 6.9s)
+[/api/gemini/chat] Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [400 Bad Request] API key not valid. Please pass a valid API key. [{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com","metadata":{"service":"generativelanguage.googleapis.com"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"API key not valid. Please pass a valid API key."}]
+    at handleResponseNotOk (.next/dev/server/chunks/[root-of-the-server]__0tifyte._.js:12598:11)
+    at async makeRequest (.next/dev/server/chunks/[root-of-the-server]__0tifyte._.js:12570:9)
+    at async generateContent (.next/dev/server/chunks/[root-of-the-server]__0tifyte._.js:13012:22)
+    at async (src/lib/geminiClient.js:224:12)
+    at async withRetry (src/lib/geminiClient.js:90:14)
+    at async generate (src/lib/geminiClient.js:223:18)
+    at async POST (src/app/api/gemini/chat/route.js:26:20)
+  222 |
+  223 |   const result = await withRetry(async () => {
+> 224 |     return await model.generateContent({ contents });
+      |            ^
+  225 |   });
+  226 |
+  227 |   const duration = Date.now() - startTime; {
+  status: 400,
+  statusText: 'Bad Request',
+  errorDetails: [
+    {
+      '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+      reason: 'API_KEY_INVALID',
+      domain: 'googleapis.com',
+      metadata: [Object]
+    },
+    {
+      '@type': 'type.googleapis.com/google.rpc.LocalizedMessage',
+      locale: 'en-US',
+      message: 'API key not valid. Please pass a valid API key.'
+    }
+  ]
+}
+ POST /api/gemini/chat 500 in 8.4s (next.js: 35ms, application-code: 8.3s)
+ GET /api/knowledge/status 200 in 7ms (next.js: 3ms, application-code: 4ms)
+[/api/costs/credits] GET Error Error: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.
+    at getUsageSummary (src/lib/costTracker.js:64:33)
+    at GET (src/app/api/costs/credits/route.js:5:42)
+  62 |   const q = adminDb.collection("api_usage").where("timestamp", ">=", Timestamp.fromDate(ea...
+  63 |
+> 64 |   const querySnapshot = await q.get();
+     |                                 ^
+  65 |
+  66 |   let totalSpendCurrentMonth = 0;
+  67 |   let totalThisWeek = 0;
+ GET /api/costs/credits 500 in 7.8s (next.js: 407ms, application-code: 7.3s)
+[/api/costs/breakdown] Error: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.
+    at getUsageSummary (src/lib/costTracker.js:64:33)
+    at GET (src/app/api/costs/breakdown/route.js:9:42)
+  62 |   const q = adminDb.collection("api_usage").where("timestamp", ">=", Timestamp.fromDate(ea...
+  63 |
+> 64 |   const querySnapshot = await q.get();
+     |                                 ^
+  65 |
+  66 |   let totalSpendCurrentMonth = 0;
+  67 |   let totalThisWeek = 0;
+ GET /api/costs/breakdown 500 in 9.3s (next.js: 51ms, application-code: 9.2s)
+[/api/costs/summary] Error: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.
+    at getUsageSummary (src/lib/costTracker.js:64:33)
+    at GET (src/app/api/costs/summary/route.js:10:42)
+  62 |   const q = adminDb.collection("api_usage").where("timestamp", ">=", Timestamp.fromDate(ea...
+  63 |
+> 64 |   const querySnapshot = await q.get();
+     |                                 ^
+  65 |
+  66 |   let totalSpendCurrentMonth = 0;
+  67 |   let totalThisWeek = 0;
+ GET /api/costs/summary 500 in 8.5s (next.js: 3ms, application-code: 8.5s)
+[/api/colab/execute] Worker failed or auth unavailable, falling back to Gemini: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.
+[/api/costs/breakdown] Error: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.
+    at getUsageSummary (src/lib/costTracker.js:64:33)
+    at GET (src/app/api/costs/breakdown/route.js:9:42)
+  62 |   const q = adminDb.collection("api_usage").where("timestamp", ">=", Timestamp.fromDate(ea...
+  63 |
+> 64 |   const querySnapshot = await q.get();
+     |                                 ^
+  65 |
+  66 |   let totalSpendCurrentMonth = 0;
+  67 |   let totalThisWeek = 0;
+ GET /api/costs/breakdown 500 in 8.3s (next.js: 9ms, application-code: 8.3s)
+[/api/costs/credits] GET Error Error: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.
+    at getUsageSummary (src/lib/costTracker.js:64:33)
+    at GET (src/app/api/costs/credits/route.js:5:42)
+  62 |   const q = adminDb.collection("api_usage").where("timestamp", ">=", Timestamp.fromDate(ea...
+  63 |
+> 64 |   const querySnapshot = await q.get();
+     |                                 ^
+  65 |
+  66 |   let totalSpendCurrentMonth = 0;
+  67 |   let totalThisWeek = 0;
+ GET /api/costs/credits 500 in 10.0s (next.js: 3ms, application-code: 10.0s)
+[/api/jules/tasks GET] Error: JULES_API_KEY environment variable is not set
+    at getApiKey (src/lib/julesClient.js:19:11)
+    at julesRequest (src/lib/julesClient.js:27:23)
+    at listSessions (src/lib/julesClient.js:83:10)
+    at GET (src/app/api/jules/tasks/route.js:56:40)
+  17 |   const key = process.env.JULES_API_KEY;
+  18 |   if (!key) {
+> 19 |     throw new Error("JULES_API_KEY environment variable is not set");
+     |           ^
+  20 |   }
+  21 |   return key;
+  22 | }
+ GET /api/jules/tasks 503 in 132ms (next.js: 3ms, application-code: 129ms)
+[2026-04-18T02:24:44.954Z]  @firebase/firestore: Firestore (12.12.0): GrpcConnection RPC 'Write' stream 0x8f99f8dd error. Code: 7 Message: 7 PERMISSION_DENIED: Missing or insufficient permissions.
+Error writing health history: [Error [FirebaseError]: 7 PERMISSION_DENIED: Missing or insufficient permissions.] {
+  code: 'permission-denied',
+  customData: undefined,
+  toString: [Function (anonymous)]
+}
+ POST /api/health/history 500 in 243ms (next.js: 53ms, application-code: 190ms)
+Error fetching health history: [Error [FirebaseError]: Missing or insufficient permissions.] {
+  code: 'permission-denied',
+  customData: undefined,
+  toString: [Function (anonymous)]
+}
+ GET /api/health/history 500 in 78ms (next.js: 2ms, application-code: 76ms)
+ GET /api/health 200 in 19.4s (next.js: 57ms, application-code: 19.4s)
+[/api/costs/summary] Error: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.
+    at getUsageSummary (src/lib/costTracker.js:64:33)
+    at GET (src/app/api/costs/summary/route.js:10:42)
+  62 |   const q = adminDb.collection("api_usage").where("timestamp", ">=", Timestamp.fromDate(ea...
+  63 |
+> 64 |   const querySnapshot = await q.get();
+     |                                 ^
+  65 |
+  66 |   let totalSpendCurrentMonth = 0;
+  67 |   let totalThisWeek = 0;
+ GET /api/costs/summary 500 in 7.8s (next.js: 4ms, application-code: 7.8s)
+ GET /api/colab/execute 200 in 8ms (next.js: 3ms, application-code: 5ms)
+ GET /api/colab/execute 200 in 7ms (next.js: 2ms, application-code: 5ms)
+[/api/colab/execute] Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent: [400 Bad Request] API key not valid. Please pass a valid API key. [{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com","metadata":{"service":"generativelanguage.googleapis.com"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"API key not valid. Please pass a valid API key."}]
+    at handleResponseNotOk (.next/dev/server/chunks/[root-of-the-server]__0tifyte._.js:12598:11)
+    at async makeRequest (.next/dev/server/chunks/[root-of-the-server]__0tifyte._.js:12570:9)
+    at async generateContent (.next/dev/server/chunks/[root-of-the-server]__0tifyte._.js:13012:22)
+    at async (src/lib/geminiClient.js:224:12)
+    at async withRetry (src/lib/geminiClient.js:90:14)
+    at async generate (src/lib/geminiClient.js:223:18)
+    at async POST (src/app/api/colab/execute/route.js:136:22)
+  222 |
+  223 |   const result = await withRetry(async () => {
+> 224 |     return await model.generateContent({ contents });
+      |            ^
+  225 |   });
+  226 |
+  227 |   const duration = Date.now() - startTime; {
+  status: 400,
+  statusText: 'Bad Request',
+  errorDetails: [
+    {
+      '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+      reason: 'API_KEY_INVALID',
+      domain: 'googleapis.com',
+      metadata: [Object]
+    },
+    {
+      '@type': 'type.googleapis.com/google.rpc.LocalizedMessage',
+      locale: 'en-US',
+      message: 'API key not valid. Please pass a valid API key.'
+    }
+  ]
+}
+ POST /api/colab/execute 500 in 7.8s (next.js: 38ms, application-code: 7.8s)
+[2026-04-18T02:26:15.081Z]  @firebase/firestore: Firestore (12.12.0): GrpcConnection RPC 'Listen' stream 0x8f99f8dc error. Code: 1 Message: 1 CANCELLED: Disconnecting idle stream. Timed out waiting for new targets.
