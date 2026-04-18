@@ -31,6 +31,7 @@ export async function POST(request) {
 
     // 3. Evaluate rules
     const triggeredRules = [];
+    const batch = adminDb.batch();
     for (const rule of rules) {
       const { condition, threshold, action } = rule;
       let thresholdExceeded = false;
@@ -69,7 +70,7 @@ export async function POST(request) {
         console.log(`Sentinel rule triggered: ${condition} > ${threshold}. Action: ${action}`);
         try {
           const notificationsRef = adminDb.collection("notifications");
-          await notificationsRef.add( {
+          batch.set(notificationsRef.doc(), {
             title: "Sentinel Alert",
             message: `Rule triggered: ${condition} exceeded threshold ${threshold}`,
             action: action,
@@ -79,6 +80,14 @@ export async function POST(request) {
         } catch (notifError) {
           console.error("Failed to simulate notification:", notifError);
         }
+      }
+    }
+
+    if (triggeredRules.length > 0) {
+      try {
+        await batch.commit();
+      } catch (err) {
+        console.error("Batch commit failed:", err);
       }
     }
 
