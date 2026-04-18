@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 /**
  * Knowledge Module — Brain Vault + Ingestion staging + Scholar chat
@@ -220,7 +221,10 @@ export default function KnowledgeModule() {
         <div className="module-header-left">
           <div className="module-icon" style={{ background: "hsla(170, 70%, 45%, 0.12)" }}>🧠</div>
           <div>
-            <h1 className="module-title">Knowledge</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 className="module-title">Knowledge</h1>
+              <HelpTooltip module="knowledge" />
+            </div>
             <p className="module-subtitle">
               {status?.stats?.documentsIngested || 0} documents ingested •{" "}
               {status?.scheduledSources?.length || 0} sources configured

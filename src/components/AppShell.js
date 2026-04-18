@@ -3,7 +3,7 @@
 import { useState, useCallback, Suspense, lazy } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
-import OnboardingTour from "@/components/OnboardingTour";
+import CommandPalette from "@/components/CommandPalette";
 
 /* ── Module Registry ─────────────────────────────────────────── */
 const MODULES = [
@@ -45,7 +45,8 @@ export default function AppShell() {
 
   return (
     <div className="app-shell">
-      <OnboardingTour />
+      <CommandPalette setActiveModule={handleModuleChange} />
+
       {/* ── Sidebar ──────────────────────────────────────── */}
       <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
         <div className="sidebar-header">
