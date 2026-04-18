@@ -36,6 +36,9 @@ export default function AgentsModule() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
 
+  // Jules quota state
+  const [julesQuota, setJulesQuota] = useState(null);
+
   // Fetch initial data
   useEffect(() => {
     async function fetchRoster() {
@@ -96,6 +99,20 @@ export default function AgentsModule() {
     fetchTasks();
     fetchCosts();
     fetchProposals();
+
+    // Fetch Jules quota
+    async function fetchJulesQuota() {
+      try {
+        const res = await fetch("/api/costs/credits");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.jules) setJulesQuota(data.jules);
+        }
+      } catch (err) {
+        console.error("Failed to fetch Jules quota", err);
+      }
+    }
+    fetchJulesQuota();
   }, []);
 
   // Fetch History whenever historyAgent or activeTab changes
@@ -525,6 +542,40 @@ export default function AgentsModule() {
 {activeTab === "Tasks" && (
         <div>
           <div className="card" style={{ marginBottom: 24 }}>
+            {/* Jules quota inline notification */}
+            {julesQuota && (
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 14px",
+                marginBottom: 16,
+                borderRadius: "var(--radius-md)",
+                background: julesQuota.remaining < 50
+                  ? "rgba(239, 68, 68, 0.08)"
+                  : julesQuota.remaining < 200
+                    ? "rgba(255, 170, 0, 0.08)"
+                    : "rgba(16, 185, 129, 0.08)",
+                border: `1px solid ${
+                  julesQuota.remaining < 50
+                    ? "rgba(239, 68, 68, 0.25)"
+                    : julesQuota.remaining < 200
+                      ? "rgba(255, 170, 0, 0.25)"
+                      : "rgba(16, 185, 129, 0.25)"
+                }`,
+              }}>
+                <div className="body-sm" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>{julesQuota.remaining < 50 ? "🔴" : julesQuota.remaining < 200 ? "🟡" : "🟢"}</span>
+                  <span>
+                    <strong>Jules Sessions:</strong> {julesQuota.dailySessions}/{julesQuota.dailyLimit} used today
+                  </span>
+                </div>
+                <span className={`badge ${julesQuota.remaining < 50 ? "badge-error" : julesQuota.remaining < 200 ? "badge-warning" : "badge-success"}`}>
+                  {julesQuota.remaining} remaining
+                </span>
+              </div>
+            )}
+
             <div style={{ display: "flex", gap: 12 }}>
               <input
                 type="text"

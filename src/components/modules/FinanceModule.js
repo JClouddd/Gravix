@@ -369,6 +369,7 @@ function OverviewTab({ summary, credits, historyData, breakdown }) {
 
   const cloudCredit = credits?.cloudCredit || { total: 100, used: 0, remaining: 100 };
   const genaiCredit = credits?.genaiCredit || { total: 1000, used: 0, remaining: 1000 };
+  const jules = credits?.jules || { dailySessions: 0, dailyLimit: 600, remaining: 600 };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -419,6 +420,12 @@ function OverviewTab({ summary, credits, historyData, breakdown }) {
           title="GenAI Credit"
           total={genaiCredit.total}
           used={genaiCredit.used}
+        />
+
+        <SessionGaugeCard
+          title="Jules Sessions"
+          used={jules.dailySessions}
+          total={jules.dailyLimit}
         />
       </div>
 
@@ -602,6 +609,68 @@ function CircularGaugeCard({ title, total, used }) {
         <div className="caption" style={{ marginTop: 4 }}>
           Used: ${used.toFixed(2)}<br/>
           Total: ${total.toFixed(0)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SessionGaugeCard({ title, used, total }) {
+  const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
+  let color = "var(--success)";
+  if (pct >= 80) color = "var(--error)";
+  else if (pct >= 50) color = "var(--warning)";
+
+  const radius = 36;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (pct / 100) * circumference;
+  const remaining = Math.max(0, total - used);
+
+  return (
+    <div className="card" style={{ padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
+      <div style={{ position: "relative", width: 80, height: 80 }}>
+        <svg width="80" height="80" viewBox="0 0 80 80" style={{ transform: "rotate(-90deg)" }}>
+          <circle
+            cx="40"
+            cy="40"
+            r={radius}
+            fill="transparent"
+            stroke="var(--bg-tertiary)"
+            strokeWidth="6"
+          />
+          <circle
+            cx="40"
+            cy="40"
+            r={radius}
+            fill="transparent"
+            stroke={color}
+            strokeWidth="6"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            style={{ transition: "stroke-dashoffset 0.6s var(--ease-out)" }}
+          />
+        </svg>
+        <div style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 14,
+          fontWeight: 600
+        }}>
+          {used}/{total}
+        </div>
+      </div>
+      <div>
+        <div className="h4">{title}</div>
+        <div className="caption" style={{ marginTop: 4 }}>
+          Today: {used} used<br/>
+          Remaining: {remaining}
         </div>
       </div>
     </div>
