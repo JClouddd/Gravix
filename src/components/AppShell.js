@@ -182,7 +182,6 @@ export default function AppShell() {
           borderBottom: "1px solid var(--card-border)",
           background: "var(--bg-primary)"
         }}>
-          <NotificationCenter />
           <button
             className="btn btn-icon btn-ghost"
             onClick={toggleTheme}
