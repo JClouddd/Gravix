@@ -1,4 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
+
+const YOUTUBE_REGEX = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)/;
 
 export default function IngestionTab({
   stagedEntries,
@@ -13,6 +15,13 @@ export default function IngestionTab({
   const [lastEntry, setLastEntry] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [videoCostConfirmed, setVideoCostConfirmed] = useState(false);
+  const [videoMeta, setVideoMeta] = useState(null);
+
+  // Auto-detect YouTube URLs
+  const isYouTubeUrl = useMemo(() => {
+    return ingestionType === "url" && YOUTUBE_REGEX.test(ingestionInput.trim());
+  }, [ingestionType, ingestionInput]);
 
   // Handle file drop
   const handleDrop = useCallback(async (e) => {
@@ -110,17 +119,27 @@ export default function IngestionTab({
     setIsDragging(false);
   }, []);
 
-  // Handle ingestion submission
+  // Handle ingestion submission — routes through unified /api/knowledge/ingest for all types
   const handleIngest = useCallback(async () => {
     if (!ingestionInput.trim()) return;
+
+    // Block YouTube ingestion without cost confirmation
+    const isVideo = ingestionType === "url" && YOUTUBE_REGEX.test(ingestionInput.trim());
+    if (isVideo && !videoCostConfirmed) {
+      setIngestionError("Please confirm the video processing cost before continuing.");
+      return;
+    }
+
     setIngesting(true);
     setIngestionError("");
     setLastEntry(null);
+    setVideoMeta(null);
     setUploadProgress(30);
     try {
-      const endpoint = ingestionType === "url" ? "/api/knowledge/ingest-url" : "/api/knowledge/ingest";
+      // All content goes through the unified ingest route
+      // It auto-detects YouTube URLs and routes accordingly
       const payload = ingestionType === "url"
-        ? { url: ingestionInput, type: "webpage" } // assuming webpage for now, could be improved
+        ? { content: ingestionInput, type: "url", title: ingestionTitle, source: "manual" }
         : {
             content: ingestionInput,
             type: ingestionType,
@@ -128,7 +147,7 @@ export default function IngestionTab({
             source: "manual",
           };
 
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/knowledge/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -141,8 +160,10 @@ export default function IngestionTab({
       if (res.ok && (data.success || data.ingested)) {
         setStagedEntries((prev) => [data.entry, ...prev]);
         setLastEntry(data.entry);
+        if (data.videoMeta) setVideoMeta(data.videoMeta);
         setIngestionInput("");
         setIngestionTitle("");
+        setVideoCostConfirmed(false);
         setTimeout(() => setUploadProgress(0), 1500);
       } else {
         setIngestionError(data.error || "Ingestion failed");
@@ -154,7 +175,7 @@ export default function IngestionTab({
       setUploadProgress(0);
     }
     setIngesting(false);
-  }, [ingestionInput, ingestionType, ingestionTitle, setStagedEntries]);
+  }, [ingestionInput, ingestionType, ingestionTitle, videoCostConfirmed, setStagedEntries]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -266,13 +287,29 @@ export default function IngestionTab({
           )}
         </div>
 
+        {/* YouTube cost confirmation */}
+        {isYouTubeUrl && (
+          <div style={{ padding: 12, background: "rgba(255, 170, 0, 0.08)", borderRadius: "var(--radius-md)", border: "1px solid rgba(255, 170, 0, 0.25)", marginBottom: 12, display: "flex", alignItems: "center", gap: 12 }}>
+            <input
+              type="checkbox"
+              id="video-cost-confirm"
+              checked={videoCostConfirmed}
+              onChange={(e) => setVideoCostConfirmed(e.target.checked)}
+              style={{ width: 18, height: 18, cursor: "pointer" }}
+            />
+            <label htmlFor="video-cost-confirm" className="body-sm" style={{ cursor: "pointer" }}>
+              🎬 <strong>Video detected.</strong> Gemini will watch the full video and extract detailed analysis. Cost: <span style={{ color: "var(--warning)", fontWeight: 600 }}>~$0.04-0.06</span>. Check to confirm.
+            </label>
+          </div>
+        )}
+
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button
             className="btn btn-primary"
             onClick={handleIngest}
-            disabled={ingesting || !ingestionInput.trim()}
+            disabled={ingesting || !ingestionInput.trim() || (isYouTubeUrl && !videoCostConfirmed)}
           >
-            {ingesting ? "⏳ Processing..." : (ingestionType === "url" ? "Ingest URL" : "Submit for Review")}
+            {ingesting ? "⏳ Processing..." : isYouTubeUrl ? "🎬 Analyze Video" : (ingestionType === "url" ? "Ingest URL" : "Submit for Review")}
           </button>
 
           {ingestionError && (
@@ -281,6 +318,16 @@ export default function IngestionTab({
             </span>
           )}
         </div>
+
+        {/* Video analysis results */}
+        {videoMeta && (
+          <div style={{ marginTop: 12, padding: 12, background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <span className="badge badge-success">🎬 Video Processed</span>
+            <span className="badge" style={{ background: "var(--bg-secondary)" }}>Cost: {videoMeta.cost}</span>
+            <span className="badge" style={{ background: "var(--bg-secondary)" }}>Time: {videoMeta.executionTime}</span>
+            <span className="badge" style={{ background: "var(--bg-secondary)" }}>{videoMeta.tokenValidation}</span>
+          </div>
+        )}
 
         {lastEntry && (
           <div style={{ marginTop: 16, padding: 12, background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)" }}>

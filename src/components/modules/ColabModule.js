@@ -1,60 +1,58 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, useEffect } from "react";
-import Image from "next/image";
+import { useState, useEffect, useCallback } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 
 /**
- * Colab Module — Notebook runner + Results viewer
+ * Colab Module — Notebook runner + Results viewer + Pending notebook review
  */
-
 
 export default function ColabModule() {
   const [notebooks, setNotebooks] = useState([]);
+  const [pendingNotebooks, setPendingNotebooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Execution flow state
   const [selectedNotebook, setSelectedNotebook] = useState(null);
   const [parameters, setParameters] = useState({});
-  const [executionStatus, setExecutionStatus] = useState("idle"); // idle, queued, running, completed, error
+  const [executionStatus, setExecutionStatus] = useState("idle");
   const [executionMessage, setExecutionMessage] = useState("");
 
   // Results history state
   const [executionHistory, setExecutionHistory] = useState([]);
 
-  useEffect(() => {
-    async function fetchNotebooks() {
-      try {
-        const response = await fetch("/api/colab/execute");
-        const data = await response.json();
-        if (data.notebooks) {
-          setNotebooks(data.notebooks);
-        } else {
-          setError("Failed to load notebooks");
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+  // Pending review state
+  const [reviewingNotebook, setReviewingNotebook] = useState(null);
+  const [reviewContent, setReviewContent] = useState(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+
+  const fetchNotebooks = useCallback(async () => {
+    try {
+      const response = await fetch("/api/colab/execute");
+      const data = await response.json();
+      if (data.notebooks) {
+        setNotebooks(data.notebooks);
       }
+      if (data.pendingNotebooks) {
+        setPendingNotebooks(data.pendingNotebooks);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-    fetchNotebooks();
   }, []);
+
+  useEffect(() => { fetchNotebooks(); }, [fetchNotebooks]);
 
   const handleRunClick = (notebook) => {
     setSelectedNotebook(notebook);
-
-    // Initialize parameters with defaults
     const initialParams = {};
     if (notebook.parameters) {
       notebook.parameters.forEach(p => {
-        if (p.default !== undefined) {
-          initialParams[p.name] = p.default;
-        } else {
-          initialParams[p.name] = "";
-        }
+        initialParams[p.name] = p.default !== undefined ? p.default : "";
       });
     }
     setParameters(initialParams);
@@ -76,33 +74,21 @@ export default function ColabModule() {
     setExecutionStatus("queued");
     setExecutionMessage("Execution queued...");
 
-    // Convert comma-separated string back to array if type is array
-    // Wait, the API specifies parameter types: { name: "holdings", type: "array" }
-    // If we just send a string from the input, the API might fail or handle it badly,
-    // though the post endpoint currently only checks required fields and returns a mock response.
-    // Let's do a simple parse if needed, but for now we can just send the raw parameters
-    // and let the user input be whatever they typed.
     const formattedParams = { ...parameters };
-    if (selectedNotebook && selectedNotebook.parameters) {
-       selectedNotebook.parameters.forEach(p => {
-         if (p.type === 'array' && typeof formattedParams[p.name] === 'string') {
-             formattedParams[p.name] = formattedParams[p.name].split(',').map(s => s.trim());
-         }
-       });
+    if (selectedNotebook?.parameters) {
+      selectedNotebook.parameters.forEach(p => {
+        if (p.type === "array" && typeof formattedParams[p.name] === "string") {
+          formattedParams[p.name] = formattedParams[p.name].split(",").map(s => s.trim());
+        }
+      });
     }
 
     try {
       const response = await fetch("/api/colab/execute", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          notebookId: selectedNotebook.id,
-          parameters: formattedParams
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notebookId: selectedNotebook.id, parameters: formattedParams }),
       });
-
       const result = await response.json();
 
       if (!response.ok) {
@@ -111,8 +97,6 @@ export default function ColabModule() {
       } else {
         setExecutionStatus("completed");
         setExecutionMessage("Execution completed");
-
-        // Add to history
         setExecutionHistory(prev => [
           {
             id: `exec_${Date.now()}`,
@@ -125,15 +109,48 @@ export default function ColabModule() {
             results: result.results,
             chartUrls: result.chartUrls,
           },
-          ...prev
+          ...prev,
         ]);
-
-        // Clear selection after a short delay
         setTimeout(() => setSelectedNotebook(null), 2000);
       }
     } catch (err) {
       setExecutionStatus("error");
       setExecutionMessage(err.message);
+    }
+  };
+
+  /* ── Review Pending Notebook ──────────────────────────────── */
+  const handleReviewContent = async (nb) => {
+    if (reviewingNotebook === nb.id) {
+      setReviewingNotebook(null);
+      setReviewContent(null);
+      return;
+    }
+    setReviewingNotebook(nb.id);
+    setReviewLoading(true);
+    try {
+      const res = await fetch(`/api/colab/notebooks/approve?id=${nb.id}`);
+      const data = await res.json();
+      setReviewContent(data);
+    } catch (err) {
+      setReviewContent({ error: err.message });
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const handleApproveReject = async (notebookId, action) => {
+    try {
+      await fetch("/api/colab/notebooks/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notebookId, action }),
+      });
+      setReviewingNotebook(null);
+      setReviewContent(null);
+      fetchNotebooks(); // Refresh
+    } catch (err) {
+      console.error("Approve/reject failed:", err);
     }
   };
 
@@ -152,6 +169,83 @@ export default function ColabModule() {
         </div>
       </div>
 
+      {/* ── Pending Notebooks Review ──────────────────────────── */}
+      {pendingNotebooks.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <h3 className="h4" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+            📋 Pending Review
+            <span className="badge badge-warning">{pendingNotebooks.length}</span>
+          </h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {pendingNotebooks.map((nb) => (
+              <div key={nb.id} className="card" style={{ borderLeft: "3px solid var(--warning)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <div>
+                    <div className="h5">{nb.name}</div>
+                    <p className="body-sm" style={{ color: "var(--text-secondary)", marginTop: 4 }}>{nb.description}</p>
+                  </div>
+                  <span className="badge badge-warning">pending</span>
+                </div>
+
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                  <span className="badge badge-info">{nb.sourceType === "video_transcript" ? "🎬 Video" : "📄 " + (nb.sourceType || "text")}</span>
+                  <span className="badge" style={{ background: "var(--bg-tertiary)" }}>from: {nb.sourceTitle}</span>
+                  {nb.estimatedCost && <span className="badge badge-success">{nb.estimatedCost}</span>}
+                  {nb.classification?.tags?.map((tag) => (
+                    <span key={tag} className="badge" style={{ background: "var(--bg-tertiary)", fontSize: 11 }}>{tag}</span>
+                  ))}
+                </div>
+
+                {nb.expectedOutputs?.length > 0 && (
+                  <div className="body-sm" style={{ color: "var(--text-secondary)", marginBottom: 8 }}>
+                    <strong>Expected outputs:</strong> {nb.expectedOutputs.join(", ")}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleReviewContent(nb)}>
+                    {reviewingNotebook === nb.id ? "Hide Content" : "Review Content"}
+                  </button>
+                  <button className="btn btn-primary btn-sm" onClick={() => handleApproveReject(nb.id, "approve")}>
+                    ✅ Approve
+                  </button>
+                  <button className="btn btn-sm" style={{ background: "var(--error-subtle, rgba(239,68,68,0.1))", color: "var(--error)" }} onClick={() => handleApproveReject(nb.id, "reject")}>
+                    ❌ Reject
+                  </button>
+                </div>
+
+                {/* ── Full Content Review ── */}
+                {reviewingNotebook === nb.id && (
+                  <div style={{ marginTop: 12, padding: 16, background: "var(--bg-secondary)", borderRadius: "var(--radius-md)", border: "1px solid var(--card-border)", maxHeight: 500, overflowY: "auto" }}>
+                    {reviewLoading ? (
+                      <div className="body-sm">Loading content...</div>
+                    ) : reviewContent?.error ? (
+                      <div className="badge badge-error">{reviewContent.error}</div>
+                    ) : (
+                      <div>
+                        <div className="body-sm" style={{ marginBottom: 8 }}>
+                          <strong>Analysis Prompt:</strong>
+                          <pre style={{ whiteSpace: "pre-wrap", margin: "4px 0", padding: 8, background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", fontSize: 12 }}>
+                            {reviewContent?.analysisPrompt}
+                          </pre>
+                        </div>
+                        <div className="body-sm" style={{ marginBottom: 8 }}>
+                          <strong>Raw Content ({(reviewContent?.rawContentLength || 0).toLocaleString()} chars):</strong>
+                        </div>
+                        <pre style={{ whiteSpace: "pre-wrap", margin: 0, padding: 12, background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", fontSize: 12, lineHeight: 1.5, maxHeight: 350, overflowY: "auto" }}>
+                          {reviewContent?.rawContent}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Active Notebooks ──────────────────────────────────── */}
       {loading ? (
         <div className="empty-state">
           <div className="status-dot pulse" style={{ width: 24, height: 24, background: "var(--accent)" }}></div>
@@ -166,16 +260,20 @@ export default function ColabModule() {
           {notebooks.map((nb) => (
             <div key={nb.id || nb.name} className="card" style={{ display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{ fontSize: 24 }}>{nb.icon}</span>
+                <span style={{ fontSize: 24 }}>{nb.icon || "📓"}</span>
                 <div className="h4">{nb.name}</div>
               </div>
               <p className="body-sm" style={{ color: "var(--text-secondary)", marginBottom: 12 }}>
                 {nb.description || nb.desc}
               </p>
 
+              {nb.sourceTitle && (
+                <div className="body-sm" style={{ color: "var(--text-tertiary)", marginBottom: 8 }}>
+                  Source: {nb.sourceTitle}
+                </div>
+              )}
+
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-                {nb.runtime && <span className="badge badge-info">runtime: {nb.runtime}</span>}
-                {nb.estimatedDuration && <span className="badge badge-warning">~{nb.estimatedDuration}</span>}
                 {nb.costEstimate && <span className="badge badge-success">~{nb.costEstimate}</span>}
               </div>
 
@@ -197,7 +295,6 @@ export default function ColabModule() {
                 {selectedNotebook?.id === nb.id ? (
                   <form onSubmit={handleSubmit} style={{ background: "var(--bg-secondary)", padding: 16, borderRadius: "var(--radius-md)", marginTop: 12 }}>
                     <h4 className="h5" style={{ marginBottom: 12 }}>Configure Run</h4>
-
                     {nb.parameters?.map(p => (
                       <div key={p.name} style={{ marginBottom: 12 }}>
                         <label className="body-sm" style={{ display: "block", marginBottom: 4 }}>
@@ -205,15 +302,14 @@ export default function ColabModule() {
                         </label>
                         <input
                           className="input"
-                          type={p.type === "string" ? "text" : "text"}
+                          type="text"
                           value={parameters[p.name] || ""}
                           onChange={(e) => handleParamChange(p.name, e.target.value)}
-                          placeholder={p.default || (p.type === 'array' ? "comma separated list" : "")}
+                          placeholder={p.default || (p.type === "array" ? "comma separated list" : "")}
                           required={p.required}
                         />
                       </div>
                     ))}
-
                     {executionMessage && (
                       <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }} className="body-sm">
                         {(executionStatus === "queued" || executionStatus === "running") && (
@@ -224,30 +320,17 @@ export default function ColabModule() {
                         </span>
                       </div>
                     )}
-
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        type="submit"
-                        className="btn btn-primary btn-sm"
-                        disabled={executionStatus === "queued" || executionStatus === "running"}
-                      >
+                      <button type="submit" className="btn btn-primary btn-sm" disabled={executionStatus === "queued" || executionStatus === "running"}>
                         Start Execution
                       </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={handleCancelRun}
-                        disabled={executionStatus === "queued" || executionStatus === "running"}
-                      >
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={handleCancelRun} disabled={executionStatus === "queued" || executionStatus === "running"}>
                         Cancel
                       </button>
                     </div>
                   </form>
                 ) : (
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => handleRunClick(nb)}
-                  >
+                  <button className="btn btn-primary btn-sm" onClick={() => handleRunClick(nb)}>
                     ▶ Run
                   </button>
                 )}
@@ -257,15 +340,14 @@ export default function ColabModule() {
         </div>
       )}
 
+      {/* ── Results ──────────────────────────────────────────── */}
       <div className="card">
         <h3 className="h4" style={{ marginBottom: 16 }}>Results</h3>
         {executionHistory.length === 0 ? (
           <div className="empty-state" style={{ padding: 32 }}>
             <div className="empty-state-icon">🧪</div>
             <p className="empty-state-title">No results yet</p>
-            <p className="empty-state-desc">
-              Run a notebook to see outputs, charts, and analysis results here.
-            </p>
+            <p className="empty-state-desc">Run a notebook to see outputs, charts, and analysis results here.</p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -276,11 +358,8 @@ export default function ColabModule() {
                     <h4 className="h5">{exec.notebook}</h4>
                     <p className="body-sm" style={{ color: "var(--text-tertiary)" }}>{exec.time}</p>
                   </div>
-                  <span className={`badge ${exec.status === 'completed' ? 'badge-success' : 'badge-error'}`}>
-                    {exec.status}
-                  </span>
+                  <span className={`badge ${exec.status === "completed" ? "badge-success" : "badge-error"}`}>{exec.status}</span>
                 </div>
-
                 <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 8 }}>
                   {Object.entries(exec.parameters || {}).map(([k, v]) => (
                     <span key={k} className="body-sm" style={{ background: "var(--bg-tertiary)", padding: "2px 8px", borderRadius: "var(--radius-sm)" }}>
@@ -288,10 +367,7 @@ export default function ColabModule() {
                     </span>
                   ))}
                 </div>
-
-                <p className="body-sm" style={{ color: "var(--text-secondary)" }}>
-                  {exec.message}
-                </p>
+                <p className="body-sm" style={{ color: "var(--text-secondary)" }}>{exec.message}</p>
                 {exec.executionTime && (
                   <p className="body-sm" style={{ color: "var(--text-tertiary)", marginTop: 4 }}>
                     Execution Time: {(exec.executionTime / 1000).toFixed(2)}s
@@ -300,15 +376,14 @@ export default function ColabModule() {
                 {exec.results && (
                   <div style={{ marginTop: 12, padding: 12, background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", border: "1px solid var(--card-border)", overflowX: "auto" }}>
                     <pre className="body-sm" style={{ margin: 0 }}>
-                      {typeof exec.results === 'object' ? JSON.stringify(exec.results, null, 2) : exec.results}
+                      {typeof exec.results === "object" ? JSON.stringify(exec.results, null, 2) : exec.results}
                     </pre>
                   </div>
                 )}
                 {exec.chartUrls && exec.chartUrls.length > 0 && (
-                  <div style={{ marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap" }}>
                     {exec.chartUrls.map((url, i) => (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img key={i} src={url} alt={`Chart ${i+1}`} style={{ maxWidth: '100%', borderRadius: "var(--radius-md)" }} />
+                      <img key={i} src={url} alt={`Chart ${i + 1}`} style={{ maxWidth: "100%", borderRadius: "var(--radius-md)" }} />
                     ))}
                   </div>
                 )}
