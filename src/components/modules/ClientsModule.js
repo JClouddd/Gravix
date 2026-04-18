@@ -23,7 +23,12 @@ export default function ClientsModule() {
   const [selectedClient, setSelectedClient] = useState(null);
   const [activeTab, setActiveTab] = useState("overview"); // overview, billing, communications
 
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [billingEntries, setBillingEntries] = useState([]);
+  const [contractsData, setContractsData] = useState({ contracts: [], totalValue: 0, activeContracts: 0 });
+  const [isFetchingContracts, setIsFetchingContracts] = useState(false);
+  const [showContractForm, setShowContractForm] = useState(false);
+  const [newContract, setNewContract] = useState({ title: "", type: "project", startDate: "", endDate: "", value: "", notes: "", status: "draft" });
   const [communicationsData, setCommunicationsData] = useState({ communications: [], totalEmails: 0, totalMeetings: 0 });
   const [isFetchingData, setIsFetchingData] = useState(false);
 
@@ -59,6 +64,44 @@ export default function ClientsModule() {
     }
   };
 
+  const fetchContracts = async () => {
+    setIsFetchingContracts(true);
+    try {
+      const res = await fetch(`/api/clients/${selectedClient.id}/contracts`);
+      if (res.ok) {
+        const data = await res.json();
+        setContractsData(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch contracts", err);
+    } finally {
+      setIsFetchingContracts(false);
+    }
+  };
+
+  const handleAddContract = async (e) => {
+    e.preventDefault();
+    if (!newContract.title || !newContract.type || !newContract.status) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/clients/${selectedClient.id}/contracts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newContract)
+      });
+      if (res.ok) {
+        setNewContract({ title: "", type: "project", startDate: "", endDate: "", value: "", notes: "", status: "draft" });
+        setShowContractForm(false);
+        fetchContracts();
+      }
+    } catch (err) {
+      console.error("Failed to add contract", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     if (selectedClient) {
       if (activeTab === "billing") {
@@ -66,6 +109,8 @@ export default function ClientsModule() {
         fetchBilling();
       } else if (activeTab === "communications") {
         fetchCommunications();
+      } else if (activeTab === "contracts") {
+        fetchContracts();
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -239,6 +284,94 @@ export default function ClientsModule() {
             </div>
           )}
 
+
+          {activeTab === 'contracts' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <div style={{ padding: '12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)', minWidth: '150px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Total Value</div>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold' }}>${contractsData.totalValue.toLocaleString()}</div>
+                  </div>
+                  <div style={{ padding: '12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)', minWidth: '150px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Active Contracts</div>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{contractsData.activeContracts}</div>
+                  </div>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowContractForm(!showContractForm)}>
+                  {showContractForm ? 'Cancel' : '+ Add Contract'}
+                </button>
+              </div>
+
+              {showContractForm && (
+                <div style={{ padding: '16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)', marginBottom: '24px' }}>
+                  <h4 className="h5" style={{ marginBottom: '12px' }}>New Contract</h4>
+                  <form onSubmit={handleAddContract} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <input className="input" placeholder="Contract Title" required value={newContract.title} onChange={e => setNewContract({...newContract, title: e.target.value})} style={{ gridColumn: '1 / -1' }} />
+                    <select className="input" value={newContract.type} onChange={e => setNewContract({...newContract, type: e.target.value})} style={{ backgroundColor: 'var(--bg-primary)' }}>
+                      <option value="retainer">Retainer</option>
+                      <option value="project">Project</option>
+                      <option value="hourly">Hourly</option>
+                      <option value="subscription">Subscription</option>
+                    </select>
+                    <select className="input" value={newContract.status} onChange={e => setNewContract({...newContract, status: e.target.value})} style={{ backgroundColor: 'var(--bg-primary)' }}>
+                      <option value="draft">Draft</option>
+                      <option value="active">Active</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                    <input className="input" type="date" placeholder="Start Date" value={newContract.startDate} onChange={e => setNewContract({...newContract, startDate: e.target.value})} />
+                    <input className="input" type="date" placeholder="End Date" value={newContract.endDate} onChange={e => setNewContract({...newContract, endDate: e.target.value})} />
+                    <input className="input" type="number" placeholder="Total Value ($)" value={newContract.value} onChange={e => setNewContract({...newContract, value: e.target.value})} />
+                    <input className="input" placeholder="Notes (optional)" value={newContract.notes} onChange={e => setNewContract({...newContract, notes: e.target.value})} />
+                    <button type="submit" className="btn btn-primary" style={{ gridColumn: '1 / -1' }} disabled={isSubmitting}>
+                      {isSubmitting ? 'Adding...' : 'Save Contract'}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {isFetchingContracts ? (
+                 <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>Loading contracts...</div>
+              ) : (
+                 <div style={{ overflowX: 'auto', border: '1px solid var(--card-border)', borderRadius: 'var(--radius-md)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--card-border)' }}>
+                      <tr>
+                        <th style={{ padding: '12px 16px', fontWeight: 500 }}>Title</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 500 }}>Type</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 500 }}>Dates</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 500, textAlign: 'right' }}>Value</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 500 }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contractsData.contracts.length > 0 ? contractsData.contracts.map(c => (
+                        <tr key={c.id} style={{ borderBottom: '1px solid var(--card-border)' }}>
+                          <td style={{ padding: '12px 16px' }}>{c.title}</td>
+                          <td style={{ padding: '12px 16px', textTransform: 'capitalize' }}>{c.type}</td>
+                          <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>
+                            {c.startDate ? c.startDate : '-'} to {c.endDate ? c.endDate : '-'}
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>${c.value ? Number(c.value).toLocaleString() : '0'}</td>
+                          <td style={{ padding: '12px 16px' }}>
+                             <span className={`badge ${c.status === 'active' ? 'badge-success' : c.status === 'completed' ? 'badge-info' : c.status === 'cancelled' ? 'badge-error' : ''}`}>
+                               {c.status}
+                             </span>
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No contracts found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'communications' && (
             <div>
                <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
@@ -296,7 +429,18 @@ export default function ClientsModule() {
             <p className="module-subtitle">Client profiles, projects, and billing management</p>
           </div>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => { setIsWizardOpen(true); setPlanResult(null); }}>+ New Client</button>
+        <div style={{ display: "flex", gap: "12px" }}>
+          <div style={{ position: 'relative' }}>
+             <button className="btn btn-secondary btn-sm" onClick={() => setShowExportDropdown(!showExportDropdown)} >Export ▾</button>
+             {showExportDropdown && (
+               <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: 'var(--bg-elevated)', border: '1px solid var(--card-border)', borderRadius: 'var(--radius-md)', padding: '8px', minWidth: '150px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                 <button className="btn btn-ghost btn-sm" style={{ textAlign: 'left', width: '100%' }} onClick={() => window.open('/api/export?type=clients&format=csv')}>Export as CSV</button>
+                 <button className="btn btn-ghost btn-sm" style={{ textAlign: 'left', width: '100%' }} onClick={() => window.open('/api/export?type=clients&format=json')}>Export as JSON</button>
+               </div>
+             )}
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={() => { setIsWizardOpen(true); setPlanResult(null); }}>+ New Client</button>
+        </div>
       </div>
 
       {isWizardOpen ? (

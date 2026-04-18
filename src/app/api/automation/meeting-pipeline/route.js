@@ -40,8 +40,8 @@ export async function POST(request) {
     let eventsCreated = 0;
     let decisionsStored = 0;
 
-    // Create Tasks Concurrently
-    const taskPromises = actionItems.map(async (item) => {
+    // Create Tasks
+    for (const item of actionItems) {
       try {
         const taskPayload = {
           title: item.task || "Meeting Action Item",
@@ -68,12 +68,10 @@ export async function POST(request) {
       } catch (err) {
         console.error("Failed to create task", err);
       }
-    });
+    }
 
-    await Promise.all(taskPromises);
-
-    // Create Calendar Events for follow-ups Concurrently
-    const eventPromises = followUps.map(async (item) => {
+    // Create Calendar Events for follow-ups
+    for (const item of followUps) {
       try {
         const eventStart = new Date();
         eventStart.setDate(eventStart.getDate() + 7); // 1 week from now
@@ -106,29 +104,22 @@ export async function POST(request) {
       } catch (err) {
         console.error("Failed to create follow-up event", err);
       }
-    });
+    }
 
-    await Promise.all(eventPromises);
-
-    // Store Decisions in Firestore via Batch
-    if (decisions && decisions.length > 0) {
+    // Store Decisions in Firestore
+    for (const decision of decisions) {
       try {
-        const batch = adminDb.batch();
-        for (const decision of decisions) {
-          const decisionText = typeof decision === "string" ? decision : decision.decision;
-          if (decisionText) {
-            const docRef = adminDb.collection("meeting_decisions").doc();
-            batch.set(docRef, {
-              meetingId,
-              decision: decisionText,
-              timestamp: new Date().toISOString(),
-            });
-            decisionsStored++;
-          }
+        const decisionText = typeof decision === "string" ? decision : decision.decision;
+        if (decisionText) {
+          await adminDb.collection("meeting_decisions").add( {
+            meetingId,
+            decision: decisionText,
+            timestamp: new Date().toISOString(),
+          });
+          decisionsStored++;
         }
-        await batch.commit();
       } catch (err) {
-        console.error("Failed to store decisions batch", err);
+        console.error("Failed to store decision", err);
       }
     }
 
