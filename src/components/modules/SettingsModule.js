@@ -303,6 +303,23 @@ export default function SettingsModule() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
+                <div className="body">Restart Onboarding Tour</div>
+                <div className="caption">Replay the introductory guide</div>
+              </div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to restart the onboarding tour?")) {
+                    localStorage.removeItem("gravix-onboarding-complete");
+                    window.location.reload();
+                  }
+                }}
+              >
+                Restart Tour
+              </button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
                 <div className="body">Theme</div>
                 <div className="caption">Toggle between dark, light, and system</div>
               </div>
