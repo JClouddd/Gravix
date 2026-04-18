@@ -4,6 +4,7 @@ import { useState, useCallback, Suspense, lazy, useEffect, useRef } from "react"
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
 import CommandPalette from "@/components/CommandPalette";
+import NotificationCenter from "@/components/NotificationCenter";
 
 /* ── Module Registry ─────────────────────────────────────────── */
 const MODULES = [
@@ -155,10 +156,13 @@ export default function AppShell() {
         <header style={{
           display: "flex",
           justifyContent: "flex-end",
+          alignItems: "center",
+          gap: "12px",
           padding: "12px 20px",
           borderBottom: "1px solid var(--card-border)",
           background: "var(--bg-primary)"
         }}>
+          <NotificationCenter />
           <button
             className="btn btn-icon btn-ghost"
             onClick={toggleTheme}

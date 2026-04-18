@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { adminDb } from '@/lib/firebaseAdmin';
 import crypto from 'crypto';
 
 /**
@@ -57,16 +56,50 @@ async function getAccessToken(serviceAccount) {
 
 export async function POST(request) {
   try {
-    const { title, body, data } = await request.json();
+    const { title, body, data, type, source } = await request.json();
 
     if (!title || !body) {
       return NextResponse.json({ error: 'Missing title or body' }, { status: 400 });
     }
 
+    // Store notification in Firestore history first
+    const notificationType = type || 'info';
+    const notificationDoc = {
+      title,
+      body,
+      type: notificationType,
+      source: source || 'system',
+      read: false,
+      timestamp: new Date(),
+      data: data || {}
+    };
+
+    await adminDb.collection('notifications').add(notificationDoc);
+
+    // Check notification preferences
+    const prefsDoc = await adminDb.collection('settings').doc('notification_prefs').get();
+    const prefs = prefsDoc.exists ? prefsDoc.data() : {};
+
+    // If it's a specific type, check if it's disabled in preferences
+    if (notificationType === 'critical' && prefs.healthAlerts === false) {
+      return NextResponse.json({ success: true, stored: true, message: 'Notification stored but not sent due to user preferences (health alerts disabled)' });
+    }
+
+    // For specific sources or custom types check their toggles if mapped
+    if (source === 'agent_proposals' && prefs.agentProposals === false) {
+       return NextResponse.json({ success: true, stored: true, message: 'Notification stored but not sent due to user preferences (agent proposals disabled)' });
+    }
+    if (source === 'meeting_summaries' && prefs.meetingSummaries === false) {
+       return NextResponse.json({ success: true, stored: true, message: 'Notification stored but not sent due to user preferences (meeting summaries disabled)' });
+    }
+    if (type === 'warning' && data?.cost && prefs.costAlerts === false) {
+       return NextResponse.json({ success: true, stored: true, message: 'Notification stored but not sent due to user preferences (cost alerts disabled)' });
+    }
+
     // 1. Get FCM Token from Firestore
-    const fcmDoc = await getDoc(doc(db, "settings", "fcm_token"));
-    if (!fcmDoc.exists() || !fcmDoc.data().token) {
-      return NextResponse.json({ error: 'No FCM token found. User might not have enabled notifications.' }, { status: 404 });
+    const fcmDoc = await adminDb.collection("settings").doc("fcm_token").get();
+    if (!fcmDoc.exists || !fcmDoc.data().token) {
+      return NextResponse.json({ success: true, stored: true, message: 'Notification stored but no FCM token found.' });
     }
     const fcmToken = fcmDoc.data().token;
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { requestPermission } from "@/lib/notifications";
 import HelpTooltip from "@/components/HelpTooltip";
 
@@ -56,6 +58,50 @@ export default function SettingsModule() {
       ? (Notification.permission === "granted" ? "connected" : "not connected")
       : "unsupported"
   );
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    costAlerts: true,
+    healthAlerts: true,
+    agentProposals: true,
+    meetingSummaries: true,
+    costThreshold: 72
+  });
+
+  useEffect(() => {
+    // Load notification prefs
+    const fetchPrefs = async () => {
+      try {
+        const docRef = doc(db, "settings", "notification_prefs");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setNotificationPrefs(prev => ({ ...prev, ...docSnap.data() }));
+        }
+      } catch (err) {
+        console.error("Failed to load notification prefs:", err);
+      }
+    };
+    fetchPrefs();
+  }, []);
+
+  const saveNotificationPrefs = async (newPrefs) => {
+    try {
+      await setDoc(doc(db, "settings", "notification_prefs"), newPrefs, { merge: true });
+    } catch (err) {
+      console.error("Failed to save notification prefs:", err);
+    }
+  };
+
+  const handlePrefToggle = (key) => {
+    const newPrefs = { ...notificationPrefs, [key]: !notificationPrefs[key] };
+    setNotificationPrefs(newPrefs);
+    saveNotificationPrefs(newPrefs);
+  };
+
+  const handleThresholdChange = (e) => {
+    const newPrefs = { ...notificationPrefs, costThreshold: Number(e.target.value) };
+    setNotificationPrefs(newPrefs);
+    // Debounce this in a real app, but directly saving for now
+    saveNotificationPrefs(newPrefs);
+  };
 
   const handlePushToggle = async (e) => {
     const isChecked = e.target.checked;
@@ -154,29 +200,75 @@ export default function SettingsModule() {
           </div>
         </div>
 
-        {/* Integrations */}
+        {/* Notifications */}
         <div className="card">
-          <h3 className="h4" style={{ marginBottom: 16 }}>Notifications</h3>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <div className="body">Push Notifications</div>
-              <div className="caption">Receive alerts from Sentinel and agent updates via FCM</div>
-              <div className="caption" style={{ marginTop: 4 }}>
-                Status: <span style={{ color: fcmTokenStatus === "connected" ? "var(--success)" : "var(--text-secondary)" }}>{fcmTokenStatus}</span>
+          <h3 className="h4" style={{ marginBottom: 16 }}>Notification Preferences</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Push Notifications</div>
+                <div className="caption">Receive alerts from Sentinel and agent updates via FCM</div>
+                <div className="caption" style={{ marginTop: 4 }}>
+                  Status: <span style={{ color: fcmTokenStatus === "connected" ? "var(--success)" : "var(--text-secondary)" }}>{fcmTokenStatus}</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span className="badge badge-warning">Requires PWA</span>
+                <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={pushEnabled}
+                    onChange={handlePushToggle}
+                    disabled={fcmTokenStatus === "unsupported"}
+                    style={{ width: 16, height: 16, accentColor: "var(--primary)" }}
+                  />
+                  <span style={{ marginLeft: 8 }} className="body-sm">{pushEnabled ? "Enabled" : "Disabled"}</span>
+                </label>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span className="badge badge-warning">Requires PWA</span>
-              <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={pushEnabled}
-                  onChange={handlePushToggle}
-                  disabled={fcmTokenStatus === "unsupported"}
-                  style={{ width: 16, height: 16, accentColor: "var(--primary)" }}
-                />
-                <span style={{ marginLeft: 8 }} className="body-sm">{pushEnabled ? "Enabled" : "Disabled"}</span>
-              </label>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Cost Alerts</div>
+                <div className="caption">Notify when spending exceeds threshold</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span className="caption">$</span>
+                  <input
+                    type="number"
+                    className="input"
+                    style={{ width: 60, padding: "4px 8px" }}
+                    value={notificationPrefs.costThreshold}
+                    onChange={handleThresholdChange}
+                  />
+                </div>
+                <input type="checkbox" checked={notificationPrefs.costAlerts} onChange={() => handlePrefToggle('costAlerts')} />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Health Alerts</div>
+                <div className="caption">Notify when services go down</div>
+              </div>
+              <input type="checkbox" checked={notificationPrefs.healthAlerts} onChange={() => handlePrefToggle('healthAlerts')} />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Agent Proposals</div>
+                <div className="caption">Notify when Conductor suggests new agents</div>
+              </div>
+              <input type="checkbox" checked={notificationPrefs.agentProposals} onChange={() => handlePrefToggle('agentProposals')} />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Meeting Summaries</div>
+                <div className="caption">Notify after meetings are processed</div>
+              </div>
+              <input type="checkbox" checked={notificationPrefs.meetingSummaries} onChange={() => handlePrefToggle('meetingSummaries')} />
             </div>
           </div>
         </div>
