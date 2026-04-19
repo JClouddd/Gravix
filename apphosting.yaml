@@ -31,3 +31,5 @@ env:
     value: https://gravix.web.app
   - variable: USE_ADK_AGENTS
     value: "false"
+  - variable: GOOGLE_CLOUD_REGION
+    value: us-east4
