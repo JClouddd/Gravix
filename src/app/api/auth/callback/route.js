@@ -48,7 +48,7 @@ export async function GET(request) {
 }
 
 function redirectWithMessage(status, message) {
-  const url = new URL("https://gravix-eight.vercel.app");
+  const url = new URL("https://gravix--antigravity-hub-jcloud.us-east4.hosted.app");
   url.searchParams.set("auth", status);
   url.searchParams.set("message", message);
   return Response.redirect(url.toString(), 302);

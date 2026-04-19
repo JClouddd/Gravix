@@ -1,7 +1,11 @@
 
-import { adminDb } from "@/lib/firebaseAdmin";
-import { refreshAccessToken } from "@/lib/googleAuth";
+import { triggerPipeline } from "@/lib/automationEngine";
 
+/**
+ * POST /api/automation/email-pipeline
+ * Processes classified emails through the automation pipeline.
+ * Called automatically when the inbox is fetched, or manually via trigger.
+ */
 export async function POST(request) {
   try {
     const { emails } = await request.json();
@@ -14,94 +18,25 @@ export async function POST(request) {
     let tasksCreated = 0;
     let clientsLinked = 0;
     let invoicesLogged = 0;
-
-    let accessToken = null;
-    const batch = adminDb.batch();
+    const pipelineResults = [];
 
     for (const email of emails) {
-      const { id, from, subject, snippet, category, urgency } = email;
       processed++;
 
-      // 1. Task creation for action-required or high urgency
-      if (category === "action-required" || urgency === "high") {
-        if (!accessToken) {
-          const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
-          if (tokensDoc.exists) {
-            const tokens = tokensDoc.data();
-            accessToken = tokens.accessToken;
-
-            if (Date.now() > tokens.expiresAt) {
-              const refreshed = await refreshAccessToken(tokens.refreshToken);
-              accessToken = refreshed.access_token;
-              await adminDb.collection("settings").doc("google_oauth").update( {
-                accessToken: refreshed.access_token,
-                expiresAt: Date.now() + (refreshed.expires_in * 1000),
-              });
-            }
-          }
-        }
-
-        if (accessToken) {
-          try {
-            await fetch("https://tasks.googleapis.com/tasks/v1/lists/@default/tasks", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                title: subject,
-                notes: `From: ${from}\nSnippet: ${snippet}`,
-              }),
-            });
-            tasksCreated++;
-          } catch (err) {
-            console.error("Failed to create task for email", id, err);
-          }
-        }
-      }
-
-      // 2. Client linkage
-      if (category === "client") {
-        try {
-          const docRef = adminDb.collection("client_emails").doc();
-          batch.set(docRef, {
-            emailId: id,
-            from,
-            matchedClient: from, // simplified for now
-            timestamp: new Date().toISOString(),
-          });
-          clientsLinked++;
-          batchCount++;
-        } catch (err) {
-          console.error("Failed to prepare client email for batch", id, err);
-        }
-      }
-
-      // 3. Invoice logging
-      const lowerSubject = (subject || "").toLowerCase();
-      if (category === "invoice" || lowerSubject.includes("invoice") || lowerSubject.includes("receipt")) {
-        try {
-          const docRef = adminDb.collection("income_entries").doc();
-          batch.set(docRef, {
-            from,
-            subject,
-            timestamp: new Date().toISOString(),
-            source: "email-auto",
-          });
-          invoicesLogged++;
-          batchCount++;
-        } catch (err) {
-          console.error("Failed to prepare invoice for batch", id, err);
-        }
-      }
-    }
-
-    if (clientsLinked > 0 || invoicesLogged > 0) {
       try {
-        await batch.commit();
+        // Run the email.received pipeline for each email
+        const results = await triggerPipeline("email.received", { email });
+        pipelineResults.push({ emailId: email.id, results });
+
+        // Count outcomes
+        for (const r of results) {
+          if (r.action === "createTaskIfNeeded" && r.result === "created") tasksCreated++;
+          if (r.action === "linkToClient" && r.result === "linked") clientsLinked++;
+          if (r.action === "logIfInvoice" && r.result === "logged") invoicesLogged++;
+        }
       } catch (err) {
-        console.error("Failed to commit batch", err);
+        console.error("Pipeline error for email", email.id, err);
+        pipelineResults.push({ emailId: email.id, error: err.message });
       }
     }
 
@@ -110,6 +45,7 @@ export async function POST(request) {
       tasksCreated,
       clientsLinked,
       invoicesLogged,
+      pipelineResults,
     });
   } catch (error) {
     console.error("[/api/automation/email-pipeline]", error);

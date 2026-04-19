@@ -141,10 +141,27 @@ export async function POST(request) {
 
     // 1. Fetch OAuth token
     const oauthDoc = await adminDb.collection("settings").doc("google_oauth").get();
-    if (!oauthDoc.exists || !oauthDoc.data().access_token) {
+    if (!oauthDoc.exists || !oauthDoc.data().accessToken) {
       return NextResponse.json({ error: "Google Workspace not connected (no OAuth token)" }, { status: 401 });
     }
-    const accessToken = oauthDoc.data().access_token;
+
+    const tokens = oauthDoc.data();
+    let accessToken = tokens.accessToken;
+
+    // Refresh if expired
+    if (Date.now() > tokens.expiresAt) {
+      try {
+        const { refreshAccessToken } = await import("@/lib/googleAuth");
+        const refreshed = await refreshAccessToken(tokens.refreshToken);
+        accessToken = refreshed.access_token;
+        await adminDb.collection("settings").doc("google_oauth").update({
+          accessToken: refreshed.access_token,
+          expiresAt: Date.now() + (refreshed.expires_in * 1000),
+        });
+      } catch {
+        return NextResponse.json({ error: "Token expired. Please reconnect Google Workspace." }, { status: 401 });
+      }
+    }
 
     let plan;
     try {

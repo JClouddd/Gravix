@@ -99,7 +99,7 @@ async function searchDataStore(queryText, pageSize = 5) {
   const endpoint = `https://discoveryengine.googleapis.com/v1/projects/${PROJECT}/locations/${LOCATION}/collections/default_collection/engines/${ENGINE}/servingConfigs/default_search:search`;
 
   // Use the GEMINI_API_KEY for auth — in production this would use
-  // a service account, but for Vercel serverless we use the API key
+  // a service account, but for Firebase App Hosting serverless we use the API key
   // Discovery Engine requires OAuth, so we construct a server-side request
   const apiKey = process.env.GEMINI_API_KEY;
 
