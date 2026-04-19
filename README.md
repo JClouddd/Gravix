@@ -67,7 +67,7 @@ Gravix is built with cutting-edge technologies:
 - **AI Models:** Gemini 2.5 Pro & Gemini 2.5 Flash
 - **Cloud Infrastructure:** Vertex AI
 - **Database & Auth:** Firebase / Firestore
-- **Hosting & Deployment:** Vercel
+- **Hosting & Deployment:** Firebase App Hosting (Cloud Run + CDN)
 
 ---
 
