@@ -108,7 +108,7 @@ export default function PlannerModule() {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    fetchData(); // eslint-disable-line react-hooks/set-state-in-effect -- fetch-on-mount pattern
   }, [fetchData]);
 
   // Calendar Helpers
@@ -767,7 +767,7 @@ export default function PlannerModule() {
             ))}
             {sortedTasks.length === 0 && (
               <p style={{ textAlign: "center", color: "var(--text-secondary)", padding: "24px" }}>
-                No tasks yet. Click "Add Task" to get started.
+                No tasks yet. Click &ldquo;Add Task&rdquo; to get started.
               </p>
             )}
           </div>
