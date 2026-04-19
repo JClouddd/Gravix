@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 
-const TABS = ["Roster", "Workflow", "Tasks", "Proposals", "History"];
+const TABS = ["Roster", "Skills", "Workflow", "Tasks", "Proposals", "History"];
 
 export default function AgentsModule() {
   const [activeTab, setActiveTab] = useState("Roster");
@@ -14,6 +14,7 @@ export default function AgentsModule() {
   const [agentCosts, setAgentCosts] = useState({});
   const [executionMode, setExecutionMode] = useState("Step");
   const [expandedAgent, setExpandedAgent] = useState(null);
+  const [skillFilter, setSkillFilter] = useState("all");
   const [rosterChatInput, setRosterChatInput] = useState("");
   const [rosterChatStatus, setRosterChatStatus] = useState("idle");
   const [rosterChatResult, setRosterChatResult] = useState(null);
@@ -483,6 +484,135 @@ export default function AgentsModule() {
           </div>
         </div>
       )}
+
+
+      {activeTab === "Skills" && (() => {
+        const SKILL_CAT_COLORS = {
+          orchestration: "#6C5CE7",
+          monitoring: "#E74C3C",
+          security: "#E74C3C",
+          knowledge: "#00B894",
+          research: "#00B894",
+          devops: "#E17055",
+          analytics: "#A29BFE",
+          intelligence: "#A29BFE",
+          comms: "#4299E1",
+          coding: "#F1C40F",
+        };
+
+        // Flatten all skills with agent ownership
+        const allSkills = agents.flatMap(agent =>
+          (agent.skills || []).map(skill => ({ ...skill, agentId: agent.id, agentName: agent.name, agentIcon: agent.icon, agentColor: agent.color }))
+        );
+
+        // Get unique categories
+        const categories = [...new Set(allSkills.map(s => s.category))];
+
+        // Apply filter
+        const filtered = skillFilter === "all" ? allSkills : allSkills.filter(s => s.category === skillFilter);
+
+        return (
+        <div>
+          {/* Stats Bar */}
+          <div className="card" style={{ marginBottom: 16, display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center" }}>
+            <div>
+              <div className="caption" style={{ color: "var(--text-secondary)" }}>Total Skills</div>
+              <div className="h3" style={{ color: "var(--accent)" }}>{allSkills.length}</div>
+            </div>
+            <div>
+              <div className="caption" style={{ color: "var(--text-secondary)" }}>Categories</div>
+              <div className="h3" style={{ color: "var(--text-primary)" }}>{categories.length}</div>
+            </div>
+            <div>
+              <div className="caption" style={{ color: "var(--text-secondary)" }}>Agents</div>
+              <div className="h3" style={{ color: "var(--text-primary)" }}>{agents.length}</div>
+            </div>
+            <div style={{ flex: 1 }} />
+            <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Skills are dynamically learned from ingested content</div>
+          </div>
+
+          {/* Category Filter Pills */}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+            <button
+              className={`button ${skillFilter === "all" ? "button-primary" : ""}`}
+              style={{
+                fontSize: 11, padding: "4px 12px",
+                background: skillFilter === "all" ? "var(--accent)" : "var(--bg-secondary)",
+                color: skillFilter === "all" ? "#fff" : "var(--text-primary)",
+                border: "1px solid var(--card-border)",
+              }}
+              onClick={() => setSkillFilter("all")}
+            >
+              All ({allSkills.length})
+            </button>
+            {categories.map(cat => {
+              const count = allSkills.filter(s => s.category === cat).length;
+              const isActive = skillFilter === cat;
+              return (
+                <button
+                  key={cat}
+                  className="button"
+                  style={{
+                    fontSize: 11, padding: "4px 12px",
+                    background: isActive ? `${SKILL_CAT_COLORS[cat]}22` : "var(--bg-secondary)",
+                    color: isActive ? SKILL_CAT_COLORS[cat] : "var(--text-primary)",
+                    border: `1px solid ${isActive ? SKILL_CAT_COLORS[cat] : "var(--card-border)"}`,
+                  }}
+                  onClick={() => setSkillFilter(cat)}
+                >
+                  <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: SKILL_CAT_COLORS[cat] || "#999", marginRight: 6 }} />
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Skills Grid */}
+          <div className="grid-auto">
+            {filtered.map(skill => (
+              <div key={`${skill.agentId}-${skill.id}`} className="card" style={{
+                borderLeft: `3px solid ${SKILL_CAT_COLORS[skill.category] || "var(--card-border)"}`,
+                transition: "transform 0.15s ease",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{
+                    width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                    background: SKILL_CAT_COLORS[skill.category] || "#999",
+                  }} />
+                  <div className="h5" style={{ color: "var(--text-primary)" }}>{skill.name}</div>
+                </div>
+                <p className="body-sm" style={{ color: "var(--text-secondary)", marginBottom: 10, fontSize: 12 }}>
+                  {skill.description}
+                </p>
+                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                  <span className="badge" style={{
+                    fontSize: 10,
+                    background: `${skill.agentColor}22`,
+                    color: skill.agentColor,
+                    border: `1px solid ${skill.agentColor}44`,
+                  }}>
+                    {skill.agentIcon} {skill.agentName}
+                  </span>
+                  <span className="badge" style={{
+                    fontSize: 10,
+                    background: `${SKILL_CAT_COLORS[skill.category]}11`,
+                    color: SKILL_CAT_COLORS[skill.category],
+                  }}>
+                    {skill.category}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {filtered.length === 0 && (
+            <div className="empty-state" style={{ padding: 48 }}>
+              <p className="body-sm" style={{ color: "var(--text-secondary)" }}>No skills found for this filter</p>
+            </div>
+          )}
+        </div>
+        );
+      })()}
 
 
       {activeTab === "Workflow" && (
