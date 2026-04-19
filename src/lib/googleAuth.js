@@ -119,19 +119,19 @@ export async function googleApiRequest(accessToken, url, options = {}) {
 }
 
 /**
- * Get Gmail inbox messages
+ * Get Gmail inbox messages with pagination support
  */
-export async function getGmailInbox(accessToken, maxResults = 20) {
-  const messages = await googleApiRequest(
-    accessToken,
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}&labelIds=INBOX`
-  );
+export async function getGmailInbox(accessToken, maxResults = 20, pageToken = null) {
+  let url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}&labelIds=INBOX`;
+  if (pageToken) url += `&pageToken=${pageToken}`;
 
-  if (!messages.messages) return [];
+  const messages = await googleApiRequest(accessToken, url);
+
+  if (!messages.messages) return { emails: [], nextPageToken: null };
 
   // Fetch full message details for each
   const detailed = await Promise.all(
-    messages.messages.slice(0, 10).map(async (msg) => {
+    messages.messages.map(async (msg) => {
       const full = await googleApiRequest(
         accessToken,
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`
@@ -149,7 +149,7 @@ export async function getGmailInbox(accessToken, maxResults = 20) {
     })
   );
 
-  return detailed;
+  return { emails: detailed, nextPageToken: messages.nextPageToken || null };
 }
 
 /**
@@ -182,6 +182,55 @@ export async function getCalendarEvents(accessToken, maxResults = 10) {
   return googleApiRequest(
     accessToken,
     `https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=${maxResults}&timeMin=${now}&orderBy=startTime&singleEvents=true`
+  );
+}
+
+/**
+ * List all calendars the user has access to
+ */
+export async function listCalendars(accessToken) {
+  return googleApiRequest(
+    accessToken,
+    "https://www.googleapis.com/calendar/v3/users/me/calendarList"
+  );
+}
+
+/**
+ * Get events from multiple calendars
+ * Returns events tagged with their calendar source
+ */
+export async function getCalendarEventsMulti(accessToken, calendarIds = ["primary"], maxResults = 25) {
+  const now = new Date().toISOString();
+  const maxTime = new Date();
+  maxTime.setDate(maxTime.getDate() + 30); // Next 30 days
+  const timeMax = maxTime.toISOString();
+
+  const results = await Promise.allSettled(
+    calendarIds.map(async (calId) => {
+      const data = await googleApiRequest(
+        accessToken,
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?maxResults=${maxResults}&timeMin=${now}&timeMax=${timeMax}&orderBy=startTime&singleEvents=true`
+      );
+      return (data.items || []).map(evt => ({ ...evt, calendarId: calId }));
+    })
+  );
+
+  return results
+    .filter(r => r.status === "fulfilled")
+    .flatMap(r => r.value);
+}
+
+/**
+ * Create a new calendar event
+ */
+export async function createCalendarEvent(accessToken, calendarId = "primary", event) {
+  return googleApiRequest(
+    accessToken,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+    {
+      method: "POST",
+      body: JSON.stringify(event),
+    }
   );
 }
 
@@ -221,8 +270,11 @@ const defaultExport = {
   getGmailInbox,
   sendGmail,
   getCalendarEvents,
+  listCalendars,
+  getCalendarEventsMulti,
+  createCalendarEvent,
   getTaskLists,
-getTasks,
+  getTasks,
   updateTask,
   SCOPES,
 };

@@ -59,10 +59,23 @@ export default function AgentsModule() {
 
     async function fetchTasks() {
       try {
-        const res = await fetch("/api/jules/tasks");
-        if (res.ok) {
-          const data = await res.json();
+        // Fetch both legacy tasks and categorized review data in parallel
+        const [tasksRes, reviewRes] = await Promise.allSettled([
+          fetch("/api/jules/tasks"),
+          fetch("/api/jules/review"),
+        ]);
+
+        if (tasksRes.status === "fulfilled" && tasksRes.value.ok) {
+          const data = await tasksRes.value.json();
           setTasks(Array.isArray(data) ? data : data.sessions || []);
+        }
+
+        if (reviewRes.status === "fulfilled" && reviewRes.value.ok) {
+          const reviewData = await reviewRes.value.json();
+          // Store review data for the Tasks tab Kanban board
+          if (typeof window !== "undefined") {
+            window.__julesReview = reviewData;
+          }
         }
       } catch (err) {
         console.error("Failed to fetch tasks", err);
@@ -157,21 +170,32 @@ export default function AgentsModule() {
     }
   };
 
-  // Task Board Action
+  // Task Board Action — uses new trigger endpoint with context injection
   const handleNewTask = async () => {
     if (!newTaskPrompt.trim()) return;
     setIsSubmittingTask(true);
     try {
-      const res = await fetch("/api/jules/tasks", {
+      const res = await fetch("/api/jules/trigger", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: newTaskPrompt })
+        body: JSON.stringify({
+          prompt: newTaskPrompt,
+          autoApprove: true,
+        }),
       });
       if (res.ok) {
-        const refetchRes = await fetch("/api/jules/tasks");
-        if (refetchRes.ok) {
-          const refetchData = await refetchRes.json();
-          setTasks(Array.isArray(refetchData) ? refetchData : refetchData.sessions || []);
+        // Refresh both tasks and review data
+        const [tasksRes, reviewRes] = await Promise.allSettled([
+          fetch("/api/jules/tasks"),
+          fetch("/api/jules/review"),
+        ]);
+        if (tasksRes.status === "fulfilled" && tasksRes.value.ok) {
+          const data = await tasksRes.value.json();
+          setTasks(Array.isArray(data) ? data : data.sessions || []);
+        }
+        if (reviewRes.status === "fulfilled" && reviewRes.value.ok) {
+          const reviewData = await reviewRes.value.json();
+          if (typeof window !== "undefined") window.__julesReview = reviewData;
         }
         setNewTaskPrompt("");
       }
@@ -742,49 +766,67 @@ export default function AgentsModule() {
           ))}
         </div>
       )}
-{activeTab === "Tasks" && (
+{activeTab === "Tasks" && (() => {
+        // Use the review data if available, otherwise fall back to legacy tasks
+        const reviewData = window.__julesReview || null;
+        const COLUMNS = [
+          { key: "needsReview", label: "⏳ Needs Review", color: "#ff9500", icon: "⏳" },
+          { key: "inProgress", label: "🔄 In Progress", color: "#007AFF", icon: "🔄" },
+          { key: "completed", label: "✅ Completed", color: "#34C759", icon: "✅" },
+          { key: "failed", label: "❌ Failed", color: "#FF3B30", icon: "❌" },
+        ];
+
+        return (
         <div>
-          <div className="card" style={{ marginBottom: 24 }}>
-            {/* Jules quota inline notification */}
+          {/* Summary Bar */}
+          <div className="card" style={{ marginBottom: 16, display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center" }}>
+            <div>
+              <div className="caption" style={{ color: "var(--text-secondary)" }}>Total Sessions</div>
+              <div className="h3" style={{ color: "var(--accent)" }}>{reviewData?.summary?.total ?? tasks.length}</div>
+            </div>
+            {reviewData?.summary && (
+              <>
+                <div>
+                  <div className="caption" style={{ color: "#ff9500" }}>Needs Review</div>
+                  <div className="h3" style={{ color: "#ff9500" }}>{reviewData.summary.needsReview}</div>
+                </div>
+                <div>
+                  <div className="caption" style={{ color: "#007AFF" }}>In Progress</div>
+                  <div className="h3" style={{ color: "#007AFF" }}>{reviewData.summary.inProgress}</div>
+                </div>
+                <div>
+                  <div className="caption" style={{ color: "#34C759" }}>Completed</div>
+                  <div className="h3" style={{ color: "#34C759" }}>{reviewData.summary.completed}</div>
+                </div>
+                <div>
+                  <div className="caption" style={{ color: "#FF3B30" }}>Failed</div>
+                  <div className="h3" style={{ color: "#FF3B30" }}>{reviewData.summary.failed}</div>
+                </div>
+              </>
+            )}
+            <div style={{ flex: 1 }} />
+            {/* Jules quota inline */}
             {julesQuota && (
               <div style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "10px 14px",
-                marginBottom: 16,
-                borderRadius: "var(--radius-md)",
-                background: julesQuota.remaining < 50
-                  ? "rgba(239, 68, 68, 0.08)"
-                  : julesQuota.remaining < 200
-                    ? "rgba(255, 170, 0, 0.08)"
-                    : "rgba(16, 185, 129, 0.08)",
-                border: `1px solid ${
-                  julesQuota.remaining < 50
-                    ? "rgba(239, 68, 68, 0.25)"
-                    : julesQuota.remaining < 200
-                      ? "rgba(255, 170, 0, 0.25)"
-                      : "rgba(16, 185, 129, 0.25)"
-                }`,
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "6px 12px", borderRadius: "var(--radius-md)",
+                background: julesQuota.remaining < 50 ? "rgba(239,68,68,0.08)" : julesQuota.remaining < 200 ? "rgba(255,170,0,0.08)" : "rgba(16,185,129,0.08)",
+                border: `1px solid ${julesQuota.remaining < 50 ? "rgba(239,68,68,0.25)" : julesQuota.remaining < 200 ? "rgba(255,170,0,0.25)" : "rgba(16,185,129,0.25)"}`,
               }}>
-                <div className="body-sm" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span>{julesQuota.remaining < 50 ? "🔴" : julesQuota.remaining < 200 ? "🟡" : "🟢"}</span>
-                  <span>
-                    <strong>Jules Sessions:</strong> {julesQuota.dailySessions}/{julesQuota.dailyLimit} used today
-                  </span>
-                </div>
-                <span className={`badge ${julesQuota.remaining < 50 ? "badge-error" : julesQuota.remaining < 200 ? "badge-warning" : "badge-success"}`}>
-                  {julesQuota.remaining} remaining
-                </span>
+                <span>{julesQuota.remaining < 50 ? "🔴" : julesQuota.remaining < 200 ? "🟡" : "🟢"}</span>
+                <span className="caption"><strong>{julesQuota.remaining}</strong> sessions left</span>
               </div>
             )}
+          </div>
 
+          {/* New Task Input */}
+          <div className="card" style={{ marginBottom: 24 }}>
             <div style={{ display: "flex", gap: 12 }}>
               <input
                 type="text"
                 className="input"
                 style={{ flex: 1 }}
-                placeholder="New task prompt..."
+                placeholder="Describe a task for Jules (e.g. 'Add loading skeleton to PlannerModule')..."
                 value={newTaskPrompt}
                 onChange={(e) => setNewTaskPrompt(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleNewTask()}
@@ -795,49 +837,150 @@ export default function AgentsModule() {
                 onClick={handleNewTask}
                 disabled={isSubmittingTask}
               >
-                {isSubmittingTask ? "Submitting..." : "New Task"}
+                {isSubmittingTask ? "Submitting..." : "🚀 Trigger Task"}
               </button>
             </div>
+            <p className="caption" style={{ marginTop: 8, color: "var(--text-secondary)" }}>
+              Tasks are sent to Jules with full project context. Auto-approve is enabled — Jules will create a PR when done.
+            </p>
           </div>
 
-          <div className="grid-3">
-            {["Queued", "In Progress", "Completed"].map((col) => {
-              const colTasks = getTasksByStatus(col);
+          {/* Kanban Board */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+            {COLUMNS.map((col) => {
+              const columnTasks = reviewData ? (reviewData[col.key] || []) : (col.key === "needsReview" ? getTasksByStatus("Queued") : col.key === "inProgress" ? getTasksByStatus("In Progress") : col.key === "completed" ? getTasksByStatus("Completed") : []);
               return (
-                <div key={col} className="card" style={{ minHeight: 300, background: "var(--bg-secondary)" }}>
-                  <h4 className="h4" style={{ marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
-                    {col}
-                    <span className="badge">{colTasks.length}</span>
-                  </h4>
+                <div key={col.key} style={{
+                  background: "var(--bg-secondary)",
+                  borderRadius: "var(--radius-lg)",
+                  padding: 16,
+                  minHeight: 300,
+                  border: `1px solid var(--card-border)`,
+                  borderTop: `3px solid ${col.color}`,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                    <h4 className="h5" style={{ color: col.color }}>{col.label}</h4>
+                    <span className="badge" style={{
+                      background: `${col.color}22`,
+                      color: col.color,
+                      border: `1px solid ${col.color}44`,
+                      fontWeight: 600,
+                    }}>{columnTasks.length}</span>
+                  </div>
+
                   {isLoadingTasks ? (
-                    <p className="caption">Loading...</p>
-                  ) : colTasks.length === 0 ? (
-                    <div className="empty-state" style={{ padding: 24, background: "var(--bg-primary)" }}>
-                      <p className="caption">No tasks</p>
+                    <p className="caption" style={{ padding: 12 }}>Loading...</p>
+                  ) : columnTasks.length === 0 ? (
+                    <div style={{
+                      padding: 24, textAlign: "center",
+                      background: "var(--bg-primary)", borderRadius: "var(--radius-md)",
+                      border: "1px dashed var(--card-border)",
+                    }}>
+                      <p className="caption" style={{ color: "var(--text-secondary)" }}>No sessions</p>
                     </div>
                   ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      {colTasks.map((t, idx) => (
-                        <div key={t.id || t.sessionId || idx} className="card card-glass" style={{ padding: 12 }}>
-                          <p className="body-sm" style={{ fontWeight: 500, marginBottom: 8 }}>{t.title || (t.prompt && t.prompt.slice(0, 40)) || "Untitled Task"}</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {columnTasks.map((t, idx) => {
+                        const sessionName = t.id || t.name || t.sessionId || `task-${idx}`;
+                        // Extract just the session ID from the full resource name
+                        const shortId = typeof sessionName === "string" && sessionName.includes("/")
+                          ? sessionName.split("/").pop()
+                          : sessionName;
 
-                          {t.agent && (
-                            <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
-                              <span className="caption">Agent:</span>
-                              <span className="badge" style={{ background: "var(--bg-secondary)" }}>{t.agent}</span>
-                            </div>
-                          )}
+                        return (
+                          <div key={shortId} className="card card-glass" style={{
+                            padding: 12,
+                            borderLeft: `3px solid ${col.color}`,
+                            transition: "transform 0.15s ease, box-shadow 0.15s ease",
+                          }}>
+                            <p className="body-sm" style={{ fontWeight: 600, marginBottom: 6, lineHeight: 1.4 }}>
+                              {t.title || (t.prompt && t.prompt.slice(0, 60)) || "Untitled Task"}
+                            </p>
 
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                              <span className="badge" style={{ fontSize: 10, padding: "2px 6px" }}>{t.status || 'Queue'}</span>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+                              <span className="badge" style={{
+                                fontSize: 10, padding: "2px 6px",
+                                background: `${col.color}18`,
+                                color: col.color,
+                              }}>{t.state || t.status || "pending"}</span>
+                              <span className="caption" style={{ color: "var(--text-secondary)" }}>
+                                {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "Just now"}
+                              </span>
                             </div>
-                            <span className="caption" style={{ color: "var(--text-secondary)" }}>
-                              {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "Just now"}
-                            </span>
+
+                            {/* Approve / Reject buttons only for "Needs Review" column */}
+                            {col.key === "needsReview" && (
+                              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                                <button
+                                  className="button"
+                                  style={{
+                                    flex: 1, fontSize: 11, padding: "6px 10px",
+                                    background: "rgba(52, 199, 89, 0.12)",
+                                    color: "#34C759",
+                                    border: "1px solid rgba(52, 199, 89, 0.3)",
+                                  }}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const res = await fetch("/api/jules/review", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ sessionId: shortId, action: "approve" }),
+                                      });
+                                      if (res.ok) {
+                                        // Refetch review data
+                                        const refreshRes = await fetch("/api/jules/review");
+                                        if (refreshRes.ok) {
+                                          const data = await refreshRes.json();
+                                          window.__julesReview = data;
+                                          // Force re-render by updating tasks
+                                          setTasks(prev => [...prev]);
+                                        }
+                                      }
+                                    } catch (err) {
+                                      console.error("Failed to approve", err);
+                                    }
+                                  }}
+                                >
+                                  ✅ Approve
+                                </button>
+                                <button
+                                  className="button"
+                                  style={{
+                                    flex: 1, fontSize: 11, padding: "6px 10px",
+                                    background: "rgba(255, 59, 48, 0.12)",
+                                    color: "#FF3B30",
+                                    border: "1px solid rgba(255, 59, 48, 0.3)",
+                                  }}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const reason = prompt("Rejection reason (optional):");
+                                    try {
+                                      const res = await fetch("/api/jules/review", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ sessionId: shortId, action: "reject", message: reason || "" }),
+                                      });
+                                      if (res.ok) {
+                                        const refreshRes = await fetch("/api/jules/review");
+                                        if (refreshRes.ok) {
+                                          const data = await refreshRes.json();
+                                          window.__julesReview = data;
+                                          setTasks(prev => [...prev]);
+                                        }
+                                      }
+                                    } catch (err) {
+                                      console.error("Failed to reject", err);
+                                    }
+                                  }}
+                                >
+                                  ❌ Reject
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -845,7 +988,8 @@ export default function AgentsModule() {
             })}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {activeTab === "Proposals" && (
         <div>

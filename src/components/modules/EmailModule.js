@@ -1,18 +1,24 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 
 /**
  * Email Module — Gmail inbox with AI classification
  * Smart compose, thread summarization, action extraction
+ * Supports infinite scroll via Gmail pageToken pagination
  */
 export default function EmailModule() {
-  const [isConnected, setIsConnected] = useState(true); // Default true until checked
+  const [isConnected, setIsConnected] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [inbox, setInbox] = useState([]);
   const [stats, setStats] = useState({ total: 0, unread: 0 });
+
+  // Pagination state
+  const [nextPageToken, setNextPageToken] = useState(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadMoreRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState("inbox"); // 'inbox' or 'compose'
   const [selectedEmail, setSelectedEmail] = useState(null);
@@ -74,6 +80,7 @@ export default function EmailModule() {
       if (data.connected) {
         setInbox(data.inbox || []);
         setStats(data.stats || { total: 0, unread: 0 });
+        setNextPageToken(data.nextPageToken || null);
       }
     } catch (err) {
       console.error(err);
@@ -82,6 +89,30 @@ export default function EmailModule() {
       setIsLoading(false);
     }
   };
+
+  // Load more emails for infinite scroll
+  const loadMoreEmails = useCallback(async () => {
+    if (!nextPageToken || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const res = await fetch(`/api/email/inbox?pageToken=${nextPageToken}`);
+      const data = await res.json();
+      if (data.connected && data.inbox) {
+        setInbox(prev => [...prev, ...data.inbox]);
+        setNextPageToken(data.nextPageToken || null);
+        // Update total stats
+        setStats(prev => ({
+          ...prev,
+          total: prev.total + (data.stats?.total || 0),
+          unread: prev.unread + (data.stats?.unread || 0),
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to load more emails:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [nextPageToken, isLoadingMore]);
 
   const classifyEmails = useCallback(async (emailsToClassify) => {
     if (!emailsToClassify || emailsToClassify.length === 0) return;
@@ -139,6 +170,8 @@ export default function EmailModule() {
           setIsConnected(data.connected);
           if (data.connected && data.inbox) {
             setInbox(data.inbox);
+            setStats(data.stats || { total: 0, unread: 0 });
+            setNextPageToken(data.nextPageToken || null);
           }
         }
       } catch (err) {
@@ -152,6 +185,21 @@ export default function EmailModule() {
     loadData();
     return () => { isMounted = false; };
   }, []);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!loadMoreRef.current || !nextPageToken) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && nextPageToken && !isLoadingMore) {
+          loadMoreEmails();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [nextPageToken, isLoadingMore, loadMoreEmails]);
 
   useEffect(() => {
     let active = true;
@@ -472,6 +520,39 @@ export default function EmailModule() {
                   );
                 })
               )
+            )}
+
+            {/* Infinite scroll trigger */}
+            {nextPageToken && (
+              <div
+                ref={loadMoreRef}
+                style={{
+                  padding: "20px 24px",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 8,
+                  color: "var(--text-secondary)",
+                  fontSize: 13,
+                }}
+              >
+                {isLoadingMore ? (
+                  <>
+                    <div className="skeleton" style={{ width: 20, height: 20, borderRadius: "50%" }}></div>
+                    Loading more emails...
+                  </>
+                ) : (
+                  <button className="btn btn-ghost btn-sm" onClick={loadMoreEmails}>
+                    Load more
+                  </button>
+                )}
+              </div>
+            )}
+
+            {!nextPageToken && inbox.length > 0 && !isLoading && (
+              <div style={{ padding: "16px 24px", textAlign: "center", fontSize: 12, color: "var(--text-tertiary)" }}>
+                End of inbox
+              </div>
             )}
           </div>
         )}
