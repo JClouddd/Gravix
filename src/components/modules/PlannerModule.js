@@ -107,9 +107,8 @@ export default function PlannerModule() {
     }
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount pattern
   useEffect(() => {
-    fetchData();
+    fetchData(); // eslint-disable-line react-hooks/set-state-in-effect -- fetch-on-mount pattern
   }, [fetchData]);
 
   // Calendar Helpers

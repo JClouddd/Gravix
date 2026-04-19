@@ -311,7 +311,7 @@ export default function AgentsModule() {
 
       if (taskIndex > -1) {
         const [task] = window.__julesReview[currentStatus].splice(taskIndex, 1);
-        if (!window.__julesReview[targetColKey]) window.__julesReview[targetColKey] = []; // eslint-disable-line react-hooks/immutability
+        if (!window.__julesReview[targetColKey]) window.__julesReview[targetColKey] = [];
         window.__julesReview[targetColKey].push(task);
         // Force re-render
         setTasks(prev => [...prev]);
@@ -333,14 +333,14 @@ export default function AgentsModule() {
       const refreshRes = await fetch("/api/jules/review");
       if (refreshRes.ok) {
         const data = await refreshRes.json();
-        window.__julesReview = data; // eslint-disable-line react-hooks/immutability
+        window.__julesReview = data;
         setTasks(prev => [...prev]);
       }
     } catch (err) {
       console.error("Drag and drop update failed:", err);
       // Revert optimistic update
       if (previousReviewData) {
-        window.__julesReview = previousReviewData; // eslint-disable-line react-hooks/immutability
+        window.__julesReview = previousReviewData;
         setTasks(prev => [...prev]);
       }
     }
@@ -1041,7 +1041,7 @@ export default function AgentsModule() {
                                         const refreshRes = await fetch("/api/jules/review");
                                         if (refreshRes.ok) {
                                           const data = await refreshRes.json();
-                                          window.__julesReview = data; // eslint-disable-line react-hooks/immutability
+                                          window.__julesReview = data;
                                           // Force re-render by updating tasks
                                           setTasks(prev => [...prev]);
                                         }
@@ -1074,7 +1074,7 @@ export default function AgentsModule() {
                                         const refreshRes = await fetch("/api/jules/review");
                                         if (refreshRes.ok) {
                                           const data = await refreshRes.json();
-                                          window.__julesReview = data; // eslint-disable-line react-hooks/immutability
+                                          window.__julesReview = data;
                                           setTasks(prev => [...prev]);
                                         }
                                       }
@@ -1170,11 +1170,11 @@ export default function AgentsModule() {
                         const refreshRes = await fetch("/api/jules/review");
                         if (refreshRes.ok) {
                           const data = await refreshRes.json();
-                          window.__julesReview = data; // eslint-disable-line react-hooks/immutability
+                          window.__julesReview = data;
                           setTasks(prev => [...prev]);
                         }
                       } else if (previousReviewData) {
-                         window.__julesReview = previousReviewData; // eslint-disable-line react-hooks/immutability
+                         window.__julesReview = previousReviewData;
                          setTasks(prev => [...prev]);
                       }
                     } catch (err) {
