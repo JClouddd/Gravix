@@ -305,7 +305,7 @@ export default function AgentsModule() {
               const isOnline = agent.status === "active";
               const isBusy = agent.status === "busy";
 
-              const costVal = agentCosts[agent.id]?.cost || 0;
+              const costVal = parseFloat(agentCosts[agent.id]?.cost) || 0;
               const costBadgeClass = costVal < 0.01 ? "badge-success" : costVal < 0.10 ? "badge-warning" : "badge-error";
               const costLabel = costVal === 0 ? "$0.00" : `$${costVal.toFixed(3)} this month`;
 
