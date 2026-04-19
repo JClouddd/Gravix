@@ -26,6 +26,10 @@ env:
   - variable: JULES_API_KEY
     secret: JULES_API_KEY
 
+  # GitHub (for CI status monitoring)
+  - variable: GITHUB_TOKEN
+    secret: GITHUB_TOKEN
+
   # App
   - variable: NEXT_PUBLIC_BASE_URL
     value: https://gravix.web.app
