@@ -225,13 +225,102 @@ export async function POST(request) {
       console.warn(`[ingest-video] Low token count (${promptTokens}) — video may not have been processed.`);
     }
 
-    // Parse the analysis
+    // Parse the analysis — robust handling for various Gemini response formats
     let analysis = {};
+    let parseSuccess = false;
+
+    // Strategy 1: Direct JSON parse
     try {
       analysis = JSON.parse(responseText);
+      parseSuccess = true;
     } catch {
-      analysis = { raw_transcript_notes: responseText, summary: "Failed to parse structured response" };
+      // Strategy 2: Clean markdown code fences (```json ... ```)
+      try {
+        const cleaned = responseText
+          .replace(/^```(?:json)?\s*\n?/i, "")
+          .replace(/\n?```\s*$/i, "")
+          .trim();
+        analysis = JSON.parse(cleaned);
+        parseSuccess = true;
+      } catch {
+        // Strategy 3: Extract first JSON object from response
+        try {
+          const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            analysis = JSON.parse(jsonMatch[0]);
+            parseSuccess = true;
+          }
+        } catch {
+          // All parse strategies failed
+        }
+      }
     }
+
+    // Strategy 4: If parsing failed, retry with a simpler extraction prompt
+    if (!parseSuccess && responseText.length > 100) {
+      console.warn("[ingest-video] JSON parse failed. Retrying with extraction prompt...");
+      try {
+        const retryRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiApiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `Extract structured data from this video analysis text. Return ONLY valid JSON with these fields: title, summary, tools_and_software (array of {name, type, purpose}), strategies_and_patterns (array of {name, description}), actionable_items (array of {action, priority}), raw_transcript_notes (string). Here is the text:\n\n${responseText.slice(0, 30000)}`,
+                }],
+              }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 8192,
+                responseMimeType: "application/json",
+              },
+            }),
+          }
+        );
+        if (retryRes.ok) {
+          const retryData = await retryRes.json();
+          const retryText = retryData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          try {
+            analysis = JSON.parse(retryText);
+            parseSuccess = true;
+            console.log("[ingest-video] Retry parse succeeded.");
+          } catch {
+            // Even retry failed — use raw text
+          }
+        }
+      } catch (retryErr) {
+        console.warn("[ingest-video] Retry extraction failed:", retryErr.message);
+      }
+    }
+
+    // Final fallback: store as raw notes
+    if (!parseSuccess) {
+      analysis = {
+        title: title || `YouTube Video: ${videoId}`,
+        summary: responseText.slice(0, 2000),
+        raw_transcript_notes: responseText,
+        tools_and_software: [],
+        integrations_and_apis: [],
+        beta_preview_features: [],
+        actionable_items: [],
+        _parseError: true,
+      };
+    }
+
+    // Sanitize entire analysis object — replace undefined with null for Firestore
+    function sanitizeForFirestore(obj) {
+      if (obj === null || obj === undefined) return null;
+      if (typeof obj !== "object") return obj;
+      if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+      const clean = {};
+      for (const [k, v] of Object.entries(obj)) {
+        clean[k] = v === undefined ? null : sanitizeForFirestore(v);
+      }
+      return clean;
+    }
+    analysis = sanitizeForFirestore(analysis);
 
     // Merge YouTube metadata into analysis (sanitize undefined values for Firestore)
     analysis.youtube_metadata = {
