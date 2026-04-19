@@ -4,8 +4,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 /**
  * PipelineToasts — Global toast notification system for the Pipeline Monitor.
- * Polls /api/jules/review and /api/jules/ci-status every 60s.
- * Shows toast alerts for task completions, failures, and CI regressions.
+ * Polls three sources every 60s:
+ *   1. /api/jules/review     — Jules task completions, failures, and review requests
+ *   2. /api/jules/ci-status  — GitHub Actions CI regressions and recoveries
+ *   3. /api/deploy/status    — Firebase App Hosting build failures and successes
+ * Shows toast alerts for task completions, failures, CI regressions, and deploy issues.
  */
 
 const POLL_INTERVAL = 60_000; // 60 seconds
@@ -16,6 +19,7 @@ export default function PipelineToasts() {
   const [toasts, setToasts] = useState([]);
   const prevStateRef = useRef(null);
   const prevCiRef = useRef(null);
+  const prevDeployRef = useRef(null);
 
   const addToast = useCallback((toast) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -36,7 +40,7 @@ export default function PipelineToasts() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // Poll for Jules task state changes + CI status
+  // Poll for Jules task state changes + CI status + Deploy status
   useEffect(() => {
     async function poll() {
       try {
@@ -148,6 +152,64 @@ export default function PipelineToasts() {
         }
       } catch {
         // Silently ignore CI fetch errors
+      }
+
+      // ── Firebase App Hosting Deploy Status ──
+      try {
+        const deployRes = await fetch("/api/deploy/status");
+        if (deployRes.ok) {
+          const deploy = await deployRes.json();
+          const prev = prevDeployRef.current;
+
+          if (deploy.connected && deploy.latest && prev?.latest) {
+            const prevState = prev.latest.state;
+            const currState = deploy.latest.state;
+            const prevId = prev.latest.id;
+            const currId = deploy.latest.id;
+
+            // New rollout detected (different ID from last check)
+            const isNewRollout = currId !== prevId;
+
+            if (isNewRollout || prevState !== currState) {
+              // Deploy failed
+              if (currState === "FAILED") {
+                const sha = deploy.latest.commitSha?.slice(0, 7) || "unknown";
+                addToast({
+                  type: "error",
+                  icon: "🔥",
+                  title: "Firebase deploy failed",
+                  message: `Build for commit ${sha} failed. Check Firebase Console.`,
+                  action: deploy.latest.url,
+                });
+              }
+
+              // Deploy succeeded (transitioned to READY)
+              if (currState === "READY" && (prevState === "BUILDING" || prevState === "DEPLOYING" || isNewRollout)) {
+                addToast({
+                  type: "success",
+                  icon: "🚀",
+                  title: "Deploy successful",
+                  message: "Firebase App Hosting build completed. Site is live.",
+                  action: deploy.latest.url,
+                });
+              }
+
+              // Deploy started building
+              if (currState === "BUILDING" && isNewRollout) {
+                addToast({
+                  type: "info",
+                  icon: "🔨",
+                  title: "Deploy started",
+                  message: `New build triggered for commit ${deploy.latest.commitSha?.slice(0, 7) || "latest"}.`,
+                });
+              }
+            }
+          }
+
+          prevDeployRef.current = deploy;
+        }
+      } catch {
+        // Silently ignore deploy status fetch errors
       }
     }
 
@@ -304,6 +366,9 @@ export default function PipelineToasts() {
         }
         .pipeline-toast--warning .pipeline-toast__progress {
           background: #ff9500;
+        }
+        .pipeline-toast--info .pipeline-toast__progress {
+          background: #007aff;
         }
 
         @keyframes toastSlideIn {
