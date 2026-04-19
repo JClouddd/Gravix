@@ -33,7 +33,7 @@ Return a JSON object with ALL of these fields:
   ],
 
   "visual_elements": [
-    {"timestamp": "MM:SS", "type": "ui|diagram|infographic|code|terminal|dashboard", "description": "Detailed description of what's shown on screen"}
+    {"timestamp": "MM:SS", "type": "ui|diagram|infographic|code|terminal|dashboard|architecture|config|demo", "description": "Detailed description of what is shown on screen", "text_on_screen": "Any visible text, labels, values, or commands shown", "importance": "high|medium|low", "screenshot_worthy": true}
   ],
 
   "code_snippets": [
@@ -329,7 +329,26 @@ export async function POST(request) {
       publishedAt: ytMetadata.publishedAt || "",
       tags: ytMetadata.tags || [],
       topComments: ytMetadata.comments || [],
+      thumbnails: {
+        default: `https://img.youtube.com/vi/${videoId}/default.jpg`,
+        medium: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+        high: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+        maxres: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+      },
+      videoUrl: url,
     };
+
+    // Extract visual references with timestamps from the analysis
+    const visualRefs = (analysis.visual_elements || []).map(v => ({
+      timestamp: v.timestamp || "unknown",
+      type: v.type || "unknown",
+      description: v.description || "",
+      textOnScreen: v.text_on_screen || "",
+      importance: v.importance || "medium",
+      screenshotWorthy: v.screenshot_worthy || false,
+      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+    }));
+    analysis.visualReferences = visualRefs;
 
     // Calculate cost
     const inputCost = (promptTokens / 1_000_000) * 0.075;

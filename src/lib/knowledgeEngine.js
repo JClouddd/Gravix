@@ -244,6 +244,129 @@ Help the user review this content. Answer questions about it, suggest improvemen
   });
 }
 
+/* ── Agent Context Middleware (Phase F) ───────────────────────── */
+/**
+ * Fetches relevant notebook knowledge for a given agent and injects
+ * it as a context block that can be prepended to agent system prompts.
+ *
+ * @param {string} agentId — Agent identifier: conductor, scholar, forge, etc.
+ * @param {string[]} domains — Optional domain filter: ["video_generation", "ai_media"]
+ * @param {number} limit — Max notebooks to include (default 5)
+ * @returns {object} { contextBlock: string, notebookCount: number, notebooks: [] }
+ */
+export async function getAgentContext(agentId, domains = [], limit = 5) {
+  try {
+    const { adminDb } = await import("@/lib/firebaseAdmin");
+
+    // Query approved notebooks
+    const snapshot = await adminDb
+      .collection("notebooks")
+      .where("status", "==", "approved")
+      .get();
+
+    let notebooks = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name,
+        description: data.description,
+        domainTags: data.skillSpec?.domainTags || data.classification?.tags || [],
+        applicableAgents: data.applicableAgents || [],
+        skillSpec: data.skillSpec || null,
+        researchDossier: data.researchDossier || null,
+        googleTranslation: data.googleTranslation || null,
+        validation: data.validation || null,
+      };
+    });
+
+    // Filter by agent applicability
+    if (agentId) {
+      notebooks = notebooks.filter(nb =>
+        nb.applicableAgents.some(a =>
+          a.toLowerCase().includes(agentId.toLowerCase())
+        )
+      );
+    }
+
+    // Filter by domains if specified
+    if (domains.length > 0) {
+      notebooks = notebooks.filter(nb => {
+        const nbDomains = nb.domainTags.map(t => t.toLowerCase());
+        return domains.some(d =>
+          nbDomains.some(nd => nd.includes(d.toLowerCase()) || d.toLowerCase().includes(nd))
+        );
+      });
+    }
+
+    // Sort by relevance (has skill spec + research first)
+    notebooks.sort((a, b) => {
+      const scoreA = (a.skillSpec ? 3 : 0) + (a.researchDossier ? 2 : 0) + (a.validation ? 1 : 0);
+      const scoreB = (b.skillSpec ? 3 : 0) + (b.researchDossier ? 2 : 0) + (b.validation ? 1 : 0);
+      return scoreB - scoreA;
+    });
+
+    const selected = notebooks.slice(0, limit);
+
+    if (selected.length === 0) {
+      return { contextBlock: "", notebookCount: 0, notebooks: [] };
+    }
+
+    // Build the context block for injection into system prompts
+    let contextBlock = `\n\n--- KNOWLEDGE CONTEXT (${selected.length} notebooks) ---\n`;
+    contextBlock += `The following knowledge has been acquired from the Gravix knowledge pipeline.\n`;
+    contextBlock += `Use this information when it's relevant to the user's request.\n\n`;
+
+    for (const nb of selected) {
+      contextBlock += `### ${nb.name}\n`;
+      contextBlock += `${nb.description}\n`;
+
+      if (nb.skillSpec) {
+        contextBlock += `**Skill:** ${nb.skillSpec.skillName}\n`;
+        if (nb.skillSpec.antigravityTranslation) {
+          const t = nb.skillSpec.antigravityTranslation;
+          if (t.googleStack?.length) contextBlock += `**Google Stack:** ${t.googleStack.join(", ")}\n`;
+          if (t.keepAsIs?.length) contextBlock += `**Keep As-Is:** ${t.keepAsIs.join(", ")}\n`;
+          contextBlock += `**Complexity:** ${t.migrationComplexity || "?"} | **Build Time:** ${t.estimatedBuildTime || "?"}\n`;
+        }
+        if (nb.skillSpec.prerequisites?.apis?.length) {
+          contextBlock += `**APIs Needed:** ${nb.skillSpec.prerequisites.apis.join(", ")}\n`;
+        }
+        if (nb.skillSpec.prerequisites?.dependencies?.length) {
+          contextBlock += `**Dependencies:** ${nb.skillSpec.prerequisites.dependencies.join(", ")}\n`;
+        }
+      }
+
+      if (nb.researchDossier?.length) {
+        contextBlock += `**Tools Researched:** ${nb.researchDossier.map(d => d.toolName).join(", ")}\n`;
+      }
+
+      if (nb.googleTranslation?.mappings?.length) {
+        const mappings = nb.googleTranslation.mappings
+          .map(m => `${m.source} → ${m.googleEquivalent || "keep"} (${m.recommendation})`)
+          .join("; ");
+        contextBlock += `**Google Mappings:** ${mappings}\n`;
+      }
+
+      if (nb.validation) {
+        contextBlock += `**Validation:** ${nb.validation.overallStatus} (confidence: ${nb.validation.confidenceScore || "?"})\n`;
+      }
+
+      contextBlock += `\n`;
+    }
+
+    contextBlock += `--- END KNOWLEDGE CONTEXT ---\n`;
+
+    return {
+      contextBlock,
+      notebookCount: selected.length,
+      notebooks: selected.map(nb => ({ id: nb.id, name: nb.name })),
+    };
+  } catch (err) {
+    console.warn("[getAgentContext] Failed:", err.message);
+    return { contextBlock: "", notebookCount: 0, notebooks: [], error: err.message };
+  }
+}
+
 const defaultExport = {
   DOCUMENTATION_SOURCES,
   CATEGORIES,
@@ -251,5 +374,6 @@ const defaultExport = {
   processUrl,
   createStagingEntry,
   scholarChat,
+  getAgentContext,
 };
 export default defaultExport;

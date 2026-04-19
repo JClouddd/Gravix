@@ -1,6 +1,7 @@
 import { structuredGenerate, generate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { getAgentContext } from "@/lib/knowledgeEngine";
 
 /**
  * Gets a routing decision from Conductor using Gemini structured output.
@@ -254,11 +255,21 @@ async function saveConversationMemory(agent, message, agentText) {
  * Core handler to execute the selected specialist agent.
  */
 async function executeSpecialistAgent(decision, message, origin) {
-  const contextString = await getConversationContext(decision.agent);
+  // Fetch conversation history and knowledge context in parallel
+  const [contextString, knowledgeCtx] = await Promise.all([
+    getConversationContext(decision.agent),
+    getAgentContext(decision.agent),
+  ]);
+
+  // Build system prompt with injected notebook knowledge
+  let systemPrompt = `You are ${decision.agent}, a specialist agent in Gravix. ${decision.action}${contextString}`;
+  if (knowledgeCtx.contextBlock) {
+    systemPrompt += knowledgeCtx.contextBlock;
+  }
 
   const agentResult = await generate({
     prompt: message,
-    systemPrompt: `You are ${decision.agent}, a specialist agent in Gravix. ${decision.action}${contextString}`,
+    systemPrompt,
     complexity: decision.agent === "scholar" ? "pro" : "flash",
     grounded: decision.agent === "scholar" || decision.agent === "sentinel",
   });
@@ -271,6 +282,10 @@ async function executeSpecialistAgent(decision, message, origin) {
     duration: agentResult.duration,
     grounded: agentResult.grounded,
     toolData: {},
+    knowledgeContext: {
+      notebooksInjected: knowledgeCtx.notebookCount,
+      notebooks: knowledgeCtx.notebooks,
+    },
   };
 
   await executeTools(decision.agent, message, origin, agentResponse);
