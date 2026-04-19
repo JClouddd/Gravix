@@ -91,7 +91,9 @@ export async function GET() {
   try {
     // Fetch the 5 most recent rollouts from Firebase App Hosting
     const parent = `projects/${PROJECT_ID}/locations/${LOCATION}/backends/${BACKEND_ID}`;
-    const url = `https://firebaseapphosting.googleapis.com/v1/${parent}/rollouts?pageSize=5&orderBy=createTime desc`;
+    // Note: orderBy is not supported by the App Hosting API, so we fetch
+    // a larger page and sort client-side to find the latest rollouts.
+    const url = `https://firebaseapphosting.googleapis.com/v1/${parent}/rollouts?pageSize=30`;
 
     const res = await fetch(url, {
       headers: {
@@ -110,7 +112,10 @@ export async function GET() {
     }
 
     const data = await res.json();
-    const rollouts = data.rollouts || [];
+    // Sort by createTime descending to get the latest first
+    const rollouts = (data.rollouts || []).sort(
+      (a, b) => new Date(b.createTime) - new Date(a.createTime)
+    ).slice(0, 5);
 
     if (rollouts.length === 0) {
       return NextResponse.json({
@@ -121,27 +126,57 @@ export async function GET() {
       });
     }
 
-    // Map rollouts to a clean response
-    const mapped = rollouts.map((r) => {
-      const id = r.name?.split("/").pop();
-      return {
-        id,
-        state: r.state || "UNKNOWN",
-        createTime: r.createTime,
-        endTime: r.endTime || null,
-        buildRef: r.build || null,
-        displayVersion: r.displayVersion || null,
-        commitSha: r.codebase?.commit?.sha || r.codebase?.commit || null,
-        commitMessage: r.codebase?.commit?.message || null,
-        url: `https://console.firebase.google.com/project/${PROJECT_ID}/apphosting`,
-      };
-    });
+    // Map rollouts to a clean response, enriching failed ones with error details
+    const mapped = await Promise.all(
+      rollouts.map(async (r) => {
+        const id = r.name?.split("/").pop();
+        const base = {
+          id,
+          state: r.state || "UNKNOWN",
+          createTime: r.createTime,
+          endTime: r.endTime || null,
+          buildRef: r.build || null,
+          displayVersion: r.displayVersion || null,
+          commitSha: r.codebase?.commit?.sha || r.codebase?.commit || null,
+          commitMessage: r.codebase?.commit?.message || null,
+          url: `https://console.firebase.google.com/project/${PROJECT_ID}/apphosting`,
+          errors: [],
+          buildLogsUrl: null,
+        };
+
+        // For failed rollouts, fetch the build details to get error messages
+        if (r.state === "FAILED" && r.build) {
+          try {
+            const buildUrl = `https://firebaseapphosting.googleapis.com/v1/${r.build}`;
+            const buildRes = await fetch(buildUrl, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (buildRes.ok) {
+              const buildData = await buildRes.json();
+              base.buildLogsUrl = buildData.buildLogsUri || null;
+              base.errors = (buildData.errors || []).map((e) => ({
+                reason: e.error?.details?.[0]?.metadata?.user_facing_reason || "Build Error",
+                message: e.error?.details?.[0]?.metadata?.user_facing_message || e.error?.message || "Unknown error",
+              }));
+              // Use the build logs URL as the action link if available
+              if (base.buildLogsUrl) {
+                base.url = base.buildLogsUrl;
+              }
+            }
+          } catch {
+            // Silently ignore build detail fetch errors
+          }
+        }
+
+        return base;
+      })
+    );
 
     const latest = mapped[0];
     const recent = mapped.slice(1);
 
     const hasRecentFailure = mapped.some((r) => r.state === "FAILED");
-    const latestIsHealthy = latest.state === "READY";
+    const latestIsHealthy = latest.state === "SUCCEEDED" || latest.state === "READY";
 
     return NextResponse.json({
       connected: true,

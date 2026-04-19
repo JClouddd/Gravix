@@ -171,20 +171,28 @@ export default function PipelineToasts() {
             const isNewRollout = currId !== prevId;
 
             if (isNewRollout || prevState !== currState) {
-              // Deploy failed
+              // Deploy failed — show the actual error reason
               if (currState === "FAILED") {
                 const sha = deploy.latest.commitSha?.slice(0, 7) || "unknown";
+                const errorReason = deploy.latest.errors?.[0]?.reason || "";
+                const errorMsg = deploy.latest.errors?.[0]?.message || "";
+                // Build a concise message with the error context
+                const detail = errorReason
+                  ? `${errorReason}: ${errorMsg.slice(0, 120)}`
+                  : `Build for commit ${sha} failed. Check logs.`;
                 addToast({
                   type: "error",
                   icon: "🔥",
                   title: "Firebase deploy failed",
-                  message: `Build for commit ${sha} failed. Check Firebase Console.`,
+                  message: detail,
                   action: deploy.latest.url,
                 });
               }
 
-              // Deploy succeeded (transitioned to READY)
-              if (currState === "READY" && (prevState === "BUILDING" || prevState === "DEPLOYING" || isNewRollout)) {
+              // Deploy succeeded (transitioned to READY or SUCCEEDED)
+              const isReady = currState === "READY" || currState === "SUCCEEDED";
+              const wasBuilding = prevState === "BUILDING" || prevState === "DEPLOYING";
+              if (isReady && (wasBuilding || isNewRollout)) {
                 addToast({
                   type: "success",
                   icon: "🚀",
