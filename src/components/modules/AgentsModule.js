@@ -44,13 +44,6 @@ export default function AgentsModule() {
   // Jules quota state
   const [julesQuota, setJulesQuota] = useState(null);
 
-  // Review data state (replaces window.__julesReview)
-  const [reviewData, setReviewData] = useState(null);
-
-  // Pipeline Monitor state
-  const [pipelineAlerts, setPipelineAlerts] = useState([]);
-  const [ciStatus, setCiStatus] = useState(null); // { status, conclusion, sha, url }
-
   // Fetch initial data
   useEffect(() => {
     async function fetchRoster() {
@@ -81,8 +74,11 @@ export default function AgentsModule() {
         }
 
         if (reviewRes.status === "fulfilled" && reviewRes.value.ok) {
-          const revData = await reviewRes.value.json();
-          setReviewData(revData);
+          const reviewData = await reviewRes.value.json();
+          // Store review data for the Tasks tab Kanban board
+          if (typeof window !== "undefined") {
+            window.__julesReview = reviewData;
+          }
         }
       } catch (err) {
         console.error("Failed to fetch tasks", err);
@@ -119,49 +115,6 @@ export default function AgentsModule() {
 
     fetchRoster();
     fetchTasks();
-
-    // Pipeline Monitor: poll for state changes and CI status
-    const pipelineInterval = setInterval(async () => {
-      try {
-        // Poll Jules review data for state changes
-        const reviewRes = await fetch("/api/jules/review");
-        if (reviewRes.ok) {
-          const revData = await reviewRes.json();
-          setReviewData(prev => {
-            // Check for state changes and generate alerts
-            if (prev && revData.summary) {
-              const newAlerts = [];
-              if ((revData.summary.completed || 0) > (prev.summary?.completed || 0)) {
-                newAlerts.push({ id: Date.now(), type: "success", message: "✅ A Jules task completed!", ts: new Date() });
-              }
-              if ((revData.summary.failed || 0) > (prev.summary?.failed || 0)) {
-                newAlerts.push({ id: Date.now() + 1, type: "error", message: "❌ A Jules task failed!", ts: new Date() });
-              }
-              if (newAlerts.length > 0) {
-                setPipelineAlerts(a => [...a, ...newAlerts]);
-              }
-            }
-            return revData;
-          });
-        }
-
-        // Poll GitHub CI status (via API route)
-        const ciRes = await fetch("/api/jules/ci-status");
-        if (ciRes.ok) {
-          const ciData = await ciRes.json();
-          setCiStatus(ciData);
-          if (ciData.conclusion === "failure") {
-            setPipelineAlerts(a => {
-              // Don't duplicate CI alerts for same sha
-              if (a.some(al => al.sha === ciData.sha)) return a;
-              return [...a, { id: Date.now() + 2, type: "ci-fail", message: `🔴 CI failed on ${ciData.branch} (${ciData.sha?.slice(0, 7)})`, ts: new Date(), sha: ciData.sha }];
-            });
-          }
-        }
-      } catch (err) {
-        // Silent fail for polling
-      }
-    }, 60000);
     fetchCosts();
     fetchProposals();
 
@@ -178,8 +131,6 @@ export default function AgentsModule() {
       }
     }
     fetchJulesQuota();
-
-    return () => clearInterval(pipelineInterval);
   }, []);
 
   // Fetch History whenever historyAgent or activeTab changes
@@ -246,8 +197,8 @@ export default function AgentsModule() {
           setTasks(Array.isArray(data) ? data : data.sessions || []);
         }
         if (reviewRes.status === "fulfilled" && reviewRes.value.ok) {
-          const revData = await reviewRes.value.json();
-          setReviewData(revData);
+          const reviewData = await reviewRes.value.json();
+          if (typeof window !== "undefined") window.__julesReview = reviewData;
         }
         setNewTaskPrompt("");
       }
@@ -349,22 +300,25 @@ export default function AgentsModule() {
     if (!sessionId || currentStatus === targetColKey) return;
 
     // Optimistic update
-    // Optimistic update using React state
-    setReviewData(prev => {
-      if (!prev) return prev;
-      const clone = JSON.parse(JSON.stringify(prev));
-      const taskIndex = clone[currentStatus]?.findIndex(t => {
+    const previousReviewData = window.__julesReview ? JSON.parse(JSON.stringify(window.__julesReview)) : null;
+
+    if (window.__julesReview) {
+      const taskIndex = window.__julesReview[currentStatus]?.findIndex(t => {
         const id = t.id || t.name || t.sessionId;
-        const sid = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id;
-        return sid === sessionId;
+        const shortId = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id;
+        return shortId === sessionId;
       });
+
       if (taskIndex > -1) {
-        const [task] = clone[currentStatus].splice(taskIndex, 1);
-        if (!clone[targetColKey]) clone[targetColKey] = [];
-        clone[targetColKey].push(task);
+        const [task] = window.__julesReview[currentStatus].splice(taskIndex, 1);
+        if (!window.__julesReview[targetColKey]) {
+          Object.assign(window.__julesReview, { [targetColKey]: [] });
+        }
+        window.__julesReview[targetColKey].push(task);
+        // Force re-render
+        setTasks(prev => [...prev]);
       }
-      return clone;
-    });
+    }
 
     try {
       const res = await fetch("/api/jules/review", {
@@ -373,15 +327,24 @@ export default function AgentsModule() {
         body: JSON.stringify({ sessionId, action: "override", status: targetColKey }),
       });
 
-      if (!res.ok) throw new Error("Failed to update status");
+      if (!res.ok) {
+        throw new Error("Failed to update status");
+      }
 
+      // Optionally refresh from server to ensure sync
       const refreshRes = await fetch("/api/jules/review");
       if (refreshRes.ok) {
         const data = await refreshRes.json();
-        setReviewData(data);
+        Object.assign(window.__julesReview || {}, data);
+        setTasks(prev => [...prev]);
       }
     } catch (err) {
       console.error("Drag and drop update failed:", err);
+      // Revert optimistic update
+      if (previousReviewData) {
+        Object.assign(window.__julesReview || {}, previousReviewData);
+        setTasks(prev => [...prev]);
+      }
     }
   };
 
@@ -891,7 +854,7 @@ export default function AgentsModule() {
       )}
 {activeTab === "Tasks" && (() => {
         // Use the review data if available, otherwise fall back to legacy tasks
-        // reviewData comes from React state (defined at top of component)
+        const reviewData = window.__julesReview || null;
         const COLUMNS = [
           { key: "needsReview", label: "⏳ Needs Review", color: "#ff9500", icon: "⏳" },
           { key: "inProgress", label: "🔄 In Progress", color: "#007AFF", icon: "🔄" },
@@ -1080,7 +1043,8 @@ export default function AgentsModule() {
                                         const refreshRes = await fetch("/api/jules/review");
                                         if (refreshRes.ok) {
                                           const data = await refreshRes.json();
-                                          setReviewData(data);
+                                          window.__julesReview = data;
+                                          // Force re-render by updating tasks
                                           setTasks(prev => [...prev]);
                                         }
                                       }
@@ -1112,7 +1076,7 @@ export default function AgentsModule() {
                                         const refreshRes = await fetch("/api/jules/review");
                                         if (refreshRes.ok) {
                                           const data = await refreshRes.json();
-                                          setReviewData(data);
+                                          window.__julesReview = data;
                                           setTasks(prev => [...prev]);
                                         }
                                       }
@@ -1163,37 +1127,38 @@ export default function AgentsModule() {
                   onClick={async (e) => {
                     e.stopPropagation();
                     try {
-                      // Optimistic Update via React state
-                      setReviewData(prev => {
-                        if (!prev) return prev;
-                        const clone = JSON.parse(JSON.stringify(prev));
+                      // Optimistic Update
+                      const previousReviewData = window.__julesReview ? JSON.parse(JSON.stringify(window.__julesReview)) : null;
+
+                      if (window.__julesReview) {
                         let currentStatus = null;
-                        for (const k of Object.keys(clone)) {
-                          if (Array.isArray(clone[k])) {
-                            if (clone[k].find(t => {
+                        for (const k of Object.keys(window.__julesReview)) {
+                          if (Array.isArray(window.__julesReview[k])) {
+                            if (window.__julesReview[k].find(t => {
                               const id = t.id || t.name || t.sessionId;
-                              const sid = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id;
-                              return sid === contextMenu.shortId;
+                              const shortId = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id;
+                              return shortId === contextMenu.shortId;
                             })) {
                               currentStatus = k;
                               break;
                             }
                           }
                         }
+
                         if (currentStatus && currentStatus !== col.key) {
-                          const taskIndex = clone[currentStatus].findIndex(t => {
-                            const id = t.id || t.name || t.sessionId;
-                            const sid = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id;
-                            return sid === contextMenu.shortId;
-                          });
-                          if (taskIndex > -1) {
-                            const [task] = clone[currentStatus].splice(taskIndex, 1);
-                            if (!clone[col.key]) clone[col.key] = [];
-                            clone[col.key].push(task);
-                          }
+                           const taskIndex = window.__julesReview[currentStatus].findIndex(t => {
+                             const id = t.id || t.name || t.sessionId;
+                             const shortId = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id;
+                             return shortId === contextMenu.shortId;
+                           });
+                           if (taskIndex > -1) {
+                             const [task] = window.__julesReview[currentStatus].splice(taskIndex, 1);
+                             if (!window.__julesReview[col.key]) window.__julesReview[col.key] = [];
+                             window.__julesReview[col.key].push(task);
+                             setTasks(prev => [...prev]);
+                           }
                         }
-                        return clone;
-                      });
+                      }
 
                       setContextMenu(null);
 
@@ -1207,8 +1172,12 @@ export default function AgentsModule() {
                         const refreshRes = await fetch("/api/jules/review");
                         if (refreshRes.ok) {
                           const data = await refreshRes.json();
-                          setReviewData(data);
+                          window.__julesReview = data;
+                          setTasks(prev => [...prev]);
                         }
+                      } else if (previousReviewData) {
+                         window.__julesReview = previousReviewData;
+                         setTasks(prev => [...prev]);
                       }
                     } catch (err) {
                       console.error("Context menu override failed:", err);
