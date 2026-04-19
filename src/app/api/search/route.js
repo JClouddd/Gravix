@@ -93,8 +93,7 @@ export async function GET(request) {
     // 4. Search Knowledge
     try {
       // Need absolute URL for fetching from our own API route during SSR/API execution
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
-                      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
       const knowledgeRes = await fetch(`${baseUrl}/api/knowledge/query`, {
         method: "POST",

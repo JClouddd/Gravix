@@ -1,0 +1,33 @@
+runConfig:
+  minInstances: 0
+  maxInstances: 10
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  # Gemini
+  - variable: GEMINI_API_KEY
+    secret: GEMINI_API_KEY
+
+  # Firebase / Google
+  - variable: GOOGLE_SERVICE_ACCOUNT_KEY
+    secret: GOOGLE_SERVICE_ACCOUNT_KEY
+  - variable: GOOGLE_CLOUD_PROJECT
+    value: antigravity-hub-jcloud
+
+  # OAuth
+  - variable: GOOGLE_OAUTH_CLIENT_ID
+    secret: GOOGLE_OAUTH_CLIENT_ID
+  - variable: GOOGLE_OAUTH_CLIENT_SECRET
+    secret: GOOGLE_OAUTH_CLIENT_SECRET
+
+  # Jules
+  - variable: JULES_API_KEY
+    secret: JULES_API_KEY
+
+  # App
+  - variable: NEXT_PUBLIC_BASE_URL
+    value: https://gravix.web.app
+  - variable: USE_ADK_AGENTS
+    value: "false"
