@@ -50,7 +50,9 @@ export default function ContactsModule() {
   }, []);
 
   useEffect(() => {
-    fetchContacts();
+    Promise.resolve().then(() => {
+      fetchContacts();
+    });
   }, [fetchContacts]);
 
   useEffect(() => {
@@ -59,12 +61,16 @@ export default function ContactsModule() {
     }
 
     if (!searchQuery.trim()) {
-      setSearchResults(null);
-      setIsSearching(false);
+      Promise.resolve().then(() => {
+        setSearchResults(null);
+        setIsSearching(false);
+      });
       return;
     }
 
-    setIsSearching(true);
+    Promise.resolve().then(() => {
+      setIsSearching(true);
+    });
     searchTimeout.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/contacts/search?q=${encodeURIComponent(searchQuery)}`);
