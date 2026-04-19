@@ -78,6 +78,13 @@ export async function GET() {
         mergeCandidate: data.mergeCandidate || null,
         skillCategory: data.skillCategory || null,
         applicableAgents: data.applicableAgents || [],
+        // Research expansion data (Phase A-D)
+        researchDossier: data.researchDossier || null,
+        skillSpec: data.skillSpec || null,
+        googleTranslation: data.googleTranslation || null,
+        validation: data.validation || null,
+        researchMeta: data.researchMeta || null,
+        hasResearch: !!data.researchDossier,
         status: "pending",
       };
     });
