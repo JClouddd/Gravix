@@ -7,58 +7,172 @@ import { classifyContent, createStagingEntry } from "@/lib/knowledgeEngine";
 /**
  * POST /api/knowledge/ingest-video
  * Ingest a YouTube video via Gemini's native video understanding.
- * Gemini watches the video and extracts structured analysis.
+ * Also fetches video description and comments via YouTube Data API.
+ * Gemini watches the video and extracts comprehensive structured analysis.
  */
 
-const VIDEO_ANALYSIS_PROMPT = `You are a research analyst. Analyze this video thoroughly and extract ALL information accurately.
+const VIDEO_ANALYSIS_PROMPT = `You are a senior technical research analyst for an AI operating system called Gravix, built entirely on Google Cloud infrastructure (Gemini, Firebase, Cloud Run, Vertex AI).
 
-Return a JSON object with these fields:
+Analyze this video with MAXIMUM depth and extract every piece of useful information.
+
+Return a JSON object with ALL of these fields:
 {
   "title": "Video title",
   "summary": "Detailed summary of the core thesis and content (minimum 500 words)",
-  "tools": ["Every tool, platform, library, API, or service mentioned with context on how it's used"],
-  "strategies": ["Every strategy, framework, mental model, or methodology discussed"],
-  "technical_details": ["All code patterns, architectures, configurations, or technical implementations shown"],
-  "visual_intelligence": ["Description of any dashboards, UIs, interfaces, diagrams, or visual content shown on screen"],
-  "actionable_items": ["Specific things that can be built, automated, integrated, or applied based on this content"],
-  "key_quotes": ["Important direct quotes or statements from the speaker(s)"],
-  "timestamps": [{"time": "MM:SS", "topic": "What's being discussed at this timestamp"}],
-  "people_mentioned": ["Names and roles of people referenced"],
-  "links_resources": ["Any URLs, books, papers, or resources mentioned"],
-  "raw_transcript_notes": "Detailed notes capturing the full substance of what was said (not summarized — accurate and thorough)"
+
+  "tools_and_software": [
+    {"name": "Tool name", "type": "library|framework|api|platform|cli|service", "purpose": "How it's used in the video", "url": "If mentioned"}
+  ],
+
+  "integrations_and_apis": [
+    {"name": "API/integration name", "type": "rest|sdk|webhook|oauth|grpc", "description": "What it connects and how", "auth_method": "If mentioned"}
+  ],
+
+  "beta_preview_features": [
+    {"feature": "Feature name", "platform": "Which platform", "status": "beta|preview|experimental|alpha", "potential_use": "How we could leverage this in Gravix"}
+  ],
+
+  "visual_elements": [
+    {"timestamp": "MM:SS", "type": "ui|diagram|infographic|code|terminal|dashboard", "description": "Detailed description of what's shown on screen"}
+  ],
+
+  "code_snippets": [
+    {"language": "python|javascript|yaml|etc", "purpose": "What it does", "code_description": "Detailed description of the code shown", "key_patterns": ["Notable patterns or techniques used"]}
+  ],
+
+  "step_by_step_procedures": [
+    {"title": "Procedure name", "steps": ["Step 1", "Step 2", "..."], "prerequisites": ["Required tools or setup"]}
+  ],
+
+  "configuration_shown": [
+    {"type": "env_var|config_file|settings|cli_flag", "name": "Config name", "value_or_example": "What was shown", "context": "Why it matters"}
+  ],
+
+  "links_and_resources": [
+    {"url": "URL if mentioned", "type": "docs|repo|paper|tool|article", "description": "What it is"}
+  ],
+
+  "key_quotes": ["Important verbatim statements from the speaker(s)"],
+
+  "people_and_organizations": [
+    {"name": "Name", "role": "Their role/title", "organization": "Company/project"}
+  ],
+
+  "timestamps": [
+    {"time": "MM:SS", "topic": "What's being discussed"}
+  ],
+
+  "strategies_and_patterns": [
+    {"name": "Strategy/pattern name", "description": "How it works", "applicability": "How it could apply to our system"}
+  ],
+
+  "google_infrastructure_mapping": {
+    "description": "Map every non-Google tool/concept mentioned to its Google Cloud equivalent",
+    "mappings": [
+      {"source_tool": "e.g. Claude Code", "google_equivalent": "e.g. Jules / Gemini Code Assist", "migration_notes": "What would change in implementation", "feasibility": "easy|moderate|complex"}
+    ]
+  },
+
+  "actionable_items": [
+    {"action": "What to build or implement", "priority": "high|medium|low", "effort": "small|medium|large", "google_services_needed": ["List of Google services required"]}
+  ],
+
+  "raw_transcript_notes": "Detailed notes capturing the FULL substance of what was said — every important point, not summarized. This should be the most thorough section."
 }
 
-CRITICAL: Do NOT summarize or abbreviate. Capture EVERYTHING discussed in the video with full accuracy and detail. The user wants the raw information, not a condensed version.`;
+CRITICAL RULES:
+1. Do NOT summarize or abbreviate. Capture EVERYTHING with full accuracy.
+2. For ANY non-Google tool mentioned, ALWAYS provide the google_infrastructure_mapping.
+3. Flag ALL beta/preview features — these are high-value intelligence.
+4. Describe ALL visual elements — dashboards, code on screen, diagrams.
+5. Capture ALL code patterns shown, even partially visible ones.`;
+
+/**
+ * Fetch YouTube video metadata (description, comments) via YouTube Data API
+ */
+async function fetchYouTubeMetadata(videoId, apiKey) {
+  const metadata = { description: "", comments: [], chapters: [] };
+
+  try {
+    // Fetch video snippet (title, description, tags)
+    const snippetRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`
+    );
+    if (snippetRes.ok) {
+      const data = await snippetRes.json();
+      const snippet = data.items?.[0]?.snippet;
+      if (snippet) {
+        metadata.description = snippet.description || "";
+        metadata.channelTitle = snippet.channelTitle || "";
+        metadata.publishedAt = snippet.publishedAt || "";
+        metadata.tags = snippet.tags || [];
+      }
+    }
+
+    // Fetch top comments (up to 20)
+    const commentsRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${videoId}&maxResults=20&order=relevance&key=${apiKey}`
+    );
+    if (commentsRes.ok) {
+      const data = await commentsRes.json();
+      metadata.comments = (data.items || []).map(item => ({
+        author: item.snippet?.topLevelComment?.snippet?.authorDisplayName,
+        text: item.snippet?.topLevelComment?.snippet?.textDisplay,
+        likes: item.snippet?.topLevelComment?.snippet?.likeCount,
+      }));
+    }
+  } catch (err) {
+    console.warn("[ingest-video] YouTube metadata fetch failed:", err.message);
+  }
+
+  return metadata;
+}
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { url, title = "" } = body;
+    const { url, title = "", supplementary = null } = body;
 
     if (!url) {
       return Response.json({ error: "url is required" }, { status: 400 });
     }
 
-    // Validate it's a YouTube URL
+    // Validate YouTube URL
     const youtubeRegex = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)/;
     if (!youtubeRegex.test(url)) {
-      return Response.json({ error: "Only YouTube URLs are supported for video ingestion" }, { status: 400 });
+      return Response.json({ error: "Only YouTube URLs are supported" }, { status: 400 });
     }
 
-    // Extract video ID for reference
+    // Extract video ID
     const videoId = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1] || "unknown";
 
-    // Call Gemini with the video URL using fileData
-    // Per skill docs: REST API needs File API upload for reliable processing
-    // But we can try the direct URL method first and validate token count
     const geminiApiKey = process.env.GEMINI_API_KEY;
     if (!geminiApiKey) {
       return Response.json({ error: "GEMINI_API_KEY not configured" }, { status: 500 });
     }
 
+    // Fetch YouTube metadata (description, comments) in parallel with video analysis
+    const metadataPromise = fetchYouTubeMetadata(videoId, geminiApiKey);
+
     const startTime = Date.now();
 
-    // Use Gemini REST API with fileData containing YouTube URL
+    // Build the prompt — include supplementary context if provided
+    let fullPrompt = VIDEO_ANALYSIS_PROMPT;
+    if (supplementary) {
+      fullPrompt += `\n\n--- SUPPLEMENTARY CONTEXT PROVIDED BY USER ---\n`;
+      if (supplementary.repos) {
+        fullPrompt += `\nGit Repositories:\n${supplementary.repos.map(r => `- ${r}`).join("\n")}`;
+      }
+      if (supplementary.prompts) {
+        fullPrompt += `\nRelated Prompts/Instructions:\n${supplementary.prompts}`;
+      }
+      if (supplementary.notes) {
+        fullPrompt += `\nAdditional Notes:\n${supplementary.notes}`;
+      }
+      fullPrompt += `\n--- END SUPPLEMENTARY CONTEXT ---\nIncorporate this context into your analysis. Cross-reference the video content with the provided repos and prompts.`;
+    }
+
+    // Call Gemini with the video
     const geminiRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiApiKey}`,
       {
@@ -74,7 +188,7 @@ export async function POST(request) {
                     fileUri: url,
                   },
                 },
-                { text: VIDEO_ANALYSIS_PROMPT },
+                { text: fullPrompt },
               ],
             },
           ],
@@ -98,15 +212,17 @@ export async function POST(request) {
     const geminiData = await geminiRes.json();
     const executionTime = Date.now() - startTime;
 
+    // Get YouTube metadata (awaited from parallel call)
+    const ytMetadata = await metadataPromise;
+
     // Extract response
     const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
     const promptTokens = geminiData.usageMetadata?.promptTokenCount || 0;
     const outputTokens = geminiData.usageMetadata?.candidatesTokenCount || 0;
 
-    // Validate the video was actually processed (not hallucinated)
+    // Token validation
     if (promptTokens < 10000) {
-      console.warn(`[ingest-video] Low token count (${promptTokens}) — video may not have been processed. Falling back.`);
-      // Still save what we got, but flag it
+      console.warn(`[ingest-video] Low token count (${promptTokens}) — video may not have been processed.`);
     }
 
     // Parse the analysis
@@ -117,7 +233,16 @@ export async function POST(request) {
       analysis = { raw_transcript_notes: responseText, summary: "Failed to parse structured response" };
     }
 
-    // Calculate cost (gemini-2.5-flash-lite pricing)
+    // Merge YouTube metadata into analysis
+    analysis.youtube_metadata = {
+      description: ytMetadata.description,
+      channelTitle: ytMetadata.channelTitle,
+      publishedAt: ytMetadata.publishedAt,
+      tags: ytMetadata.tags,
+      topComments: ytMetadata.comments,
+    };
+
+    // Calculate cost
     const inputCost = (promptTokens / 1_000_000) * 0.075;
     const outputCost = (outputTokens / 1_000_000) * 0.30;
     const totalCost = inputCost + outputCost;
@@ -132,10 +257,10 @@ export async function POST(request) {
       cost: totalCost,
     });
 
-    // Build the full content for storage — raw and accurate, not summarized
+    // Build full content for storage
     const fullContent = JSON.stringify(analysis, null, 2);
 
-    // Classify the content
+    // Classify
     const classification = await classifyContent(
       analysis.summary || responseText.slice(0, 5000),
       analysis.title || title || `YouTube Video: ${videoId}`
@@ -150,7 +275,7 @@ export async function POST(request) {
       classification,
     });
 
-    // Add video-specific metadata
+    // Video-specific metadata
     entry.videoMeta = {
       videoId,
       url,
@@ -159,8 +284,10 @@ export async function POST(request) {
       cost: totalCost,
       executionTime,
       tokenValidation: promptTokens >= 10000 ? "verified" : "low_confidence",
+      hasSupplementary: !!supplementary,
     };
     entry.analysis = analysis;
+    entry.youtubeMetadata = ytMetadata;
 
     // Persist to Firestore
     await adminDb.collection("ingestion").doc(entry.id).set(entry);
@@ -176,7 +303,7 @@ export async function POST(request) {
       { merge: true }
     );
 
-    // Auto-generate notebook
+    // Auto-generate notebook (always creates one now)
     let notebookGenerated = null;
     try {
       const { generateNotebook } = await import("@/lib/notebookGenerator");
@@ -184,6 +311,18 @@ export async function POST(request) {
     } catch (err) {
       console.warn("[ingest-video] Notebook generation skipped:", err.message);
     }
+
+    // Count extraction stats
+    const extractionStats = {
+      tools: analysis.tools_and_software?.length || 0,
+      integrations: analysis.integrations_and_apis?.length || 0,
+      betaFeatures: analysis.beta_preview_features?.length || 0,
+      codeSnippets: analysis.code_snippets?.length || 0,
+      procedures: analysis.step_by_step_procedures?.length || 0,
+      googleMappings: analysis.google_infrastructure_mapping?.mappings?.length || 0,
+      actionItems: analysis.actionable_items?.length || 0,
+      comments: ytMetadata.comments?.length || 0,
+    };
 
     return Response.json({
       success: true,
@@ -203,9 +342,10 @@ export async function POST(request) {
         outputTokens,
         cost: `$${totalCost.toFixed(4)}`,
         executionTime: `${(executionTime / 1000).toFixed(1)}s`,
-        tokenValidation: promptTokens >= 10000 ? "✅ Video processed" : "⚠️ Low confidence — video may not have fully processed",
+        tokenValidation: promptTokens >= 10000 ? "✅ Video processed" : "⚠️ Low confidence",
       },
-      message: `Video analyzed successfully. Cost: $${totalCost.toFixed(4)}. ${Object.keys(analysis).length} analysis fields extracted.`,
+      extractionStats,
+      message: `Video analyzed. Cost: $${totalCost.toFixed(4)}. Extracted: ${extractionStats.tools} tools, ${extractionStats.integrations} integrations, ${extractionStats.betaFeatures} beta features, ${extractionStats.googleMappings} Google mappings, ${extractionStats.comments} comments.`,
     });
   } catch (error) {
     console.error("[/api/knowledge/ingest-video]", error);
