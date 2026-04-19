@@ -401,9 +401,24 @@ export async function POST(request) {
       console.warn("[ingest-video] Notebook generation skipped:", err.message);
     }
 
+    // Trigger research expansion in background (fire-and-forget)
+    // This adds tool dossiers, skill specs, Google mappings, and truth validation
+    const toolCount = analysis.tools_and_software?.length || 0;
+    if (notebookGenerated && toolCount > 0) {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXTAUTH_URL || "";
+      if (baseUrl) {
+        fetch(`${baseUrl}/api/knowledge/research-expand`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ notebookId: notebookGenerated.id }),
+        }).catch(err => console.warn("[ingest-video] Background research failed:", err.message));
+        console.log(`[ingest-video] Research expansion triggered for notebook ${notebookGenerated.id}`);
+      }
+    }
+
     // Count extraction stats
     const extractionStats = {
-      tools: analysis.tools_and_software?.length || 0,
+      tools: toolCount,
       integrations: analysis.integrations_and_apis?.length || 0,
       betaFeatures: analysis.beta_preview_features?.length || 0,
       codeSnippets: analysis.code_snippets?.length || 0,
