@@ -45,6 +45,7 @@ export default function ColabModule() {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount pattern
   useEffect(() => { fetchNotebooks(); }, [fetchNotebooks]);
 
   const handleRunClick = (notebook) => {
@@ -336,7 +337,7 @@ export default function ColabModule() {
                           }
                         }}
                       >
-                        🔀 Merge into "{mergeCandidate.name}"
+                        🔀 Merge into &ldquo;{mergeCandidate.name}&rdquo;
                       </button>
                     )}
                   </div>
