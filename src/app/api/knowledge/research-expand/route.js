@@ -39,12 +39,48 @@ export async function POST(request) {
       return Response.json({ error: `Document ${targetId} not found` }, { status: 404 });
     }
 
-    // Extract the analysis content
-    const analysis = sourceData.analysis || sourceData.content || {};
+    // Extract tools from multiple possible locations
+    const analysis = sourceData.analysis || {};
     const title = sourceData.name || sourceData.title || "Unknown";
-    const tools = analysis.tools_and_software || [];
-    const integrations = analysis.integrations_and_apis || [];
-    const summary = analysis.summary || "";
+    const summary = analysis.summary || sourceData.description || "";
+
+    // Tools can be in multiple places depending on document type
+    let tools = analysis.tools_and_software || [];
+    let integrations = analysis.integrations_and_apis || [];
+
+    // Notebooks store tools differently — check toolsReferenced field
+    if (tools.length === 0 && sourceData.toolsReferenced) {
+      tools = (sourceData.toolsReferenced || []).map(t =>
+        typeof t === "string" ? { name: t, type: "tool", purpose: "" } : t
+      );
+    }
+
+    // If still no tools, try to find the linked knowledge entry
+    if (tools.length === 0 && sourceData.sourceEntryId) {
+      try {
+        const entryDoc = await adminDb.collection("knowledge").doc(sourceData.sourceEntryId).get();
+        if (entryDoc.exists) {
+          const entryData = entryDoc.data();
+          const entryAnalysis = entryData.analysis || {};
+          tools = entryAnalysis.tools_and_software || [];
+          integrations = entryAnalysis.integrations_and_apis || [];
+          if (!summary && entryAnalysis.summary) {
+            // Use entry summary if notebook doesn't have one
+          }
+        }
+      } catch (err) {
+        console.warn("[research-expand] Failed to fetch linked entry:", err.message);
+      }
+    }
+
+    // Last resort: extract tool names from tags
+    if (tools.length === 0) {
+      const tags = sourceData.classification?.tags || [];
+      // Filter out generic tags, keep ones that look like tool names
+      const genericWords = ["ai", "coding", "tool", "workflow", "automation", "guide", "tutorial", "productivity"];
+      const toolCandidates = tags.filter(t => !genericWords.includes(t.toLowerCase()) && t.length > 2);
+      tools = toolCandidates.slice(0, 5).map(t => ({ name: t, type: "unknown", purpose: "mentioned in content" }));
+    }
 
     if (tools.length === 0 && integrations.length === 0) {
       return Response.json({
