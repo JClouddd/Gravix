@@ -2,10 +2,12 @@
  * googleAuth.js — Google OAuth 2.0 handler for Workspace APIs
  *
  * Handles OAuth flow for:
- * - Gmail API (read/send emails)
+ * - Gmail API (read/send emails, modify labels)
  * - Google Calendar API (read/create events)
  * - Google Tasks API (read/create tasks)
- * - Google Meet API (read transcripts)
+ * - Google Meet REST API (read transcripts, list conferences)
+ * - Google People API (read/create/search contacts)
+ * - Google Drive API (list files)
  *
  * Flow:
  * 1. User clicks "Connect Gmail" → redirects to Google consent
@@ -22,6 +24,11 @@ const SCOPES = [
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/tasks.readonly",
   "https://www.googleapis.com/auth/tasks",
+  "https://www.googleapis.com/auth/gmail.labels",
+  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/contacts",
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/drive.meet.readonly",
 ].join(" ");
 
 /**
@@ -262,6 +269,47 @@ export async function updateTask(accessToken, taskListId, taskId, data) {
   );
 }
 
+export async function listContacts(accessToken, pageSize = 100) {
+  return googleApiRequest(accessToken, `https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers,organizations,photos&pageSize=${pageSize}&sortOrder=LAST_NAME_ASCENDING`);
+}
+
+export async function createContact(accessToken, contactData) {
+  return googleApiRequest(accessToken, "https://people.googleapis.com/v1/people:createContact", { method: "POST", body: JSON.stringify(contactData) });
+}
+
+export async function searchContacts(accessToken, query) {
+  return googleApiRequest(accessToken, `https://people.googleapis.com/v1/people:searchContacts?query=${encodeURIComponent(query)}&readMask=names,emailAddresses,phoneNumbers,organizations,photos&pageSize=30`);
+}
+
+export async function listGmailLabels(accessToken) {
+  return googleApiRequest(accessToken, "https://gmail.googleapis.com/gmail/v1/users/me/labels");
+}
+
+export async function createGmailLabel(accessToken, name, backgroundColor = "#4285f4", textColor = "#ffffff") {
+  return googleApiRequest(accessToken, "https://gmail.googleapis.com/gmail/v1/users/me/labels", { method: "POST", body: JSON.stringify({ name, labelListVisibility: "labelShow", messageListVisibility: "show", color: { backgroundColor, textColor } }) });
+}
+
+export async function applyGmailLabel(accessToken, messageId, addLabelIds = [], removeLabelIds = []) {
+  return googleApiRequest(accessToken, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`, { method: "POST", body: JSON.stringify({ addLabelIds, removeLabelIds }) });
+}
+
+export async function listDriveFiles(accessToken, query = "", pageSize = 20) {
+  let url = `https://www.googleapis.com/drive/v3/files?pageSize=${pageSize}&fields=files(id,name,mimeType,size,modifiedTime,webViewLink,iconLink,thumbnailLink,parents)&orderBy=modifiedTime desc`;
+  if (query) url += `&q=${encodeURIComponent(query)}`;
+  return googleApiRequest(accessToken, url);
+}
+
+export async function listMeetConferences(accessToken) {
+  return googleApiRequest(accessToken, "https://meet.googleapis.com/v2/conferenceRecords?pageSize=10");
+}
+
+export async function getMeetTranscript(accessToken, conferenceRecordId) {
+  const transcripts = await googleApiRequest(accessToken, `https://meet.googleapis.com/v2/${conferenceRecordId}/transcripts`);
+  if (!transcripts.transcripts?.length) return { entries: [] };
+  const transcriptId = transcripts.transcripts[0].name;
+  return googleApiRequest(accessToken, `https://meet.googleapis.com/v2/${transcriptId}/entries?pageSize=100`);
+}
+
 const defaultExport = {
   getAuthUrl,
   exchangeCode,
@@ -276,6 +324,15 @@ const defaultExport = {
   getTaskLists,
   getTasks,
   updateTask,
+  listContacts,
+  createContact,
+  searchContacts,
+  listGmailLabels,
+  createGmailLabel,
+  applyGmailLabel,
+  listDriveFiles,
+  listMeetConferences,
+  getMeetTranscript,
   SCOPES,
 };
 export default defaultExport;
