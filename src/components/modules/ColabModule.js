@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -44,7 +45,7 @@ export default function ColabModule() {
     }
   }, []);
 
-  useEffect(() => { Promise.resolve().then(() => fetchNotebooks()); }, [fetchNotebooks]);
+  useEffect(() => { fetchNotebooks(); }, [fetchNotebooks]);
 
   const handleRunClick = (notebook) => {
     setSelectedNotebook(notebook);
@@ -335,7 +336,7 @@ export default function ColabModule() {
                           }
                         }}
                       >
-                        🔀 Merge into &quot;{mergeCandidate.name}&quot;
+                        🔀 Merge into "{mergeCandidate.name}"
                       </button>
                     )}
                   </div>
