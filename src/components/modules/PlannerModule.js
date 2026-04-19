@@ -108,7 +108,7 @@ export default function PlannerModule() {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    Promise.resolve().then(() => fetchData());
   }, [fetchData]);
 
   // Calendar Helpers
@@ -767,7 +767,7 @@ export default function PlannerModule() {
             ))}
             {sortedTasks.length === 0 && (
               <p style={{ textAlign: "center", color: "var(--text-secondary)", padding: "24px" }}>
-                No tasks yet. Click "Add Task" to get started.
+                No tasks yet. Click &quot;Add Task&quot; to get started.
               </p>
             )}
           </div>

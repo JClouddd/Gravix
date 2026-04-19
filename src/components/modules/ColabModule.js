@@ -45,7 +45,9 @@ export default function ColabModule() {
     }
   }, []);
 
-  useEffect(() => { fetchNotebooks(); }, [fetchNotebooks]);
+  useEffect(() => {
+    Promise.resolve().then(() => fetchNotebooks());
+  }, [fetchNotebooks]);
 
   const handleRunClick = (notebook) => {
     setSelectedNotebook(notebook);
@@ -336,7 +338,7 @@ export default function ColabModule() {
                           }
                         }}
                       >
-                        🔀 Merge into "{mergeCandidate.name}"
+                        🔀 Merge into &quot;{mergeCandidate.name}&quot;
                       </button>
                     )}
                   </div>

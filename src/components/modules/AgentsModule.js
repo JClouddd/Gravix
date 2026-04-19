@@ -27,6 +27,9 @@ export default function AgentsModule() {
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [newTaskPrompt, setNewTaskPrompt] = useState("");
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
+  const [draggedTask, setDraggedTask] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null); // { x, y, task, shortId }
 
   // Proposals state
   const [proposals, setProposals] = useState([]);
@@ -259,6 +262,87 @@ export default function AgentsModule() {
       setRosterChatResult({ error: err.message });
     } finally {
       setRosterChatStatus("idle");
+    }
+  };
+
+  // Close context menu on click outside or escape
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") setContextMenu(null);
+    };
+    if (contextMenu) {
+      document.addEventListener("click", handleClick);
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [contextMenu]);
+
+  const handleDragOver = (e, colKey) => {
+    e.preventDefault();
+    setDropTarget(colKey);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDropTarget(null);
+  };
+
+  const handleDrop = async (e, targetColKey) => {
+    e.preventDefault();
+    setDropTarget(null);
+
+    const sessionId = e.dataTransfer.getData("sessionId");
+    const currentStatus = e.dataTransfer.getData("currentStatus");
+    if (!sessionId || currentStatus === targetColKey) return;
+
+    // Optimistic update
+    const previousReviewData = window.__julesReview ? JSON.parse(JSON.stringify(window.__julesReview)) : null;
+
+    if (window.__julesReview) {
+      const taskIndex = window.__julesReview[currentStatus]?.findIndex(t => {
+        const id = t.id || t.name || t.sessionId;
+        const shortId = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id;
+        return shortId === sessionId;
+      });
+
+      if (taskIndex > -1) {
+        const [task] = window.__julesReview[currentStatus].splice(taskIndex, 1);
+        if (!window.__julesReview[targetColKey]) window.__julesReview[targetColKey] = []; // eslint-disable-line react-hooks/immutability
+        window.__julesReview[targetColKey].push(task);
+        // Force re-render
+        setTasks(prev => [...prev]);
+      }
+    }
+
+    try {
+      const res = await fetch("/api/jules/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, action: "override", status: targetColKey }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to update status");
+      }
+
+      // Optionally refresh from server to ensure sync
+      const refreshRes = await fetch("/api/jules/review");
+      if (refreshRes.ok) {
+        const data = await refreshRes.json();
+        window.__julesReview = data; // eslint-disable-line react-hooks/immutability
+        setTasks(prev => [...prev]);
+      }
+    } catch (err) {
+      console.error("Drag and drop update failed:", err);
+      // Revert optimistic update
+      if (previousReviewData) {
+        window.__julesReview = previousReviewData; // eslint-disable-line react-hooks/immutability
+        setTasks(prev => [...prev]);
+      }
     }
   };
 
@@ -850,13 +934,21 @@ export default function AgentsModule() {
             {COLUMNS.map((col) => {
               const columnTasks = reviewData ? (reviewData[col.key] || []) : (col.key === "needsReview" ? getTasksByStatus("Queued") : col.key === "inProgress" ? getTasksByStatus("In Progress") : col.key === "completed" ? getTasksByStatus("Completed") : []);
               return (
-                <div key={col.key} style={{
-                  background: "var(--bg-secondary)",
+                <div
+                  key={col.key}
+                  data-status={col.key}
+                  onDragOver={(e) => handleDragOver(e, col.key)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, col.key)}
+                  className={dropTarget === col.key ? "drop-zone-active" : ""}
+                  style={{
+                  background: dropTarget === col.key ? "rgba(var(--accent-rgb), 0.05)" : "var(--bg-secondary)",
                   borderRadius: "var(--radius-lg)",
                   padding: 16,
                   minHeight: 300,
-                  border: `1px solid var(--card-border)`,
-                  borderTop: `3px solid ${col.color}`,
+                  border: dropTarget === col.key ? `2px dashed var(--accent)` : `1px solid var(--card-border)`,
+                  borderTop: dropTarget === col.key ? `2px dashed var(--accent)` : `3px solid ${col.color}`,
+                  transition: "all 0.2s ease"
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                     <h4 className="h5" style={{ color: col.color }}>{col.label}</h4>
@@ -888,10 +980,27 @@ export default function AgentsModule() {
                           : sessionName;
 
                         return (
-                          <div key={shortId} className="card card-glass" style={{
-                            padding: 12,
-                            borderLeft: `3px solid ${col.color}`,
-                            transition: "transform 0.15s ease, box-shadow 0.15s ease",
+                          <div
+                            key={shortId}
+                            className={`card card-glass ${draggedTask === shortId ? 'dragging' : ''}`}
+                            draggable={true}
+                            onDragStart={(e) => {
+                              setDraggedTask(shortId);
+                              e.dataTransfer.setData("sessionId", shortId);
+                              e.dataTransfer.setData("currentStatus", col.key);
+                            }}
+                            onDragEnd={() => setDraggedTask(null)}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              setContextMenu({ x: e.clientX, y: e.clientY, task: t, shortId });
+                            }}
+                            style={{
+                              padding: 12,
+                              borderLeft: `3px solid ${col.color}`,
+                              transition: "all 0.2s ease",
+                              opacity: draggedTask === shortId ? 0.5 : 1,
+                              transform: draggedTask === shortId ? "scale(0.95)" : "scale(1)",
+                              cursor: "grab"
                           }}>
                             <p className="body-sm" style={{ fontWeight: 600, marginBottom: 6, lineHeight: 1.4 }}>
                               {t.title || (t.prompt && t.prompt.slice(0, 60)) || "Untitled Task"}
@@ -932,7 +1041,7 @@ export default function AgentsModule() {
                                         const refreshRes = await fetch("/api/jules/review");
                                         if (refreshRes.ok) {
                                           const data = await refreshRes.json();
-                                          window.__julesReview = data;
+                                          window.__julesReview = data; // eslint-disable-line react-hooks/immutability
                                           // Force re-render by updating tasks
                                           setTasks(prev => [...prev]);
                                         }
@@ -965,7 +1074,7 @@ export default function AgentsModule() {
                                         const refreshRes = await fetch("/api/jules/review");
                                         if (refreshRes.ok) {
                                           const data = await refreshRes.json();
-                                          window.__julesReview = data;
+                                          window.__julesReview = data; // eslint-disable-line react-hooks/immutability
                                           setTasks(prev => [...prev]);
                                         }
                                       }
@@ -987,6 +1096,122 @@ export default function AgentsModule() {
               );
             })}
           </div>
+
+          {contextMenu && (
+            <div
+              className="context-menu"
+              style={{
+                position: "fixed",
+                top: contextMenu.y,
+                left: contextMenu.x,
+                zIndex: 1000,
+                background: "var(--bg-primary)",
+                border: "1px solid var(--card-border)",
+                borderRadius: 8,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                padding: "4px 0",
+                minWidth: 160
+              }}
+            >
+              <div style={{ padding: "8px 16px", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", borderBottom: "1px solid var(--card-border)", marginBottom: 4 }}>
+                Override Status
+              </div>
+              {COLUMNS.map(col => (
+                <div
+                  key={col.key}
+                  style={{ padding: "8px 16px", cursor: "pointer", fontSize: 13, transition: "background 0.2s ease" }}
+                  onMouseEnter={(e) => e.target.style.background = "var(--bg-secondary)"}
+                  onMouseLeave={(e) => e.target.style.background = "transparent"}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      // Optimistic Update
+                      const previousReviewData = window.__julesReview ? JSON.parse(JSON.stringify(window.__julesReview)) : null;
+
+                      if (window.__julesReview) {
+                        let currentStatus = null;
+                        for (const k of Object.keys(window.__julesReview)) {
+                          if (Array.isArray(window.__julesReview[k])) {
+                            if (window.__julesReview[k].find(t => {
+                              const id = t.id || t.name || t.sessionId;
+                              const shortId = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id;
+                              return shortId === contextMenu.shortId;
+                            })) {
+                              currentStatus = k;
+                              break;
+                            }
+                          }
+                        }
+
+                        if (currentStatus && currentStatus !== col.key) {
+                           const taskIndex = window.__julesReview[currentStatus].findIndex(t => {
+                             const id = t.id || t.name || t.sessionId;
+                             const shortId = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id;
+                             return shortId === contextMenu.shortId;
+                           });
+                           if (taskIndex > -1) {
+                             const [task] = window.__julesReview[currentStatus].splice(taskIndex, 1);
+                             if (!window.__julesReview[col.key]) window.__julesReview[col.key] = [];
+                             window.__julesReview[col.key].push(task);
+                             setTasks(prev => [...prev]);
+                           }
+                        }
+                      }
+
+                      setContextMenu(null);
+
+                      const res = await fetch("/api/jules/review", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ sessionId: contextMenu.shortId, action: "override", status: col.key })
+                      });
+
+                      if (res.ok) {
+                        const refreshRes = await fetch("/api/jules/review");
+                        if (refreshRes.ok) {
+                          const data = await refreshRes.json();
+                          window.__julesReview = data; // eslint-disable-line react-hooks/immutability
+                          setTasks(prev => [...prev]);
+                        }
+                      } else if (previousReviewData) {
+                         window.__julesReview = previousReviewData; // eslint-disable-line react-hooks/immutability
+                         setTasks(prev => [...prev]);
+                      }
+                    } catch (err) {
+                      console.error("Context menu override failed:", err);
+                    }
+                  }}
+                >
+                  {col.label}
+                </div>
+              ))}
+              <div style={{ borderTop: "1px solid var(--card-border)", margin: "4px 0" }} />
+              <div
+                style={{ padding: "8px 16px", cursor: "pointer", fontSize: 13, transition: "background 0.2s ease" }}
+                onMouseEnter={(e) => e.target.style.background = "var(--bg-secondary)"}
+                onMouseLeave={(e) => e.target.style.background = "transparent"}
+                onClick={() => {
+                  window.open(`https://jules.google.com/session/${contextMenu.shortId}`, "_blank");
+                  setContextMenu(null);
+                }}
+              >
+                🔗 Open in Jules
+              </div>
+              {contextMenu.task?.pullRequest && (
+                <div
+                  style={{ padding: "8px 16px", cursor: "pointer", fontSize: 13, transition: "background 0.2s ease" }}
+                  onMouseEnter={(e) => e.target.style.background = "var(--bg-secondary)"}
+                  onMouseLeave={(e) => e.target.style.background = "transparent"}
+                  onClick={() => {
+                    window.open(contextMenu.task.pullRequest, "_blank");
+                    setContextMenu(null);
+                  }}
+                >
+                  🐙 View PR
+                </div>
+              )}
+            </div>
+          )}
         </div>
         );
       })()}
