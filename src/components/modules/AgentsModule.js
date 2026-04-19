@@ -13,6 +13,7 @@ export default function AgentsModule() {
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
   const [agentCosts, setAgentCosts] = useState({});
   const [executionMode, setExecutionMode] = useState("Step");
+  const [expandedAgent, setExpandedAgent] = useState(null);
   const [rosterChatInput, setRosterChatInput] = useState("");
   const [rosterChatStatus, setRosterChatStatus] = useState("idle");
   const [rosterChatResult, setRosterChatResult] = useState(null);
@@ -309,6 +310,23 @@ export default function AgentsModule() {
               const costBadgeClass = costVal < 0.01 ? "badge-success" : costVal < 0.10 ? "badge-warning" : "badge-error";
               const costLabel = costVal === 0 ? "$0.00" : `$${costVal.toFixed(3)} this month`;
 
+              const isExpanded = expandedAgent === agent.id;
+              const skills = agent.skills || [];
+              const subAgents = agent.subAgents || [];
+
+              const SKILL_COLORS = {
+                orchestration: "#6C5CE7",
+                monitoring: "#E74C3C",
+                security: "#E74C3C",
+                knowledge: "#00B894",
+                research: "#00B894",
+                devops: "#E17055",
+                analytics: "#A29BFE",
+                intelligence: "#A29BFE",
+                comms: "#4299E1",
+                coding: "#F1C40F",
+              };
+
               return (
               <div
                 key={agent.id}
@@ -316,11 +334,13 @@ export default function AgentsModule() {
                 style={{
                   borderTop: `3px solid ${agent.color}`,
                   cursor: "pointer",
+                  transition: "all 0.2s ease",
                 }}
+                onClick={() => setExpandedAgent(isExpanded ? null : agent.id)}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                   <span style={{ fontSize: 28 }}>{agent.icon}</span>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div className="h4">{agent.name}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span className={`status-dot ${isOnline ? "online" : isBusy ? "warning" : "offline"}`} />
@@ -329,17 +349,28 @@ export default function AgentsModule() {
                       </span>
                     </div>
                   </div>
+                  <span style={{ fontSize: 12, color: "var(--text-secondary)", transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0)" }}>▼</span>
                 </div>
                 <p className="body-sm" style={{ color: "var(--text-secondary)", marginBottom: 4 }}>
                   {agent.role}
                 </p>
-                <p className="caption" style={{ color: "var(--text-secondary)", marginBottom: 12 }}>
-                  Model: Gemini 1.5 Pro
-                </p>
+
+                {/* Skill preview badges (always visible) */}
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                  {skills.slice(0, 3).map(skill => (
+                    <span key={skill.id} className="badge" style={{
+                      fontSize: 10,
+                      background: `${SKILL_COLORS[skill.category] || "var(--bg-secondary)"}22`,
+                      color: SKILL_COLORS[skill.category] || "var(--text-secondary)",
+                      border: `1px solid ${SKILL_COLORS[skill.category] || "var(--card-border)"}44`,
+                    }}>{skill.name}</span>
+                  ))}
+                  {skills.length > 3 && (
+                    <span className="badge" style={{ fontSize: 10, background: "var(--bg-secondary)" }}>+{skills.length - 3}</span>
+                  )}
+                </div>
 
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                  <span className="badge" style={{ fontSize: 11, background: "var(--bg-secondary)" }}>Planning</span>
-                  <span className="badge" style={{ fontSize: 11, background: "var(--bg-secondary)" }}>Execution</span>
                   <span className={`badge ${costBadgeClass}`} style={{ fontSize: 11 }}>
                     {costLabel}
                   </span>
@@ -347,6 +378,48 @@ export default function AgentsModule() {
 
                 <div className="badge badge-info" style={{ fontSize: 11 }}>
                   🧬 {agent.selfImprove}
+                </div>
+
+                {/* Expanded Skills Panel */}
+                <div style={{
+                  maxHeight: isExpanded ? 500 : 0,
+                  overflow: "hidden",
+                  transition: "max-height 0.3s ease, opacity 0.2s ease",
+                  opacity: isExpanded ? 1 : 0,
+                }}>
+                  <div style={{ borderTop: "1px solid var(--card-border)", marginTop: 12, paddingTop: 12 }}>
+                    <div className="h5" style={{ marginBottom: 8, color: "var(--text-primary)" }}>🛠 Skills ({skills.length})</div>
+                    {skills.map(skill => (
+                      <div key={skill.id} style={{
+                        display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8,
+                        padding: "6px 8px", borderRadius: 6, background: "var(--bg-secondary)",
+                      }}>
+                        <span style={{
+                          width: 6, height: 6, borderRadius: "50%", marginTop: 6, flexShrink: 0,
+                          background: SKILL_COLORS[skill.category] || "var(--text-secondary)",
+                        }} />
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{skill.name}</div>
+                          <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{skill.description}</div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {subAgents.length > 0 && (
+                      <>
+                        <div className="h5" style={{ marginTop: 12, marginBottom: 8, color: "var(--text-primary)" }}>🤖 Sub-Agents</div>
+                        {subAgents.map((sa, i) => (
+                          <div key={i} className="badge" style={{ fontSize: 11, marginRight: 4 }}>{sa.name || sa}</div>
+                        ))}
+                      </>
+                    )}
+
+                    {subAgents.length === 0 && (
+                      <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 8, fontStyle: "italic" }}>
+                        No sub-agents deployed
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );

@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "project": "antigravity-hub-jcloud",
   "location": "us-central1",
   "agents": {
@@ -8,14 +8,27 @@
       "displayName": "Conductor",
       "role": "Orchestrator — routes requests to the right specialist agent",
       "status": "deployed",
-      "platform": "dialogflow-cx"
+      "platform": "dialogflow-cx",
+      "skills": [
+        { "id": "routing", "name": "Request Routing", "description": "Analyzes intent and routes to the right specialist", "category": "orchestration" },
+        { "id": "multi-agent", "name": "Multi-Agent Orchestration", "description": "Coordinates multi-step workflows across agents", "category": "orchestration" },
+        { "id": "context-mgmt", "name": "Context Management", "description": "Maintains conversation state across agent handoffs", "category": "orchestration" }
+      ],
+      "subAgents": []
     },
     "sentinel": {
       "id": "94478343-18b9-4a15-aad4-31e3145829fd",
       "displayName": "Sentinel",
       "role": "Security — costs, monitoring, agent health, rules",
       "status": "deployed",
-      "platform": "dialogflow-cx"
+      "platform": "dialogflow-cx",
+      "skills": [
+        { "id": "cost-tracking", "name": "Cost Tracking", "description": "Monitors API spend across all Google Cloud services", "category": "monitoring" },
+        { "id": "health-check", "name": "Health Monitoring", "description": "Runs system diagnostics and reports agent health", "category": "monitoring" },
+        { "id": "quota-watch", "name": "Quota Management", "description": "Tracks Jules sessions, Gemini tokens, and API limits", "category": "monitoring" },
+        { "id": "security-audit", "name": "Security Audit", "description": "Reviews IAM, secrets, and access patterns", "category": "security" }
+      ],
+      "subAgents": []
     },
     "scholar": {
       "id": "05abb996-ebd5-4578-96d3-1c1cc44c34b6",
@@ -24,35 +37,71 @@
       "status": "deployed",
       "platform": "dialogflow-cx",
       "dataStoreId": "gravix-knowledge",
-      "engineId": "gravix-scholar"
+      "engineId": "gravix-scholar",
+      "skills": [
+        { "id": "ingest", "name": "Content Ingestion", "description": "Processes text, URLs, files, and YouTube videos into knowledge base", "category": "knowledge" },
+        { "id": "classify", "name": "Content Classification", "description": "Auto-categorizes content with tags, confidence, and cross-references", "category": "knowledge" },
+        { "id": "research", "name": "Deep Research", "description": "Queries knowledge base and synthesizes cross-domain insights", "category": "research" },
+        { "id": "video-analysis", "name": "Video Analysis", "description": "Watches YouTube videos and extracts tools, APIs, beta features", "category": "knowledge" },
+        { "id": "review", "name": "Content Review", "description": "Facilitates review conversations about staged content", "category": "knowledge" }
+      ],
+      "subAgents": []
     },
     "forge": {
       "id": "4f61286e-7f8e-4b6b-8db3-8d657c1571bb",
       "displayName": "Forge",
       "role": "DevOps — infrastructure, secrets, IAM, APIs",
       "status": "deployed",
-      "platform": "dialogflow-cx"
+      "platform": "dialogflow-cx",
+      "skills": [
+        { "id": "secret-mgmt", "name": "Secret Management", "description": "Manages Google Cloud Secret Manager entries", "category": "devops" },
+        { "id": "iam", "name": "IAM Configuration", "description": "Configures service accounts and permissions", "category": "devops" },
+        { "id": "api-setup", "name": "API Enablement", "description": "Enables and configures Google Cloud APIs", "category": "devops" },
+        { "id": "infra-deploy", "name": "Infrastructure Deploy", "description": "Manages Cloud Run, Firebase, and App Hosting configs", "category": "devops" }
+      ],
+      "subAgents": []
     },
     "analyst": {
       "id": "4665e241-8664-4f36-bce0-9c6a02907b73",
       "displayName": "Analyst",
       "role": "Data science — analysis, Colab, ML, charts",
       "status": "deployed",
-      "platform": "dialogflow-cx"
+      "platform": "dialogflow-cx",
+      "skills": [
+        { "id": "notebook-gen", "name": "Notebook Generation", "description": "Auto-generates analysis notebooks from ingested content", "category": "analytics" },
+        { "id": "data-analysis", "name": "Data Analysis", "description": "Processes datasets and generates insights", "category": "analytics" },
+        { "id": "visualization", "name": "Data Visualization", "description": "Creates charts, tables, and visual summaries", "category": "analytics" },
+        { "id": "google-mapping", "name": "Google Translation", "description": "Maps non-Google tools to Google Cloud equivalents", "category": "intelligence" }
+      ],
+      "subAgents": []
     },
     "courier": {
       "id": "aa9b7564-1e7f-4ee7-a576-86db9ae02492",
       "displayName": "Courier",
       "role": "Communications — email, calendar, tasks, Meet",
       "status": "deployed",
-      "platform": "dialogflow-cx"
+      "platform": "dialogflow-cx",
+      "skills": [
+        { "id": "email", "name": "Email Management", "description": "Reads, drafts, and sends emails via Gmail API", "category": "comms" },
+        { "id": "calendar", "name": "Calendar Management", "description": "Schedules events and manages Google Calendar", "category": "comms" },
+        { "id": "tasks", "name": "Task Management", "description": "Creates and manages Google Tasks", "category": "comms" },
+        { "id": "summarize", "name": "Communication Summary", "description": "Summarizes email threads and meeting notes", "category": "comms" }
+      ],
+      "subAgents": []
     },
     "builder": {
       "id": "70547423-dbbc-4d3c-b464-faf6364bc92b",
       "displayName": "Builder",
       "role": "Code — branches, Jules integration, patterns",
       "status": "deployed",
-      "platform": "dialogflow-cx"
+      "platform": "dialogflow-cx",
+      "skills": [
+        { "id": "jules-tasks", "name": "Jules Task Creation", "description": "Creates and manages Jules coding sessions", "category": "coding" },
+        { "id": "pr-review", "name": "PR Review", "description": "Reviews pull requests and suggests improvements", "category": "coding" },
+        { "id": "code-gen", "name": "Code Generation", "description": "Generates code from specifications using Gemini", "category": "coding" },
+        { "id": "refactor", "name": "Refactoring", "description": "Identifies and executes code refactoring patterns", "category": "coding" }
+      ],
+      "subAgents": []
     }
   },
   "dataStores": {
