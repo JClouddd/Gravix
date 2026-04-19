@@ -177,14 +177,31 @@ export default function ColabModule() {
             <span className="badge badge-warning">{pendingNotebooks.length}</span>
           </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {pendingNotebooks.map((nb) => (
-              <div key={nb.id} className="card" style={{ borderLeft: "3px solid var(--warning)" }}>
+            {pendingNotebooks.map((nb) => {
+              const TYPE_COLORS = {
+                tool_analysis: { bg: "#4285f422", color: "#4285f4", label: "🔧 Tool Analysis" },
+                competitive_intel: { bg: "#ea433522", color: "#ea4335", label: "🏁 Competitive Intel" },
+                tutorial_extraction: { bg: "#34a85322", color: "#34a853", label: "📖 Tutorial" },
+                skill_reference: { bg: "#fbbc0522", color: "#fbbc05", label: "⚡ Skill Reference" },
+                research_note: { bg: "#9aa0a622", color: "#9aa0a6", label: "📝 Research Note" },
+              };
+              const typeInfo = TYPE_COLORS[nb.notebookType] || TYPE_COLORS.research_note;
+              const relatedNbs = nb.relatedNotebooks || [];
+              const mergeCandidate = nb.mergeCandidate;
+
+              return (
+              <div key={nb.id} className="card" style={{ borderLeft: `3px solid ${typeInfo.color}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div>
                     <div className="h5">{nb.name}</div>
                     <p className="body-sm" style={{ color: "var(--text-secondary)", marginTop: 4 }}>{nb.description}</p>
                   </div>
-                  <span className="badge badge-warning">pending</span>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <span className="badge" style={{ background: typeInfo.bg, color: typeInfo.color, fontSize: 10, border: `1px solid ${typeInfo.color}44` }}>
+                      {typeInfo.label}
+                    </span>
+                    <span className="badge badge-warning" style={{ fontSize: 10 }}>pending</span>
+                  </div>
                 </div>
 
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
@@ -214,6 +231,44 @@ export default function ColabModule() {
                   </button>
                 </div>
 
+                {/* Related Notebooks */}
+                {relatedNbs.length > 0 && (
+                  <div style={{ marginTop: 10, padding: 8, borderRadius: 6, background: "var(--bg-secondary)", border: "1px solid var(--card-border)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>🔗 Related Notebooks ({relatedNbs.length})</div>
+                    {relatedNbs.map((rel) => (
+                      <div key={rel.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid var(--card-border)" }}>
+                        <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>{rel.name}</span>
+                        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                          <span className="badge" style={{ fontSize: 9, background: rel.overlap > 60 ? "#ea433522" : "var(--bg-tertiary)", color: rel.overlap > 60 ? "#ea4335" : "var(--text-secondary)" }}>
+                            {rel.overlap}% overlap
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    {mergeCandidate && (
+                      <button
+                        className="btn btn-sm"
+                        style={{ marginTop: 8, fontSize: 10, background: "#ea433522", color: "#ea4335", border: "1px solid #ea433544", width: "100%" }}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await fetch("/api/colab/notebooks/merge", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ targetId: mergeCandidate.id, sourceId: nb.id }),
+                            });
+                            fetchNotebooks();
+                          } catch (err) {
+                            console.error("Merge failed:", err);
+                          }
+                        }}
+                      >
+                        🔀 Merge into "{mergeCandidate.name}"
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {/* ── Full Content Review ── */}
                 {reviewingNotebook === nb.id && (
                   <div style={{ marginTop: 12, padding: 16, background: "var(--bg-secondary)", borderRadius: "var(--radius-md)", border: "1px solid var(--card-border)", maxHeight: 500, overflowY: "auto" }}>
@@ -240,7 +295,8 @@ export default function ColabModule() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

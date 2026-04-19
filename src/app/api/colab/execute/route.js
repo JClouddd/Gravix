@@ -71,6 +71,13 @@ export async function GET() {
         sourceEntryId: data.sourceEntryId,
         rawContentLength: data.rawContentLength,
         classification: data.classification,
+        notebookType: data.notebookType || "research_note",
+        templateLabel: data.templateLabel || "Research Note",
+        templateColor: data.templateColor || "#9aa0a6",
+        relatedNotebooks: data.relatedNotebooks || [],
+        mergeCandidate: data.mergeCandidate || null,
+        skillCategory: data.skillCategory || null,
+        applicableAgents: data.applicableAgents || [],
         status: "pending",
       };
     });
