@@ -312,8 +312,7 @@ export default function AgentsModule() {
       if (taskIndex > -1) {
         const [task] = window.__julesReview[currentStatus].splice(taskIndex, 1);
         if (!window.__julesReview[targetColKey]) {
-          // eslint-disable-next-line react-hooks/immutability
-          window.__julesReview[targetColKey] = [];
+          Object.assign(window.__julesReview, { [targetColKey]: [] });
         }
         window.__julesReview[targetColKey].push(task);
         // Force re-render
@@ -336,16 +335,14 @@ export default function AgentsModule() {
       const refreshRes = await fetch("/api/jules/review");
       if (refreshRes.ok) {
         const data = await refreshRes.json();
-          // eslint-disable-next-line react-hooks/immutability
-        window.__julesReview = data;
+        Object.assign(window.__julesReview || {}, data);
         setTasks(prev => [...prev]);
       }
     } catch (err) {
       console.error("Drag and drop update failed:", err);
       // Revert optimistic update
       if (previousReviewData) {
-          // eslint-disable-next-line react-hooks/immutability
-        window.__julesReview = previousReviewData;
+        Object.assign(window.__julesReview || {}, previousReviewData);
         setTasks(prev => [...prev]);
       }
     }

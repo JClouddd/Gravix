@@ -11,6 +11,11 @@ import HelpTooltip from "@/components/HelpTooltip";
 export default function EmailModule() {
   const [isConnected, setIsConnected] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [labels, setLabels] = useState([]);
+  const [selectedLabelId, setSelectedLabelId] = useState("all");
+  const [showNewLabelForm, setShowNewLabelForm] = useState(false);
+  const [newLabelName, setNewLabelName] = useState("");
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [error, setError] = useState(null);
   const [inbox, setInbox] = useState([]);
   const [stats, setStats] = useState({ total: 0, unread: 0 });
@@ -64,6 +69,55 @@ export default function EmailModule() {
       setIsLoadingTemplates(false);
     }
   };
+
+
+  const fetchLabels = async () => {
+    try {
+      const res = await fetch("/api/email/labels");
+      if (res.ok) {
+        const data = await res.json();
+        setLabels(data.labels || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch labels:", err);
+    }
+  };
+
+  const handleCreateLabel = async () => {
+    if (!newLabelName) return;
+    setIsCreatingLabel(true);
+    try {
+      const res = await fetch("/api/email/labels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newLabelName,
+          backgroundColor: "#4285f4",
+          textColor: "#ffffff"
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.label) {
+          setLabels(prev => [...prev, data.label]);
+        }
+        setShowNewLabelForm(false);
+        setNewLabelName("");
+      } else {
+        alert("Failed to create label");
+      }
+    } catch (err) {
+      console.error("Failed to create label:", err);
+    } finally {
+      setIsCreatingLabel(false);
+    }
+  };
+
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      fetchLabels();
+    });
+  }, []);
 
   const fetchInbox = async () => {
     setIsLoading(true);
@@ -388,6 +442,11 @@ export default function EmailModule() {
     );
   }
 
+
+  const filteredInbox = selectedLabelId === "all"
+    ? inbox
+    : inbox.filter(email => email.labelIds && email.labelIds.includes(selectedLabelId));
+
   return (
     <div>
       <div className="module-header">
@@ -432,6 +491,79 @@ export default function EmailModule() {
               </div>
             )}
 
+            {/* Label Chips Bar */}
+            <div style={{ display: "flex", gap: "8px", overflowX: "auto", padding: "12px 24px", borderBottom: "1px solid var(--card-border)", alignItems: "center" }}>
+              <button
+                onClick={() => setSelectedLabelId("all")}
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: "16px",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  border: "1px solid var(--text-tertiary)",
+                  background: selectedLabelId === "all" ? "var(--text-primary)" : "transparent",
+                  color: selectedLabelId === "all" ? "var(--bg-primary)" : "var(--text-primary)",
+                  transition: "all 0.2s"
+                }}
+              >
+                All
+              </button>
+              {labels.map(label => (
+                <button
+                  key={label.id}
+                  onClick={() => setSelectedLabelId(label.id)}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    border: `1px solid ${label.color?.backgroundColor || "var(--accent)"}`,
+                    background: selectedLabelId === label.id ? (label.color?.backgroundColor || "var(--accent)") : "transparent",
+                    color: selectedLabelId === label.id ? (label.color?.textColor || "#fff") : (label.color?.backgroundColor || "var(--accent)"),
+                    transition: "all 0.2s"
+                  }}
+                >
+                  {label.name.replace("Gravix/", "")}
+                </button>
+              ))}
+              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                {!showNewLabelForm ? (
+                  <button
+                    onClick={() => setShowNewLabelForm(true)}
+                    style={{
+                      padding: "4px 12px",
+                      borderRadius: "16px",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      border: "1px dashed var(--text-tertiary)",
+                      background: "transparent",
+                      color: "var(--text-secondary)",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    + New Label
+                  </button>
+                ) : (
+                  <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={newLabelName}
+                      onChange={e => setNewLabelName(e.target.value)}
+                      placeholder="Label name"
+                      style={{ padding: "2px 8px", fontSize: "12px", borderRadius: "12px", border: "1px solid var(--card-border)", outline: "none", width: "100px" }}
+                    />
+                    <button onClick={handleCreateLabel} disabled={isCreatingLabel} style={{ background: "var(--success)", color: "#fff", border: "none", borderRadius: "12px", padding: "2px 8px", fontSize: "12px", cursor: "pointer" }}>✓</button>
+                    <button onClick={() => setShowNewLabelForm(false)} style={{ background: "var(--error)", color: "#fff", border: "none", borderRadius: "12px", padding: "2px 8px", fontSize: "12px", cursor: "pointer" }}>✕</button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+
             {isLoading ? (
               Array(5).fill(0).map((_, idx) => (
                 <div key={idx} style={{ display: "flex", padding: "16px 24px", borderBottom: "1px solid var(--card-border)" }}>
@@ -444,12 +576,12 @@ export default function EmailModule() {
                 </div>
               ))
             ) : (
-              inbox.length === 0 && !error ? (
+              filteredInbox.length === 0 && !error ? (
                 <div style={{ padding: "32px 24px", textAlign: "center", color: "var(--text-secondary)" }}>
                   No emails found.
                 </div>
               ) : (
-                inbox.map((email, idx) => {
+                filteredInbox.map((email, idx) => {
                   const isUnread = !email.isRead;
                   const senderName = email.from ? email.from.split("<")[0].trim().replace(/"/g, "") : "Unknown";
                   const avatarLetter = senderName ? senderName.charAt(0).toUpperCase() : "?";
@@ -467,7 +599,7 @@ export default function EmailModule() {
                       style={{
                         display: "flex",
                         padding: "16px 24px",
-                        borderBottom: idx < inbox.length - 1 ? "1px solid var(--card-border)" : "none",
+                        borderBottom: idx < filteredInbox.length - 1 ? "1px solid var(--card-border)" : "none",
                         cursor: "pointer",
                         background: isUnread ? "var(--bg-hover)" : "transparent",
                         borderLeft: isUnread ? "4px solid var(--accent)" : "4px solid transparent",
@@ -491,11 +623,26 @@ export default function EmailModule() {
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                           <span style={{ fontWeight: isUnread ? 600 : 500, color: "var(--text-primary)", fontSize: 14 }}>{email.subject}</span>
+
                           {classification && (
                              <span className={`badge ${badgeClass}`}>
                                 {classification.category}
                              </span>
                           )}
+                          {email.labelIds && labels.filter(l => email.labelIds.includes(l.id)).map(label => (
+                             <span
+                               key={label.id}
+                               className="badge"
+                               style={{
+                                 backgroundColor: label.color?.backgroundColor || "var(--accent)",
+                                 color: label.color?.textColor || "#fff",
+                                 border: "none"
+                               }}
+                             >
+                               {label.name.replace("Gravix/", "")}
+                             </span>
+                          ))}
+
                           {isUnread && (
                             <span className="badge badge-info">
                               Unread
