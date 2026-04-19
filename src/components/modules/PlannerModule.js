@@ -32,6 +32,14 @@ export default function PlannerModule() {
   const [taskSort, setTaskSort] = useState("date");
   const [editingTask, setEditingTask] = useState(null);
 
+
+  // Meetings State
+  const [conferences, setConferences] = useState([]);
+  const [isLoadingConferences, setIsLoadingConferences] = useState(false);
+  const [expandedConferenceId, setExpandedConferenceId] = useState(null);
+  const [transcripts, setTranscripts] = useState({});
+  const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
+
   // Creation Modals
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -108,8 +116,57 @@ export default function PlannerModule() {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    Promise.resolve().then(() => { fetchData(); });
   }, [fetchData]);
+
+
+  const fetchConferences = useCallback(async () => {
+    setIsLoadingConferences(true);
+    try {
+      const res = await fetch("/api/meet/conferences");
+      const data = await res.json();
+      if (data.connected && data.conferences) {
+        setConferences(data.conferences);
+      }
+    } catch (err) {
+      console.error("Failed to fetch conferences", err);
+    } finally {
+      setIsLoadingConferences(false);
+    }
+  }, []);
+
+  const handleExpandConference = async (confId) => {
+    if (expandedConferenceId === confId) {
+      setExpandedConferenceId(null);
+      return;
+    }
+    setExpandedConferenceId(confId);
+
+    if (!transcripts[confId]) {
+      setIsLoadingTranscript(true);
+      try {
+        const id = confId.split('/').pop();
+        const res = await fetch(`/api/meet/transcripts/${id}`);
+        const data = await res.json();
+        if (data.connected && data.transcript) {
+          setTranscripts(prev => ({
+            ...prev,
+            [confId]: data.transcript.entries || []
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch transcript", err);
+      } finally {
+        setIsLoadingTranscript(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "meetings" && conferences.length === 0) {
+      Promise.resolve().then(() => { fetchConferences(); });
+    }
+  }, [activeTab, fetchConferences, conferences.length]);
 
   // Calendar Helpers
   const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
@@ -767,7 +824,7 @@ export default function PlannerModule() {
             ))}
             {sortedTasks.length === 0 && (
               <p style={{ textAlign: "center", color: "var(--text-secondary)", padding: "24px" }}>
-                No tasks yet. Click "Add Task" to get started.
+                No tasks yet. Click &quot;Add Task&quot; to get started.
               </p>
             )}
           </div>
@@ -850,6 +907,116 @@ export default function PlannerModule() {
     );
   };
 
+
+  // ─── Meetings Tab ──────────────────────────────────────
+  const renderMeetings = () => {
+    if (isLoadingConferences) {
+      return <div style={{ textAlign: "center", padding: "48px", color: "var(--text-secondary)" }}>Loading meetings...</div>;
+    }
+
+    if (conferences.length === 0) {
+      return (
+        <div className="card" style={{ textAlign: "center", padding: "48px 24px" }}>
+          <div style={{ fontSize: "48px", marginBottom: "16px" }}>🎥</div>
+          <h3 className="h4" style={{ marginBottom: "12px" }}>No recent meetings found.</h3>
+          <p style={{ color: "var(--text-secondary)" }}>
+            Start a Google Meet call to see transcripts here.<br/>
+            <small>Note: Transcripts require Google Workspace with Smart Notes enabled.</small>
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="card" style={{ padding: "24px" }}>
+        <h3 className="h4" style={{ marginBottom: "20px" }}>Recent Meetings</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {conferences.map(conf => {
+            const isExpanded = expandedConferenceId === conf.name;
+            const entries = transcripts[conf.name];
+
+            return (
+              <div key={conf.name} style={{
+                background: "var(--card-bg)",
+                border: "1px solid var(--card-border)",
+                borderRadius: "12px",
+                overflow: "hidden"
+              }}>
+                <div
+                  onClick={() => handleExpandConference(conf.name)}
+                  style={{
+                    padding: "16px",
+                    cursor: "pointer",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    background: isExpanded ? "var(--bg-hover)" : "transparent",
+                  }}
+                >
+<div>
+                    <div style={{ fontWeight: "bold", fontSize: "16px", marginBottom: "4px" }}>
+                      Meet: {conf.space || "Unnamed Space"}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                      {new Date(conf.startTime).toLocaleString()} - Duration: {
+                        Math.round((new Date(conf.endTime).getTime() - new Date(conf.startTime).getTime()) / 60000)
+                      } min
+                      {entries && entries.length > 0 && (
+                        <span> | Participants: {new Set(entries.map(e => e.participant || "Unknown")).size}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    {isExpanded ? "▲" : "▼"}
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div style={{
+                    padding: "16px",
+                    borderTop: "1px solid var(--card-border)",
+                    background: "var(--bg-primary)",
+                    maxHeight: "500px",
+                    overflowY: "auto",
+                    transition: "max-height 0.3s ease-in-out"
+                  }}>
+                    {isLoadingTranscript && !entries ? (
+                      <div style={{ color: "var(--text-secondary)", textAlign: "center" }}>Loading transcript...</div>
+                    ) : entries && entries.length > 0 ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {entries.map((entry, idx) => (
+                          <div key={entry.name || idx} style={{ display: "flex", gap: "12px" }}>
+                            <div style={{
+                              minWidth: "120px",
+                              fontWeight: "bold",
+                              color: idx % 2 === 0 ? "var(--primary)" : "var(--success)"
+                            }}>
+                              {entry.participant || "Unknown"}
+                            </div>
+                            <div style={{ flex: 1, color: "var(--text-primary)" }}>
+                              {entry.text}
+                            </div>
+                            <div style={{ fontSize: "12px", color: "var(--text-secondary)", fontFamily: "monospace" }}>
+                              {entry.startTime ? new Date(entry.startTime).toLocaleTimeString() : ""}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ color: "var(--text-secondary)", textAlign: "center" }}>
+                        No transcript available for this meeting.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   // ─── Not Connected State ───────────────────────────────
   if (!isLoading && !isConnected) {
     return (
@@ -924,6 +1091,13 @@ export default function PlannerModule() {
         >
           Schedule
         </button>
+        <button
+          className={`btn ${activeTab === "meetings" ? "btn-secondary" : "btn-ghost"} btn-sm`}
+          onClick={() => setActiveTab("meetings")}
+          style={{ background: activeTab === "meetings" ? "var(--bg-hover)" : "transparent" }}
+        >
+          Meetings
+        </button>
       </div>
 
       {isLoading ? (
@@ -936,6 +1110,7 @@ export default function PlannerModule() {
           {activeTab === "calendar" && renderCalendar()}
           {activeTab === "tasks" && renderTasks()}
           {activeTab === "schedule" && renderSchedule()}
+          {activeTab === "meetings" && renderMeetings()}
         </>
       )}
     </div>
