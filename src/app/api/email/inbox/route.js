@@ -1,4 +1,4 @@
-import { getGmailInbox, refreshAccessToken, googleApiRequest } from "@/lib/googleAuth";
+import { getGmailInbox, refreshAccessToken, googleApiRequest, listGmailLabels, createGmailLabel, applyGmailLabel } from "@/lib/googleAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
 
 /**
@@ -79,6 +79,51 @@ export async function GET(request) {
               }
               return msg;
             });
+
+
+            // Auto-apply labels
+            try {
+              let currentLabels = [];
+              try {
+                const labelsRes = await listGmailLabels(accessToken);
+                currentLabels = labelsRes.labels || [];
+              } catch (e) {
+                console.error("Failed to list labels:", e);
+              }
+
+              const categoryToLabel = {}; // Cache label mapping
+
+              for (const msg of classifiedMessages) {
+                if (msg.category && msg.category !== "unknown") {
+                  // Map category e.g., "client" -> "Gravix/Client"
+                  const categoryName = msg.category.charAt(0).toUpperCase() + msg.category.slice(1);
+                  const labelName = `Gravix/${categoryName}`;
+
+                  let labelId = categoryToLabel[labelName];
+
+                  if (!labelId) {
+                    const existingLabel = currentLabels.find(l => l.name === labelName);
+                    if (existingLabel) {
+                      labelId = existingLabel.id;
+                    } else {
+                      // Create label
+                      const newLabel = await createGmailLabel(accessToken, labelName, "#4285f4", "#ffffff");
+                      labelId = newLabel.id;
+                      currentLabels.push(newLabel);
+                    }
+                    categoryToLabel[labelName] = labelId;
+                  }
+
+                  if (labelId) {
+                    await applyGmailLabel(accessToken, msg.id, [labelId], []);
+                    // Update the message in our result array
+                    msg.labelIds = [...(msg.labelIds || []), labelId];
+                  }
+                }
+              }
+            } catch (lblErr) {
+              console.error("Failed to auto-apply labels:", lblErr);
+            }
 
             // Trigger pipeline only on first load
             await fetch(`${origin}/api/automation/email-pipeline`, {
