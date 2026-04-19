@@ -233,13 +233,13 @@ export async function POST(request) {
       analysis = { raw_transcript_notes: responseText, summary: "Failed to parse structured response" };
     }
 
-    // Merge YouTube metadata into analysis
+    // Merge YouTube metadata into analysis (sanitize undefined values for Firestore)
     analysis.youtube_metadata = {
-      description: ytMetadata.description,
-      channelTitle: ytMetadata.channelTitle,
-      publishedAt: ytMetadata.publishedAt,
-      tags: ytMetadata.tags,
-      topComments: ytMetadata.comments,
+      description: ytMetadata.description || "",
+      channelTitle: ytMetadata.channelTitle || "",
+      publishedAt: ytMetadata.publishedAt || "",
+      tags: ytMetadata.tags || [],
+      topComments: ytMetadata.comments || [],
     };
 
     // Calculate cost
