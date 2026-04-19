@@ -24,12 +24,10 @@ export default function AgentsModule() {
 
   // Task Board state
   const [tasks, setTasks] = useState([]);
+  const [reviewData, setReviewData] = useState(null);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [newTaskPrompt, setNewTaskPrompt] = useState("");
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
-  const [draggedTask, setDraggedTask] = useState(null);
-  const [dropTarget, setDropTarget] = useState(null);
-  const [contextMenu, setContextMenu] = useState(null); // { x, y, task, shortId }
 
   // Proposals state
   const [proposals, setProposals] = useState([]);
@@ -43,13 +41,6 @@ export default function AgentsModule() {
 
   // Jules quota state
   const [julesQuota, setJulesQuota] = useState(null);
-
-  // Review data state (replaces window.__julesReview)
-  const [reviewData, setReviewData] = useState(null);
-
-  // Pipeline Monitor state
-  const [pipelineAlerts, setPipelineAlerts] = useState([]);
-  const [ciStatus, setCiStatus] = useState(null); // { status, conclusion, sha, url }
 
   // Fetch initial data
   useEffect(() => {
@@ -81,8 +72,9 @@ export default function AgentsModule() {
         }
 
         if (reviewRes.status === "fulfilled" && reviewRes.value.ok) {
-          const revData = await reviewRes.value.json();
-          setReviewData(revData);
+          const reviewData = await reviewRes.value.json();
+          // Store review data for the Tasks tab Kanban board
+          setReviewData(reviewData);
         }
       } catch (err) {
         console.error("Failed to fetch tasks", err);
@@ -119,49 +111,6 @@ export default function AgentsModule() {
 
     fetchRoster();
     fetchTasks();
-
-    // Pipeline Monitor: poll for state changes and CI status
-    const pipelineInterval = setInterval(async () => {
-      try {
-        // Poll Jules review data for state changes
-        const reviewRes = await fetch("/api/jules/review");
-        if (reviewRes.ok) {
-          const revData = await reviewRes.json();
-          setReviewData(prev => {
-            // Check for state changes and generate alerts
-            if (prev && revData.summary) {
-              const newAlerts = [];
-              if ((revData.summary.completed || 0) > (prev.summary?.completed || 0)) {
-                newAlerts.push({ id: Date.now(), type: "success", message: "✅ A Jules task completed!", ts: new Date() });
-              }
-              if ((revData.summary.failed || 0) > (prev.summary?.failed || 0)) {
-                newAlerts.push({ id: Date.now() + 1, type: "error", message: "❌ A Jules task failed!", ts: new Date() });
-              }
-              if (newAlerts.length > 0) {
-                setPipelineAlerts(a => [...a, ...newAlerts]);
-              }
-            }
-            return revData;
-          });
-        }
-
-        // Poll GitHub CI status (via API route)
-        const ciRes = await fetch("/api/jules/ci-status");
-        if (ciRes.ok) {
-          const ciData = await ciRes.json();
-          setCiStatus(ciData);
-          if (ciData.conclusion === "failure") {
-            setPipelineAlerts(a => {
-              // Don't duplicate CI alerts for same sha
-              if (a.some(al => al.sha === ciData.sha)) return a;
-              return [...a, { id: Date.now() + 2, type: "ci-fail", message: `🔴 CI failed on ${ciData.branch} (${ciData.sha?.slice(0, 7)})`, ts: new Date(), sha: ciData.sha }];
-            });
-          }
-        }
-      } catch (err) {
-        // Silent fail for polling
-      }
-    }, 60000);
     fetchCosts();
     fetchProposals();
 
@@ -178,8 +127,6 @@ export default function AgentsModule() {
       }
     }
     fetchJulesQuota();
-
-    return () => clearInterval(pipelineInterval);
   }, []);
 
   // Fetch History whenever historyAgent or activeTab changes
@@ -246,8 +193,8 @@ export default function AgentsModule() {
           setTasks(Array.isArray(data) ? data : data.sessions || []);
         }
         if (reviewRes.status === "fulfilled" && reviewRes.value.ok) {
-          const revData = await reviewRes.value.json();
-          setReviewData(revData);
+          const reviewData = await reviewRes.value.json();
+          setReviewData(reviewData);
         }
         setNewTaskPrompt("");
       }
@@ -311,77 +258,6 @@ export default function AgentsModule() {
       setRosterChatResult({ error: err.message });
     } finally {
       setRosterChatStatus("idle");
-    }
-  };
-
-  // Close context menu on click outside or escape
-  useEffect(() => {
-    const handleClick = () => setContextMenu(null);
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") setContextMenu(null);
-    };
-    if (contextMenu) {
-      document.addEventListener("click", handleClick);
-      document.addEventListener("keydown", handleKeyDown);
-    }
-    return () => {
-      document.removeEventListener("click", handleClick);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [contextMenu]);
-
-  const handleDragOver = (e, colKey) => {
-    e.preventDefault();
-    setDropTarget(colKey);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setDropTarget(null);
-  };
-
-  const handleDrop = async (e, targetColKey) => {
-    e.preventDefault();
-    setDropTarget(null);
-
-    const sessionId = e.dataTransfer.getData("sessionId");
-    const currentStatus = e.dataTransfer.getData("currentStatus");
-    if (!sessionId || currentStatus === targetColKey) return;
-
-    // Optimistic update
-    // Optimistic update using React state
-    setReviewData(prev => {
-      if (!prev) return prev;
-      const clone = JSON.parse(JSON.stringify(prev));
-      const taskIndex = clone[currentStatus]?.findIndex(t => {
-        const id = t.id || t.name || t.sessionId;
-        const sid = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id;
-        return sid === sessionId;
-      });
-      if (taskIndex > -1) {
-        const [task] = clone[currentStatus].splice(taskIndex, 1);
-        if (!clone[targetColKey]) clone[targetColKey] = [];
-        clone[targetColKey].push(task);
-      }
-      return clone;
-    });
-
-    try {
-      const res = await fetch("/api/jules/review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, action: "override", status: targetColKey }),
-      });
-
-      if (!res.ok) throw new Error("Failed to update status");
-
-      const refreshRes = await fetch("/api/jules/review");
-      if (refreshRes.ok) {
-        const data = await refreshRes.json();
-        setReviewData(data);
-      }
-    } catch (err) {
-      console.error("Drag and drop update failed:", err);
     }
   };
 
@@ -891,7 +767,7 @@ export default function AgentsModule() {
       )}
 {activeTab === "Tasks" && (() => {
         // Use the review data if available, otherwise fall back to legacy tasks
-        // reviewData comes from React state (defined at top of component)
+        const localReviewData = reviewData || null;
         const COLUMNS = [
           { key: "needsReview", label: "⏳ Needs Review", color: "#ff9500", icon: "⏳" },
           { key: "inProgress", label: "🔄 In Progress", color: "#007AFF", icon: "🔄" },
@@ -971,23 +847,15 @@ export default function AgentsModule() {
           {/* Kanban Board */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
             {COLUMNS.map((col) => {
-              const columnTasks = reviewData ? (reviewData[col.key] || []) : (col.key === "needsReview" ? getTasksByStatus("Queued") : col.key === "inProgress" ? getTasksByStatus("In Progress") : col.key === "completed" ? getTasksByStatus("Completed") : []);
+              const columnTasks = localReviewData ? (localReviewData[col.key] || []) : (col.key === "needsReview" ? getTasksByStatus("Queued") : col.key === "inProgress" ? getTasksByStatus("In Progress") : col.key === "completed" ? getTasksByStatus("Completed") : []);
               return (
-                <div
-                  key={col.key}
-                  data-status={col.key}
-                  onDragOver={(e) => handleDragOver(e, col.key)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, col.key)}
-                  className={dropTarget === col.key ? "drop-zone-active" : ""}
-                  style={{
-                  background: dropTarget === col.key ? "rgba(var(--accent-rgb), 0.05)" : "var(--bg-secondary)",
+                <div key={col.key} style={{
+                  background: "var(--bg-secondary)",
                   borderRadius: "var(--radius-lg)",
                   padding: 16,
                   minHeight: 300,
-                  border: dropTarget === col.key ? `2px dashed var(--accent)` : `1px solid var(--card-border)`,
-                  borderTop: dropTarget === col.key ? `2px dashed var(--accent)` : `3px solid ${col.color}`,
-                  transition: "all 0.2s ease"
+                  border: `1px solid var(--card-border)`,
+                  borderTop: `3px solid ${col.color}`,
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                     <h4 className="h5" style={{ color: col.color }}>{col.label}</h4>
@@ -1019,27 +887,10 @@ export default function AgentsModule() {
                           : sessionName;
 
                         return (
-                          <div
-                            key={shortId}
-                            className={`card card-glass ${draggedTask === shortId ? 'dragging' : ''}`}
-                            draggable={true}
-                            onDragStart={(e) => {
-                              setDraggedTask(shortId);
-                              e.dataTransfer.setData("sessionId", shortId);
-                              e.dataTransfer.setData("currentStatus", col.key);
-                            }}
-                            onDragEnd={() => setDraggedTask(null)}
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              setContextMenu({ x: e.clientX, y: e.clientY, task: t, shortId });
-                            }}
-                            style={{
-                              padding: 12,
-                              borderLeft: `3px solid ${col.color}`,
-                              transition: "all 0.2s ease",
-                              opacity: draggedTask === shortId ? 0.5 : 1,
-                              transform: draggedTask === shortId ? "scale(0.95)" : "scale(1)",
-                              cursor: "grab"
+                          <div key={shortId} className="card card-glass" style={{
+                            padding: 12,
+                            borderLeft: `3px solid ${col.color}`,
+                            transition: "transform 0.15s ease, box-shadow 0.15s ease",
                           }}>
                             <p className="body-sm" style={{ fontWeight: 600, marginBottom: 6, lineHeight: 1.4 }}>
                               {t.title || (t.prompt && t.prompt.slice(0, 60)) || "Untitled Task"}
@@ -1081,7 +932,6 @@ export default function AgentsModule() {
                                         if (refreshRes.ok) {
                                           const data = await refreshRes.json();
                                           setReviewData(data);
-                                          setTasks(prev => [...prev]);
                                         }
                                       }
                                     } catch (err) {
@@ -1113,7 +963,6 @@ export default function AgentsModule() {
                                         if (refreshRes.ok) {
                                           const data = await refreshRes.json();
                                           setReviewData(data);
-                                          setTasks(prev => [...prev]);
                                         }
                                       }
                                     } catch (err) {
@@ -1134,117 +983,6 @@ export default function AgentsModule() {
               );
             })}
           </div>
-
-          {contextMenu && (
-            <div
-              className="context-menu"
-              style={{
-                position: "fixed",
-                top: contextMenu.y,
-                left: contextMenu.x,
-                zIndex: 1000,
-                background: "var(--bg-primary)",
-                border: "1px solid var(--card-border)",
-                borderRadius: 8,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-                padding: "4px 0",
-                minWidth: 160
-              }}
-            >
-              <div style={{ padding: "8px 16px", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", borderBottom: "1px solid var(--card-border)", marginBottom: 4 }}>
-                Override Status
-              </div>
-              {COLUMNS.map(col => (
-                <div
-                  key={col.key}
-                  style={{ padding: "8px 16px", cursor: "pointer", fontSize: 13, transition: "background 0.2s ease" }}
-                  onMouseEnter={(e) => e.target.style.background = "var(--bg-secondary)"}
-                  onMouseLeave={(e) => e.target.style.background = "transparent"}
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    try {
-                      // Optimistic Update via React state
-                      setReviewData(prev => {
-                        if (!prev) return prev;
-                        const clone = JSON.parse(JSON.stringify(prev));
-                        let currentStatus = null;
-                        for (const k of Object.keys(clone)) {
-                          if (Array.isArray(clone[k])) {
-                            if (clone[k].find(t => {
-                              const id = t.id || t.name || t.sessionId;
-                              const sid = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id;
-                              return sid === contextMenu.shortId;
-                            })) {
-                              currentStatus = k;
-                              break;
-                            }
-                          }
-                        }
-                        if (currentStatus && currentStatus !== col.key) {
-                          const taskIndex = clone[currentStatus].findIndex(t => {
-                            const id = t.id || t.name || t.sessionId;
-                            const sid = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id;
-                            return sid === contextMenu.shortId;
-                          });
-                          if (taskIndex > -1) {
-                            const [task] = clone[currentStatus].splice(taskIndex, 1);
-                            if (!clone[col.key]) clone[col.key] = [];
-                            clone[col.key].push(task);
-                          }
-                        }
-                        return clone;
-                      });
-
-                      setContextMenu(null);
-
-                      const res = await fetch("/api/jules/review", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ sessionId: contextMenu.shortId, action: "override", status: col.key })
-                      });
-
-                      if (res.ok) {
-                        const refreshRes = await fetch("/api/jules/review");
-                        if (refreshRes.ok) {
-                          const data = await refreshRes.json();
-                          setReviewData(data);
-                        }
-                      }
-                    } catch (err) {
-                      console.error("Context menu override failed:", err);
-                    }
-                  }}
-                >
-                  {col.label}
-                </div>
-              ))}
-              <div style={{ borderTop: "1px solid var(--card-border)", margin: "4px 0" }} />
-              <div
-                style={{ padding: "8px 16px", cursor: "pointer", fontSize: 13, transition: "background 0.2s ease" }}
-                onMouseEnter={(e) => e.target.style.background = "var(--bg-secondary)"}
-                onMouseLeave={(e) => e.target.style.background = "transparent"}
-                onClick={() => {
-                  window.open(`https://jules.google.com/session/${contextMenu.shortId}`, "_blank");
-                  setContextMenu(null);
-                }}
-              >
-                🔗 Open in Jules
-              </div>
-              {contextMenu.task?.pullRequest && (
-                <div
-                  style={{ padding: "8px 16px", cursor: "pointer", fontSize: 13, transition: "background 0.2s ease" }}
-                  onMouseEnter={(e) => e.target.style.background = "var(--bg-secondary)"}
-                  onMouseLeave={(e) => e.target.style.background = "transparent"}
-                  onClick={() => {
-                    window.open(contextMenu.task.pullRequest, "_blank");
-                    setContextMenu(null);
-                  }}
-                >
-                  🐙 View PR
-                </div>
-              )}
-            </div>
-          )}
         </div>
         );
       })()}

@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -44,8 +45,7 @@ export default function ColabModule() {
     }
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount pattern
-  useEffect(() => { fetchNotebooks(); }, [fetchNotebooks]);
+  useEffect(() => { Promise.resolve().then(() => fetchNotebooks()); }, [fetchNotebooks]);
 
   const handleRunClick = (notebook) => {
     setSelectedNotebook(notebook);
@@ -336,7 +336,7 @@ export default function ColabModule() {
                           }
                         }}
                       >
-                        🔀 Merge into &ldquo;{mergeCandidate.name}&rdquo;
+                        🔀 Merge into &quot;{mergeCandidate.name}&quot;
                       </button>
                     )}
                   </div>
