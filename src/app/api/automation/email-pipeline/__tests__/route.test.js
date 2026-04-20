@@ -9,7 +9,15 @@ vi.mock('@/lib/firebaseAdmin', () => ({
     }),
     collection: vi.fn().mockReturnValue({
       add: vi.fn().mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ id: 'mock-doc-id' }), 5))),
-      doc: vi.fn().mockReturnValue({ id: 'mock-doc-id' })
+      doc: vi.fn().mockReturnValue({ id: 'mock-doc-id' }),
+      where: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            empty: false,
+            docs: [{ id: 'client-1', data: () => ({ name: 'Client 1' }) }]
+          })
+        })
+      })
     }),
     doc: vi.fn().mockReturnValue({
       get: vi.fn().mockResolvedValue({ exists: false })
