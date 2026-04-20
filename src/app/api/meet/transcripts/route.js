@@ -120,6 +120,29 @@ export async function GET() {
  */
 export async function POST(request) {
   try {
+    const contentType = request.headers.get("content-type") || "";
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      const audioFile = formData.get("audioFile");
+
+      if (!audioFile) {
+        return Response.json({ error: "audioFile is required" }, { status: 400 });
+      }
+
+      // Placeholder standard structure to ingest audio as requested
+      // In a real implementation, we would pass the audioFile to Gemini via mediaParts
+      return Response.json({
+        summary: "Mock analysis of uploaded meeting audio. The team discussed new features.",
+        actionItems: [
+          { task: "Implement audio upload", assignee: "Jules", deadline: "Today" }
+        ],
+        decisions: ["Use a placeholder API for now"],
+        followUps: [],
+        keyContacts: [],
+      });
+    }
+
     const { transcriptText } = await request.json();
 
     if (!transcriptText) {
