@@ -910,11 +910,13 @@ async function checkWavePRsMerged(wave, waveLabel) {
   for (const task of wave.tasks) {
     if (task.status === "pr_merged") continue;
 
-    // Search for PRs with matching title
+    // Search for PRs using the exact sessionId string embedded in the PR branch/body
     try {
-      const searchTitle = task.title.replace(/[[\]]/g, "");
+      const rawSessionId = task.sessionId?.replace("sessions/", "") || "";
+      const query = rawSessionId ? `repo:JClouddd/Gravix is:pr ${rawSessionId}` : `repo:JClouddd/Gravix is:pr "${encodeURIComponent(task.title)}"`;
+      
       const res = await fetch(
-        `https://api.github.com/search/issues?q=repo:JClouddd/Gravix+is:pr+"${encodeURIComponent(searchTitle)}"&per_page=5`,
+        `https://api.github.com/search/issues?q=${query}&per_page=5`,
         {
           headers: {
             Authorization: `token ${githubToken}`,
