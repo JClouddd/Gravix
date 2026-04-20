@@ -88,12 +88,6 @@ jobs:
             echo "⚠️ Timed out after ${MAX_WAIT}s waiting for CI. Proceeding anyway."
           fi
 
-      - name: Auto-approve
-        if: steps.verify.outputs.jules == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr review ${{ github.event.pull_request.html_url }} --approve
-
       - name: Update branch before merge
         if: steps.verify.outputs.jules == 'true'
         env:
