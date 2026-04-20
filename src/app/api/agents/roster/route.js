@@ -66,7 +66,10 @@ const AGENT_REGISTRY = Object.entries(registry.agents).map(([id, data]) => ({
   role: data.role,
   status: "active",
   dialogflowCxId: data.id,
-  skills: data.skills || [],
+  skills: (data.skills || []).map(skill => ({
+    ...skill,
+    linkedNotebooks: []
+  })),
   subAgents: data.subAgents || [],
   ...AGENT_EXTRAS[id],
 }));

@@ -8,6 +8,9 @@ const TABS = ["Roster", "Skills", "Workflow", "Tasks", "Proposals", "History"];
 export default function AgentsModule() {
   const [activeTab, setActiveTab] = useState("Roster");
 
+  // Skills state
+  const [expandedSkillId, setExpandedSkillId] = useState(null);
+
   // Roster state
   const [agents, setAgents] = useState([]);
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
@@ -710,7 +713,33 @@ export default function AgentsModule() {
                   }}>
                     {skill.category}
                   </span>
+                  <button className="badge" style={{
+                    fontSize: 10,
+                    background: "var(--bg-secondary)",
+                    color: "var(--text-secondary)",
+                    border: "1px solid var(--card-border)",
+                    cursor: "pointer"
+                  }} onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedSkillId(expandedSkillId === skill.id ? null : skill.id);
+                  }}>
+                    {skill.linkedNotebooks?.length || 0} Linked Notebooks
+                  </button>
                 </div>
+                {expandedSkillId === skill.id && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--card-border)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>Linked Notebooks</div>
+                    {skill.linkedNotebooks && skill.linkedNotebooks.length > 0 ? (
+                      <ul style={{ listStyleType: "disc", paddingLeft: 16, margin: 0, color: "var(--text-secondary)", fontSize: 11 }}>
+                        {skill.linkedNotebooks.map((nb, i) => <li key={i}>{nb}</li>)}
+                      </ul>
+                    ) : (
+                      <div style={{ fontSize: 11, color: "var(--text-secondary)", fontStyle: "italic" }}>
+                        0 notebooks
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

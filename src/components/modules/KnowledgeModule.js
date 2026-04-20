@@ -4,12 +4,15 @@ import { useState, useEffect } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 import KnowledgeVaultTab from "./knowledge/KnowledgeVaultTab";
 import IngestionTab from "./knowledge/IngestionTab";
+import ScholarChatTab from "./knowledge/ScholarChatTab";
+import SourcesTab from "./knowledge/SourcesTab";
+import GraphTab from "./knowledge/GraphTab";
 
 /**
  * Knowledge Module — Brain Vault + Ingestion staging + Scholar chat
  * Fully wired to /api/knowledge/* endpoints
  */
-const TABS = ["Knowledge", "Ingestion"];
+const TABS = ["Knowledge", "Graph", "Ingestion", "Scholar", "Sources"];
 
 export default function KnowledgeModule() {
   const [activeTab, setActiveTab] = useState("Knowledge");
@@ -91,6 +94,10 @@ export default function KnowledgeModule() {
       {/* Tab Content */}
       <div style={{ display: activeTab === "Knowledge" ? "block" : "none" }}>
         <KnowledgeVaultTab status={status} setActiveTab={setActiveTab} />
+      </div>
+
+      <div style={{ display: activeTab === "Graph" ? "block" : "none" }}>
+        <GraphTab />
       </div>
 
       <div style={{ display: activeTab === "Ingestion" ? "block" : "none" }}>
