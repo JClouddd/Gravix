@@ -21,24 +21,50 @@ export async function POST(request) {
     let invoicesLogged = 0;
     const pipelineResults = [];
 
-    for (const email of emails) {
-      processed++;
-
+    const emailPromises = emails.map(async (email) => {
       try {
-        // Run the email.received pipeline for each email
         const results = await triggerPipeline("email.received", { email });
-        pipelineResults.push({ emailId: email.id, results });
 
-        // Count outcomes
+        let localTasks = 0;
+        let localClients = 0;
+        let localInvoices = 0;
+
         for (const r of results) {
-          if (r.action === "createTaskIfNeeded" && r.result === "created") tasksCreated++;
-          if (r.action === "linkToClient" && r.result === "linked") clientsLinked++;
-          if (r.action === "logIfInvoice" && r.result === "logged") invoicesLogged++;
+          if (r.action === "createTaskIfNeeded" && r.result === "created") localTasks++;
+          if (r.action === "linkToClient" && r.result === "linked") localClients++;
+          if (r.action === "logIfInvoice" && r.result === "logged") localInvoices++;
         }
+
+        return {
+          success: true,
+          emailId: email.id,
+          results,
+          localTasks,
+          localClients,
+          localInvoices
+        };
       } catch (err) {
         console.error("Pipeline error for email", email.id, err);
         logRouteError("runtime", "/api/automation/email-pipeline error", err, "/api/automation/email-pipeline");
-        pipelineResults.push({ emailId: email.id, error: err.message });
+        return {
+          success: false,
+          emailId: email.id,
+          error: err.message
+        };
+      }
+    });
+
+    const settled = await Promise.all(emailPromises);
+
+    for (const res of settled) {
+      processed++;
+      if (res.success) {
+        pipelineResults.push({ emailId: res.emailId, results: res.results });
+        tasksCreated += res.localTasks;
+        clientsLinked += res.localClients;
+        invoicesLogged += res.localInvoices;
+      } else {
+        pipelineResults.push({ emailId: res.emailId, error: res.error });
       }
     }
 
