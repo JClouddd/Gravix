@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { getTaskLists, getTasks, refreshAccessToken } from "@/lib/googleAuth";
+import { logRouteError } from "@/lib/errorLogger";
 
 function jsonToCsv(jsonArray) {
   if (!jsonArray || !jsonArray.length) return "";
@@ -145,7 +146,8 @@ export async function GET(request) {
              expiresAt: Date.now() + (refreshed.expires_in * 1000),
            });
          } catch (err) {
-           return NextResponse.json({ error: "Token refresh failed" }, { status: 401 });
+           logRouteError("runtime", "/api/export error", err, "/api/export");
+      return NextResponse.json({ error: "Token refresh failed" }, { status: 401 });
          }
       }
 
@@ -161,8 +163,9 @@ export async function GET(request) {
               listId: list.id,
               listTitle: list.title
            }));
-         } catch(e) {
-           return [];
+         } catch (e) {
+           logRouteError("runtime", "/api/export error", e, "/api/export");
+      return [];
          }
       });
       const tasksArrays = await Promise.all(tasksPromises);
@@ -219,6 +222,7 @@ export async function GET(request) {
 
   } catch (error) {
     console.error("Export Error:", error);
+    logRouteError("runtime", "/api/export error", error, "/api/export");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

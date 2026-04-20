@@ -490,7 +490,9 @@ export default function HomeModule({ setActiveModule }) {
 }
 
 /* ── Credit Card Sub-component ─────────────────────────────── */
-function CreditCard({ title, used, total, unit, color, label }) {
+function CreditCard({ title, used: rawUsed, total: rawTotal, unit, color, label }) {
+  const used = typeof rawUsed === "number" && !isNaN(rawUsed) ? rawUsed : (parseFloat(rawUsed) || 0);
+  const total = typeof rawTotal === "number" && !isNaN(rawTotal) ? rawTotal : (parseFloat(rawTotal) || 1);
   const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
 
   return (

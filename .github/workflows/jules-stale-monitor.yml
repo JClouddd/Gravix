@@ -1,0 +1,131 @@
+name: Jules Stale Issue Monitor
+
+# Runs every 6 hours to catch stale issues
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-stale:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check for stale Jules issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO=${{ github.repository }}
+
+          # Get all open issues that have been assigned to Jules (tagged with @jules)
+          # but have had no activity in 24 hours
+          ISSUES=$(gh issue list \
+            --repo "$REPO" \
+            --state open \
+            --limit 50 \
+            --json number,title,updatedAt,comments,labels)
+
+          echo "$ISSUES" | jq -c '.[]' | while read -r ISSUE; do
+            NUMBER=$(echo "$ISSUE" | jq -r '.number')
+            TITLE=$(echo "$ISSUE" | jq -r '.title')
+            UPDATED=$(echo "$ISSUE" | jq -r '.updatedAt')
+            LABELS=$(echo "$ISSUE" | jq -r '[.labels[].name] | join(",")')
+            COMMENT_COUNT=$(echo "$ISSUE" | jq -r '.comments | length')
+
+            # Skip issues with critical or auto-correct labels (special handling)
+            if echo "$LABELS" | grep -q "critical"; then
+              continue
+            fi
+
+            # Calculate hours since last update
+            UPDATED_EPOCH=$(date -d "$UPDATED" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$UPDATED" +%s 2>/dev/null || echo "0")
+            NOW_EPOCH=$(date +%s)
+            HOURS_STALE=$(( (NOW_EPOCH - UPDATED_EPOCH) / 3600 ))
+
+            if [ "$HOURS_STALE" -ge "24" ]; then
+              echo "⚠️ Issue #$NUMBER ($TITLE) is stale — $HOURS_STALE hours since last activity"
+
+              # Check if we already re-triggered recently (avoid spam)
+              LAST_COMMENT=$(gh issue view "$NUMBER" --repo "$REPO" --json comments --jq '.comments[-1].body // ""')
+              if echo "$LAST_COMMENT" | grep -q "Re-triggered via Jules API"; then
+                # Already re-triggered once, escalate instead
+                echo "Already re-triggered, escalating #$NUMBER"
+                gh issue edit "$NUMBER" --repo "$REPO" --add-label "needs-attention"
+                gh issue comment "$NUMBER" --repo "$REPO" --body "## 🚨 Escalation: Still No Activity
+
+          This issue has had no activity for **${HOURS_STALE} hours** even after re-triggering Jules.
+
+          **Manual review required** — @JClouddd please check if this task should be:
+          - Re-created with more specific instructions
+          - Broken into smaller sub-tasks
+          - Deprioritized or closed
+
+          *Automated by Jules Stale Monitor*"
+              else
+                # First detection — re-trigger via Jules API
+                ISSUE_BODY=$(gh issue view "$NUMBER" --repo "$REPO" --json body --jq '.body')
+                RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+                  "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app/api/jules/trigger" \
+                  -H "Content-Type: application/json" \
+                  -d "{
+                    \"prompt\": \"GitHub Issue #${NUMBER}: ${TITLE}\n\n${ISSUE_BODY}\",
+                    \"title\": \"${TITLE} (retry)\",
+                    \"autoApprove\": true
+                  }")
+
+                HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+                BODY=$(echo "$RESPONSE" | sed '$d')
+
+                if [ "$HTTP_CODE" = "200" ]; then
+                  SESSION_ID=$(echo "$BODY" | jq -r '.sessionId')
+                  gh issue comment "$NUMBER" --repo "$REPO" --body "## ⏰ Stale Issue — Re-triggered via Jules API
+
+          This issue had no activity for **${HOURS_STALE} hours**.
+          New Jules session created: \`$SESSION_ID\`
+
+          If this fails again, the next check will escalate for manual review.
+
+          *Automated by Jules Stale Monitor*"
+                else
+                  gh issue comment "$NUMBER" --repo "$REPO" --body "## ⏰ Stale Issue — Re-trigger Failed
+
+          Attempted to re-trigger via Jules API but got HTTP $HTTP_CODE.
+          @JClouddd — manual assignment needed.
+
+          *Automated by Jules Stale Monitor*"
+                  gh issue edit "$NUMBER" --repo "$REPO" --add-label "needs-attention"
+                fi
+              fi
+            fi
+          done
+
+      - name: Check for unresponded Jules questions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO=${{ github.repository }}
+
+          # Find issues where the last comment is from Jules (asking a question)
+          ISSUES=$(gh issue list \
+            --repo "$REPO" \
+            --state open \
+            --limit 50 \
+            --json number,title,comments)
+
+          echo "$ISSUES" | jq -c '.[]' | while read -r ISSUE; do
+            NUMBER=$(echo "$ISSUE" | jq -r '.number')
+            LAST_AUTHOR=$(echo "$ISSUE" | jq -r '.comments[-1].author.login // "none"')
+            LAST_BODY=$(echo "$ISSUE" | jq -r '.comments[-1].body // ""')
+
+            # If last comment is from Jules bot and contains a question
+            if [ "$LAST_AUTHOR" = "google-labs-jules[bot]" ]; then
+              if echo "$LAST_BODY" | grep -qiE "\?|clarif|question|unclear|which|should I|can you|please confirm|not sure"; then
+                echo "❓ Issue #$NUMBER has an unanswered Jules question"
+                gh issue edit "$NUMBER" --repo "$REPO" --add-label "jules-needs-input"
+              fi
+            fi
+          done

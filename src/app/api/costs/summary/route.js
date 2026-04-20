@@ -1,5 +1,6 @@
 import { estimateCost } from "@/lib/geminiClient";
 import { getUsageSummary } from "@/lib/costTracker";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/costs/summary
@@ -38,6 +39,7 @@ export async function GET() {
     return Response.json(responseData);
   } catch (error) {
     console.error("[/api/costs/summary]", error);
+    logRouteError("runtime", "/api/costs/summary error", error, "/api/costs/summary");
     return Response.json(
       { error: error.message || "Internal server error" },
       { status: 500 }
@@ -60,6 +62,7 @@ export async function POST(request) {
     return Response.json(estimate);
   } catch (error) {
     console.error("[/api/costs/estimate]", error);
+    logRouteError("runtime", "/api/costs/summary error", error, "/api/costs/summary");
     return Response.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

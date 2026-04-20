@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/colab/notebooks/approve
@@ -46,7 +47,8 @@ export async function GET(request) {
       createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     });
   } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 });
+    logRouteError("colab", "/api/colab/notebooks/approve error", err, "/api/colab/notebooks/approve");
+      return Response.json({ error: err.message }, { status: 500 });
   }
 }
 
@@ -98,6 +100,7 @@ export async function POST(request) {
       });
     }
   } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 });
+    logRouteError("colab", "/api/colab/notebooks/approve error", err, "/api/colab/notebooks/approve");
+      return Response.json({ error: err.message }, { status: 500 });
   }
 }

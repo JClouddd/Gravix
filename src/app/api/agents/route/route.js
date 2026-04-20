@@ -1,6 +1,8 @@
 import { structuredGenerate, generate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { getAgentContext } from "@/lib/knowledgeEngine";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * Gets a routing decision from Conductor using Gemini structured output.
@@ -66,7 +68,8 @@ async function logRoutingDecision(message, agent) {
       timestamp: new Date().toISOString()
     });
   } catch (err) {
-    console.warn("[agent_routing_log] Failed to log routing decision:", err.message);
+    logRouteError("agent", "/api/agents/route error", err, "/api/agents/route");
+      console.warn("[agent_routing_log] Failed to log routing decision:", err.message);
   }
 }
 
@@ -86,7 +89,8 @@ async function logRoutingCost(routingResult) {
       agent: "conductor",
     });
   } catch (err) {
-    console.warn("[costTracker] Failed to log:", err.message);
+    logRouteError("agent", "/api/agents/route error", err, "/api/agents/route");
+      console.warn("[costTracker] Failed to log:", err.message);
   }
 }
 
@@ -103,7 +107,8 @@ async function getConversationContext(agentName) {
     const memSnapshot = await memoryQuery.get();
     previousSummaries = memSnapshot.docs.map(d => d.data().summary).reverse();
   } catch (err) {
-    console.warn("[agents/route] failed to fetch memory context:", err.message);
+    logRouteError("agent", "/api/agents/route error", err, "/api/agents/route");
+      console.warn("[agents/route] failed to fetch memory context:", err.message);
   }
 
   return previousSummaries.length > 0
@@ -116,31 +121,45 @@ async function getConversationContext(agentName) {
  */
 async function executeTools(agent, message, origin, agentResponse) {
   const lowerMsg = message.toLowerCase();
+  const baseUrl = "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app";
 
   if (agent === "forge") {
     try {
-      const statusRes = await fetch(`${origin}/api/knowledge/status`);
-      if (statusRes.ok) agentResponse.toolData.systemStatus = await statusRes.json();
+      const statusRes = await fetch(`${baseUrl}/api/knowledge/status`);
+      if (statusRes.ok) {
+        const data = await statusRes.json();
+        agentResponse.toolData.systemStatus = data;
+        agentResponse.text += `\n\n**System Status:**\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+      }
     } catch (e) {
+      logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
       console.warn("[agents/route] forge status fetch failed:", e.message);
     }
     try {
-      const costsRes = await fetch(`${origin}/api/costs/summary`);
-      if (costsRes.ok) agentResponse.toolData.costs = await costsRes.json();
+      const costsRes = await fetch(`${baseUrl}/api/costs/summary`);
+      if (costsRes.ok) {
+        const data = await costsRes.json();
+        agentResponse.toolData.costs = data;
+        agentResponse.text += `\n\n**Costs Summary:**\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+      }
     } catch (e) {
+      logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
       console.warn("[agents/route] forge costs fetch failed:", e.message);
     }
   } else if (agent === "scholar") {
     try {
-      const queryRes = await fetch(`${origin}/api/knowledge/query`, {
+      const queryRes = await fetch(`${baseUrl}/api/knowledge/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: message }),
       });
       if (queryRes.ok) {
-        agentResponse.toolData.groundedResults = await queryRes.json();
+        const data = await queryRes.json();
+        agentResponse.toolData.groundedResults = data;
+        agentResponse.text += `\n\n**Grounded Results:**\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
       }
     } catch (e) {
+      logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
       console.warn("[agents/route] scholar query fetch failed:", e.message);
     }
   } else if (agent === "analyst") {
@@ -150,13 +169,17 @@ async function executeTools(agent, message, origin, agentResponse) {
       lowerMsg.includes("analysis")
     ) {
       try {
-        const colabRes = await fetch(`${origin}/api/colab/execute`);
+        const colabRes = await fetch(`${baseUrl}/api/colab/execute`);
         if (colabRes.ok) {
           const data = await colabRes.json();
           agentResponse.toolData.notebooks = data.notebooks;
+          if (data.notebooks && data.notebooks.length > 0) {
+            agentResponse.text += `\n\n**Suggested Notebooks:**\n${data.notebooks.map(n => `- ${n.name || n}`).join('\n')}`;
+          }
         }
       } catch (e) {
-         console.warn("[agents/route] analyst colab fetch failed:", e.message);
+         logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
+      console.warn("[agents/route] analyst colab fetch failed:", e.message);
       }
     }
   } else if (agent === "courier") {
@@ -166,12 +189,15 @@ async function executeTools(agent, message, origin, agentResponse) {
       lowerMsg.includes("send")
     ) {
       try {
-        const emailRes = await fetch(`${origin}/api/email/inbox`);
+        const emailRes = await fetch(`${baseUrl}/api/email/inbox`);
         if (emailRes.ok) {
-          agentResponse.toolData.emailStatus = await emailRes.json();
+          const data = await emailRes.json();
+          agentResponse.toolData.emailStatus = data;
+          agentResponse.text += `\n\n**Gmail Connection Status:** ${data.status || 'Connected'}`;
         }
       } catch (e) {
-        console.warn("[agents/route] courier email fetch failed:", e.message);
+        logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
+      console.warn("[agents/route] courier email fetch failed:", e.message);
       }
     }
   } else if (agent === "builder") {
@@ -181,26 +207,40 @@ async function executeTools(agent, message, origin, agentResponse) {
       lowerMsg.includes("branch")
     ) {
       try {
-        const julesRes = await fetch(`${origin}/api/jules/tasks`);
+        const julesRes = await fetch(`${baseUrl}/api/jules/tasks`);
         if (julesRes.ok) {
-          agentResponse.toolData.julesStatus = await julesRes.json();
+          const data = await julesRes.json();
+          agentResponse.toolData.julesStatus = data;
+          const sessionCount = typeof data.activeCount !== 'undefined' ? data.activeCount : (Array.isArray(data) ? data.length : 0);
+          agentResponse.text += `\n\n**Active Jules Sessions:** ${sessionCount}`;
         }
       } catch (e) {
-        console.warn("[agents/route] builder jules fetch failed:", e.message);
+        logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
+      console.warn("[agents/route] builder jules fetch failed:", e.message);
       }
     }
   } else if (agent === "sentinel") {
     try {
-      const summaryRes = await fetch(`${origin}/api/costs/summary`);
-      if (summaryRes.ok) agentResponse.toolData.costSummary = await summaryRes.json();
+      const summaryRes = await fetch(`${baseUrl}/api/costs/summary`);
+      if (summaryRes.ok) {
+        const data = await summaryRes.json();
+        agentResponse.toolData.costSummary = data;
+        agentResponse.text += `\n\n**Cost Summary & Budget:**\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+      }
     } catch (e) {
-       console.warn("[agents/route] sentinel summary fetch failed:", e.message);
+       logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
+      console.warn("[agents/route] sentinel summary fetch failed:", e.message);
     }
     try {
-      const breakdownRes = await fetch(`${origin}/api/costs/breakdown`);
-      if (breakdownRes.ok) agentResponse.toolData.costBreakdown = await breakdownRes.json();
+      const breakdownRes = await fetch(`${baseUrl}/api/costs/breakdown`);
+      if (breakdownRes.ok) {
+        const data = await breakdownRes.json();
+        agentResponse.toolData.costBreakdown = data;
+        agentResponse.text += `\n\n**Cost Breakdown:**\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+      }
     } catch (e) {
-       console.warn("[agents/route] sentinel breakdown fetch failed:", e.message);
+       logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
+      console.warn("[agents/route] sentinel breakdown fetch failed:", e.message);
     }
   }
 }
@@ -221,7 +261,8 @@ async function logAgentCost(agent, agentResult) {
       agent: agent,
     });
   } catch (err) {
-    console.warn("[costTracker] Failed to log:", err.message);
+    logRouteError("agent", "/api/agents/route error", err, "/api/agents/route");
+      console.warn("[costTracker] Failed to log:", err.message);
   }
 }
 
@@ -246,19 +287,30 @@ async function saveConversationMemory(agent, message, agentText) {
       timestamp: new Date().toISOString()
     });
   } catch (err) {
-     console.warn("[agents/route] failed to save memory:", err.message);
+     logRouteError("agent", "/api/agents/route error", err, "/api/agents/route");
+      console.warn("[agents/route] failed to save memory:", err.message);
   }
 }
 
 /**
  * Core handler to execute the selected specialist agent.
  */
-async function executeSpecialistAgent(decision, message, origin) {
-  const contextString = await getConversationContext(decision.agent);
+async function executeAgent(decision, message, origin) {
+  // Fetch conversation history and knowledge context in parallel
+  const [contextString, knowledgeCtx] = await Promise.all([
+    getConversationContext(decision.agent),
+    getAgentContext(decision.agent),
+  ]);
+
+  // Build system prompt with injected notebook knowledge
+  let systemPrompt = `You are ${decision.agent}, a specialist agent in Gravix. ${decision.action}${contextString}`;
+  if (knowledgeCtx.contextBlock) {
+    systemPrompt += knowledgeCtx.contextBlock;
+  }
 
   const agentResult = await generate({
     prompt: message,
-    systemPrompt: `You are ${decision.agent}, a specialist agent in Gravix. ${decision.action}${contextString}`,
+    systemPrompt,
     complexity: decision.agent === "scholar" ? "pro" : "flash",
     grounded: decision.agent === "scholar" || decision.agent === "sentinel",
   });
@@ -271,6 +323,10 @@ async function executeSpecialistAgent(decision, message, origin) {
     duration: agentResult.duration,
     grounded: agentResult.grounded,
     toolData: {},
+    knowledgeContext: {
+      notebooksInjected: knowledgeCtx.notebookCount,
+      notebooks: knowledgeCtx.notebooks,
+    },
   };
 
   await executeTools(decision.agent, message, origin, agentResponse);
@@ -307,7 +363,7 @@ export async function POST(request) {
     let agentResponse = null;
     if (execute && decision.confidence >= 0.6) {
       const origin = new URL(request.url).origin;
-      agentResponse = await executeSpecialistAgent(decision, message, origin);
+      agentResponse = await executeAgent(decision, message, origin);
     }
 
     return Response.json({
@@ -317,6 +373,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/agents/route]", error);
+    logRouteError("agent", "/api/agents/route error", error, "/api/agents/route");
     return Response.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

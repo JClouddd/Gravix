@@ -1,4 +1,5 @@
 import { getAuthUrl } from "@/lib/googleAuth";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/auth/connect
@@ -7,13 +8,14 @@ import { getAuthUrl } from "@/lib/googleAuth";
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const origin = searchParams.get("origin") || request.headers.get("origin") || "https://gravix-eight.vercel.app";
+    const origin = searchParams.get("origin") || request.headers.get("origin") || "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app";
     const redirectUri = `${origin}/api/auth/callback`;
 
     const authUrl = getAuthUrl(redirectUri);
     return Response.redirect(authUrl, 302);
   } catch (error) {
-    // If OAuth isn't configured yet, return a helpful error
+    logRouteError("firebase_auth", "/api/auth/connect error", error, "/api/auth/connect");
+      // If OAuth isn't configured yet, return a helpful error
     return Response.json({
       error: "OAuth not configured",
       message: error.message,
@@ -21,8 +23,8 @@ export async function GET(request) {
         step1: "Go to https://console.cloud.google.com/apis/credentials?project=antigravity-hub-jcloud",
         step2: "Configure OAuth consent screen (External, test mode)",
         step3: "Create OAuth 2.0 Client ID (Web application)",
-        step4: "Add authorized redirect URI: https://gravix-eight.vercel.app/api/auth/callback",
-        step5: "Set env vars in Vercel: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET",
+        step4: "Add authorized redirect URI: https://gravix--antigravity-hub-jcloud.us-east4.hosted.app/api/auth/callback",
+        step5: "Set env vars in Firebase App Hosting: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET",
       },
     }, { status: 501 });
   }

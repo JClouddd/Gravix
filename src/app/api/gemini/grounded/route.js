@@ -1,5 +1,6 @@
 import { groundedQuery } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/gemini/grounded
@@ -34,6 +35,7 @@ export async function POST(request) {
         cost: result.cost.totalCost,
       });
     } catch (err) {
+      logRouteError("gemini", "/api/gemini/grounded error", err, "/api/gemini/grounded");
       console.warn("[costTracker] Failed to log:", err.message);
     }
 
@@ -47,6 +49,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/gemini/grounded]", error);
+    logRouteError("gemini", "/api/gemini/grounded error", error, "/api/gemini/grounded");
     return Response.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { generate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
 import { classifyContent, createStagingEntry } from "@/lib/knowledgeEngine";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/knowledge/ingest-video
@@ -33,7 +34,7 @@ Return a JSON object with ALL of these fields:
   ],
 
   "visual_elements": [
-    {"timestamp": "MM:SS", "type": "ui|diagram|infographic|code|terminal|dashboard", "description": "Detailed description of what's shown on screen"}
+    {"timestamp": "MM:SS", "type": "ui|diagram|infographic|code|terminal|dashboard|architecture|config|demo", "description": "Detailed description of what is shown on screen", "text_on_screen": "Any visible text, labels, values, or commands shown", "importance": "high|medium|low", "screenshot_worthy": true}
   ],
 
   "code_snippets": [
@@ -122,7 +123,8 @@ async function fetchYouTubeMetadata(videoId, apiKey) {
       }));
     }
   } catch (err) {
-    console.warn("[ingest-video] YouTube metadata fetch failed:", err.message);
+    logRouteError("discovery", "/api/knowledge/ingest-video error", err, "/api/knowledge/ingest-video");
+      console.warn("[ingest-video] YouTube metadata fetch failed:", err.message);
   }
 
   return metadata;
@@ -291,7 +293,8 @@ export async function POST(request) {
           }
         }
       } catch (retryErr) {
-        console.warn("[ingest-video] Retry extraction failed:", retryErr.message);
+        logRouteError("discovery", "/api/knowledge/ingest-video error", retryErr, "/api/knowledge/ingest-video");
+      console.warn("[ingest-video] Retry extraction failed:", retryErr.message);
       }
     }
 
@@ -329,7 +332,26 @@ export async function POST(request) {
       publishedAt: ytMetadata.publishedAt || "",
       tags: ytMetadata.tags || [],
       topComments: ytMetadata.comments || [],
+      thumbnails: {
+        default: `https://img.youtube.com/vi/${videoId}/default.jpg`,
+        medium: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+        high: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+        maxres: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+      },
+      videoUrl: url,
     };
+
+    // Extract visual references with timestamps from the analysis
+    const visualRefs = (analysis.visual_elements || []).map(v => ({
+      timestamp: v.timestamp || "unknown",
+      type: v.type || "unknown",
+      description: v.description || "",
+      textOnScreen: v.text_on_screen || "",
+      importance: v.importance || "medium",
+      screenshotWorthy: v.screenshot_worthy || false,
+      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+    }));
+    analysis.visualReferences = visualRefs;
 
     // Calculate cost
     const inputCost = (promptTokens / 1_000_000) * 0.075;
@@ -398,12 +420,28 @@ export async function POST(request) {
       const { generateNotebook } = await import("@/lib/notebookGenerator");
       notebookGenerated = await generateNotebook(entry);
     } catch (err) {
+      logRouteError("discovery", "/api/knowledge/ingest-video error", err, "/api/knowledge/ingest-video");
       console.warn("[ingest-video] Notebook generation skipped:", err.message);
+    }
+
+    // Trigger research expansion in background (fire-and-forget)
+    // This adds tool dossiers, skill specs, Google mappings, and truth validation
+    const toolCount = analysis.tools_and_software?.length || 0;
+    if (notebookGenerated && toolCount > 0) {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXTAUTH_URL || "";
+      if (baseUrl) {
+        fetch(`${baseUrl}/api/knowledge/research-expand`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ notebookId: notebookGenerated.id }),
+        }).catch(err => console.warn("[ingest-video] Background research failed:", err.message));
+        console.log(`[ingest-video] Research expansion triggered for notebook ${notebookGenerated.id}`);
+      }
     }
 
     // Count extraction stats
     const extractionStats = {
-      tools: analysis.tools_and_software?.length || 0,
+      tools: toolCount,
       integrations: analysis.integrations_and_apis?.length || 0,
       betaFeatures: analysis.beta_preview_features?.length || 0,
       codeSnippets: analysis.code_snippets?.length || 0,
@@ -438,6 +476,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/knowledge/ingest-video]", error);
+    logRouteError("discovery", "/api/knowledge/ingest-video error", error, "/api/knowledge/ingest-video");
     return Response.json(
       { error: error.message || "Video ingestion failed" },
       { status: 500 }

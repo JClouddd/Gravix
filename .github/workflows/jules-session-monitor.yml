@@ -1,0 +1,46 @@
+name: Jules Session Monitor
+
+# Runs every 15 minutes to catch sessions needing action
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Poll Jules sessions via API
+        run: |
+          echo "🔍 Checking Jules session states..."
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app/api/jules/monitor")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Monitor API returned $HTTP_CODE"
+            echo "$BODY"
+            exit 1
+          fi
+
+          # Display summary
+          echo ""
+          echo "📊 Session Summary:"
+          echo "$BODY" | jq -r '.summary | to_entries[] | "  \(.key): \(.value)"'
+
+          echo ""
+          echo "⚡ Actions Taken:"
+          ACTIONS=$(echo "$BODY" | jq -r '.actions | length')
+          if [ "$ACTIONS" = "0" ]; then
+            echo "  (no actions needed)"
+          else
+            echo "$BODY" | jq -r '.actions[] | "  [\(.action)] \(.title): \(.detail)"'
+          fi
+
+          echo ""
+          echo "Total sessions: $(echo "$BODY" | jq -r '.total')"
+          echo "Timestamp: $(echo "$BODY" | jq -r '.timestamp')"

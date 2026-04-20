@@ -9,6 +9,7 @@ import InstallPrompt from "@/components/InstallPrompt";
 import NotificationCenter from "@/components/NotificationCenter";
 import { registerShortcuts } from "@/lib/keyboardShortcuts";
 import QuickActions from "@/components/QuickActions";
+import PipelineToasts from "@/components/PipelineToasts";
 
 /* ── Module Registry ─────────────────────────────────────────── */
 const MODULES = [
@@ -122,6 +123,7 @@ export default function AppShell() {
 
   return (
     <div className="app-shell">
+      <PipelineToasts />
       <CommandPalette setActiveModule={handleModuleChange} />
 
       {/* ── Sidebar ──────────────────────────────────────── */}

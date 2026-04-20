@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from "@/lib/firebaseAdmin";
 
 import crypto from 'crypto';
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * Creates a JWT using standard node crypto for a Google Service Account
@@ -114,6 +115,7 @@ export async function POST(request) {
     try {
       serviceAccount = JSON.parse(process.env.FCM_SERVICE_ACCOUNT_KEY);
     } catch (e) {
+      logRouteError("runtime", "/api/notifications/send error", e, "/api/notifications/send");
       return NextResponse.json({ error: 'Invalid FCM_SERVICE_ACCOUNT_KEY format' }, { status: 500 });
     }
 
@@ -153,6 +155,7 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Error sending notification:', error);
+    logRouteError("runtime", "/api/notifications/send error", error, "/api/notifications/send");
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function GET() {
   try {
@@ -21,6 +22,7 @@ export async function GET() {
     return NextResponse.json(notifications);
   } catch (error) {
     console.error('Error fetching notifications:', error);
+    logRouteError("runtime", "/api/notifications/history error", error, "/api/notifications/history");
     return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
   }
 }
@@ -41,6 +43,7 @@ export async function POST(request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error marking notification as read:', error);
+    logRouteError("runtime", "/api/notifications/history error", error, "/api/notifications/history");
     return NextResponse.json({ error: 'Failed to mark notification as read' }, { status: 500 });
   }
 }

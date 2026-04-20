@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { generate } from "@/lib/geminiClient";
 import { googleApiRequest, refreshAccessToken } from "@/lib/googleAuth";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function GET() {
   try {
@@ -11,6 +12,7 @@ export async function GET() {
     return NextResponse.json({ templates });
   } catch (error) {
     console.error("Error fetching email templates:", error);
+    logRouteError("agent", "/api/agents/courier/templates error", error, "/api/agents/courier/templates");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -33,6 +35,7 @@ export async function POST() {
         // Optionally update the stored token here
       } catch (e) {
         console.error("Failed to refresh token", e);
+        logRouteError("agent", "/api/agents/courier/templates error", e, "/api/agents/courier/templates");
         return NextResponse.json({ error: "Failed to refresh OAuth token" }, { status: 401 });
       }
     }
@@ -47,6 +50,7 @@ export async function POST() {
       sentMessages = msgsRes.messages || [];
     } catch (e) {
        console.error("Failed to fetch sent emails from Gmail", e);
+       logRouteError("agent", "/api/agents/courier/templates error", e, "/api/agents/courier/templates");
        return NextResponse.json({ error: "Failed to fetch sent emails" }, { status: 500 });
     }
 
@@ -72,6 +76,7 @@ export async function POST() {
         return `Subject: ${subject}\nBody:\n${body}\n`;
       } catch (e) {
         console.error(`Failed to fetch details for msg ${msg.id}`, e);
+        logRouteError("agent", "/api/agents/courier/templates error", e, "/api/agents/courier/templates");
         return null; // Return null on failure so it can be filtered out
       }
     });
@@ -117,6 +122,7 @@ ${emailsCombinedText.slice(0, 50000)} // Limit to avoid token overflow`;
       }
     } catch (e) {
       console.error("Failed to parse Gemini output as JSON", e);
+      logRouteError("agent", "/api/agents/courier/templates error", e, "/api/agents/courier/templates");
     }
 
     // 4. Store in Firestore
@@ -144,6 +150,7 @@ ${emailsCombinedText.slice(0, 50000)} // Limit to avoid token overflow`;
 
   } catch (error) {
     console.error("Error creating email templates:", error);
+    logRouteError("agent", "/api/agents/courier/templates error", error, "/api/agents/courier/templates");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

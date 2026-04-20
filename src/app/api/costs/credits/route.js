@@ -1,4 +1,5 @@
 import { getUsageSummary } from "@/lib/costTracker";
+import { logRouteError } from "@/lib/errorLogger";
 
 const JULES_API_BASE = "https://jules.googleapis.com/v1alpha";
 
@@ -44,7 +45,8 @@ async function getJulesQuota() {
       totalSessions: sessions.length,
     };
   } catch (err) {
-    return { used: 0, total: 600, remaining: 600, error: err.message };
+    logRouteError("runtime", "/api/costs/credits error", err, "/api/costs/credits");
+      return { used: 0, total: 600, remaining: 600, error: err.message };
   }
 }
 
@@ -94,6 +96,7 @@ export async function GET() {
     return Response.json(data);
   } catch (error) {
     console.error("[/api/costs/credits] GET Error", error);
+    logRouteError("runtime", "/api/costs/credits error", error, "/api/costs/credits");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

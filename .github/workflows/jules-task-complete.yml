@@ -1,0 +1,107 @@
+name: Jules Task Complete
+
+# Triggers when Jules closes an issue or a PR is merged
+on:
+  issues:
+    types: [closed]
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  track-completion:
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'pull_request' && 
+       github.event.pull_request.merged == true && 
+       github.event.pull_request.user.login == 'google-labs-jules[bot]') ||
+      (github.event_name == 'issues' && 
+       github.event.issue.state == 'closed')
+
+    steps:
+      - name: Log task completion
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO=${{ github.repository }}
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            PR_TITLE="${{ github.event.pull_request.title }}"
+            PR_BRANCH=${{ github.event.pull_request.head.ref }}
+
+            echo "✅ Jules PR #$PR_NUMBER merged: $PR_TITLE"
+
+            # Find and close the linked issue
+            # Jules PRs typically reference issues with "Fixes #XX" or "Closes #XX"
+            PR_BODY="${{ github.event.pull_request.body }}"
+            LINKED_ISSUES=$(echo "$PR_BODY" | grep -oE "(fixes|closes|resolves) #[0-9]+" | grep -oE "[0-9]+" || true)
+
+            for ISSUE_NUM in $LINKED_ISSUES; do
+              echo "Closing linked issue #$ISSUE_NUM"
+              gh issue close "$ISSUE_NUM" --repo "$REPO" --comment "✅ Resolved by PR #$PR_NUMBER
+
+          **Branch:** \`$PR_BRANCH\`
+          **Status:** Merged to main → Firebase auto-deploying
+
+          *Closed automatically by Jules Task Complete*"
+            done
+          fi
+
+      - name: Check for next queued task
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO=${{ github.repository }}
+
+          # Find open issues tagged for Jules that haven't been started
+          # (no Jules bot comments yet)
+          QUEUED=$(gh issue list \
+            --repo "$REPO" \
+            --state open \
+            --label "enhancement" \
+            --limit 10 \
+            --json number,title,comments)
+
+          # Find the first issue with no Jules activity
+          NEXT_ISSUE=$(echo "$QUEUED" | jq -r '[.[] | select(
+            (.comments | map(select(.author.login == "google-labs-jules[bot]")) | length) == 0
+          )] | .[0].number // empty')
+
+          if [ -n "$NEXT_ISSUE" ] && [ "$NEXT_ISSUE" != "null" ]; then
+            NEXT_TITLE=$(echo "$QUEUED" | jq -r ".[] | select(.number == $NEXT_ISSUE) | .title")
+            NEXT_BODY=$(gh issue view "$NEXT_ISSUE" --repo "$REPO" --json body --jq '.body')
+            echo "📋 Next queued task: #$NEXT_ISSUE — $NEXT_TITLE"
+
+            # Trigger Jules via the deployed API
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+              "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app/api/jules/trigger" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"prompt\": \"GitHub Issue #${NEXT_ISSUE}: ${NEXT_TITLE}\n\n${NEXT_BODY}\",
+                \"title\": \"${NEXT_TITLE}\",
+                \"autoApprove\": true
+              }")
+
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            BODY=$(echo "$RESPONSE" | sed '$d')
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              SESSION_ID=$(echo "$BODY" | jq -r '.sessionId')
+              gh issue comment "$NEXT_ISSUE" --repo "$REPO" --body "🤖 Jules task auto-created: \`$SESSION_ID\`
+
+            *Auto-assigned by Jules Task Complete — previous task finished successfully.*"
+              echo "✅ Jules task created for #$NEXT_ISSUE: $SESSION_ID"
+            else
+              echo "⚠️ Jules API failed ($HTTP_CODE), falling back to comment"
+              gh issue comment "$NEXT_ISSUE" --repo "$REPO" --body "@jules please work on this issue.
+
+            *Auto-assigned by Jules Task Complete — previous task finished successfully.*
+            *Note: API trigger failed, manual assignment may be needed.*"
+            fi
+          else
+            echo "🎉 No more queued tasks. All caught up!"
+          fi

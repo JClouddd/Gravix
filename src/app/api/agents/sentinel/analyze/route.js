@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 
 import { generate } from "@/lib/geminiClient";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function POST(request) {
   try {
@@ -29,6 +30,7 @@ Return JSON: { anomalies: [{ type, description, severity }], proposedRules: [{ c
       analysisResult = JSON.parse(cleanText);
     } catch (e) {
       console.error("Failed to parse Gemini response as JSON:", e);
+      logRouteError("agent", "/api/agents/sentinel/analyze error", e, "/api/agents/sentinel/analyze");
       analysisResult = { anomalies: [], proposedRules: [] };
     }
 
@@ -47,6 +49,7 @@ Return JSON: { anomalies: [{ type, description, severity }], proposedRules: [{ c
     });
   } catch (error) {
     console.error("Error running Sentinel analysis:", error);
+    logRouteError("agent", "/api/agents/sentinel/analyze error", error, "/api/agents/sentinel/analyze");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -65,6 +68,7 @@ export async function GET() {
     return NextResponse.json({ proposals });
   } catch (error) {
     console.error("Error fetching rule proposals:", error);
+    logRouteError("agent", "/api/agents/sentinel/analyze error", error, "/api/agents/sentinel/analyze");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

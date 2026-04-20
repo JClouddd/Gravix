@@ -1,6 +1,7 @@
 import { exchangeCode } from "@/lib/googleAuth";
 
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/auth/callback
@@ -43,12 +44,13 @@ export async function GET(request) {
     return redirectWithMessage("success", "Google Workspace connected successfully!");
   } catch (err) {
     console.error("[/api/auth/callback]", err);
+    logRouteError("firebase_auth", "/api/auth/callback error", err, "/api/auth/callback");
     return redirectWithMessage("error", err.message);
   }
 }
 
 function redirectWithMessage(status, message) {
-  const url = new URL("https://gravix-eight.vercel.app");
+  const url = new URL("https://gravix--antigravity-hub-jcloud.us-east4.hosted.app");
   url.searchParams.set("auth", status);
   url.searchParams.set("message", message);
   return Response.redirect(url.toString(), 302);

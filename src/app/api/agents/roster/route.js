@@ -1,6 +1,7 @@
 import { generate, structuredGenerate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
 import registry from "@/../agents/registry.json";
+import { logRouteError } from "@/lib/errorLogger";
 
 const AGENT_EXTRAS = {
   conductor: {
@@ -149,6 +150,7 @@ export async function POST(request) {
     return Response.json({ routing, ...result });
   } catch (error) {
     console.error("[/api/agents/roster]", error);
+    logRouteError("agent", "/api/agents/roster error", error, "/api/agents/roster");
     return Response.json(
       { error: error.message || "Internal server error" },
       { status: 500 }
@@ -224,7 +226,8 @@ async function executeAgent(agent, message) {
       agent: agent.id,
     });
   } catch (err) {
-    console.warn("[costTracker] Failed to log usage:", err.message);
+    logRouteError("agent", "/api/agents/roster error", err, "/api/agents/roster");
+      console.warn("[costTracker] Failed to log usage:", err.message);
   }
 
   return {

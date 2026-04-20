@@ -1,4 +1,5 @@
 import { getUsageSummary } from "@/lib/costTracker";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/costs/breakdown — Real per-API, per-model, per-agent cost breakdown
@@ -74,6 +75,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[/api/costs/breakdown]", error);
+    logRouteError("runtime", "/api/costs/breakdown error", error, "/api/costs/breakdown");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

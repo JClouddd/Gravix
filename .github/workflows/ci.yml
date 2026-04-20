@@ -26,6 +26,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Build (Max Memory)
+        run: npm run build
+        env:
+          # Use 6GB of pure dedicated memory for the build (GitHub runners have 7GB RAM)
+          NODE_OPTIONS: "--max_old_space_size=6144"
+
   test:
     needs: build
     runs-on: ubuntu-latest

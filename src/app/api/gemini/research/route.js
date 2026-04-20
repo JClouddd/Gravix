@@ -1,5 +1,6 @@
 import { deepResearch } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/gemini/research
@@ -44,6 +45,7 @@ export async function POST(request) {
         cost: result.cost.totalCost,
       });
     } catch (err) {
+      logRouteError("gemini", "/api/gemini/research error", err, "/api/gemini/research");
       console.warn("[costTracker] Failed to log:", err.message);
     }
 
@@ -57,6 +59,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/gemini/research]", error);
+    logRouteError("gemini", "/api/gemini/research error", error, "/api/gemini/research");
     return Response.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

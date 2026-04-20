@@ -1,6 +1,7 @@
 import { logUsage, getUsageSummary } from "@/lib/costTracker";
 
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function GET(request) {
   try {
@@ -85,6 +86,7 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error("[/api/costs/history] GET Error", error);
+    logRouteError("runtime", "/api/costs/history error", error, "/api/costs/history");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }
@@ -105,6 +107,7 @@ export async function POST(request) {
     return Response.json({ success: true, id });
   } catch (error) {
     console.error("[/api/costs/history] POST Error", error);
+    logRouteError("runtime", "/api/costs/history error", error, "/api/costs/history");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

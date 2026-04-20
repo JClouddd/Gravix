@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function GET() {
   try {
@@ -28,6 +29,7 @@ export async function GET() {
     return NextResponse.json({ rules });
   } catch (error) {
     console.error("Error fetching sentinel rules:", error);
+    logRouteError("agent", "/api/agents/sentinel/rules error", error, "/api/agents/sentinel/rules");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -58,6 +60,7 @@ export async function POST(request) {
     return NextResponse.json({ created: true, ruleId: docRef.id });
   } catch (error) {
     console.error("Error creating sentinel rule:", error);
+    logRouteError("agent", "/api/agents/sentinel/rules error", error, "/api/agents/sentinel/rules");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -75,7 +78,8 @@ export async function DELETE(request) {
 
     return NextResponse.json({ deleted: true, ruleId });
   } catch (error) {
-    console.error("Error deleting (deactivating) sentinel rule:", error);
+    logRouteError("agent", "/api/agents/sentinel/rules error", error, "/api/agents/sentinel/rules");
+      console.error("Error deleting (deactivating) sentinel rule:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

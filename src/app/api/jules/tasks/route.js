@@ -1,4 +1,5 @@
 import { triggerTask, listSessions, getSession } from "@/lib/julesClient";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/jules/tasks — Trigger a Jules task
@@ -26,6 +27,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/jules/tasks]", error);
+    logRouteError("jules", "/api/jules/tasks error", error, "/api/jules/tasks");
 
     // If the error is about missing API key, return a helpful message
     if (error.message.includes("JULES_API_KEY")) {
@@ -57,6 +59,7 @@ export async function GET(request) {
     return Response.json(sessions);
   } catch (error) {
     console.error("[/api/jules/tasks GET]", error);
+    logRouteError("jules", "/api/jules/tasks error", error, "/api/jules/tasks");
 
     if (error.message.includes("JULES_API_KEY")) {
       return Response.json({

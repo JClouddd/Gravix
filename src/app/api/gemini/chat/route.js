@@ -1,5 +1,6 @@
 import { chat } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/gemini/chat
@@ -43,6 +44,7 @@ export async function POST(request) {
         cost: result.cost.totalCost,
       });
     } catch (err) {
+      logRouteError("gemini", "/api/gemini/chat error", err, "/api/gemini/chat");
       console.warn("[costTracker] Failed to log:", err.message);
     }
 
@@ -57,6 +59,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/gemini/chat]", error);
+    logRouteError("gemini", "/api/gemini/chat error", error, "/api/gemini/chat");
     return Response.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

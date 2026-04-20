@@ -102,18 +102,11 @@ export default function KnowledgeModule() {
 
       <div style={{ display: activeTab === "Ingestion" ? "block" : "none" }}>
         <IngestionTab
+          status={status}
           stagedEntries={stagedEntries}
           setStagedEntries={setStagedEntries}
           setActiveTab={setActiveTab}
         />
-      </div>
-
-      <div style={{ display: activeTab === "Scholar" ? "block" : "none" }}>
-        <ScholarChatTab stagedEntries={stagedEntries} />
-      </div>
-
-      <div style={{ display: activeTab === "Sources" ? "block" : "none" }}>
-        <SourcesTab status={status} />
       </div>
     </div>
   );

@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -359,7 +358,10 @@ function ByAgentTab({ breakdown }) {
 function OverviewTab({ summary, credits, historyData, breakdown }) {
   const [showExportDropdown, setShowExportDropdown] = useState(false);
 
-  const totalSpend = summary?.totalSpend || 0;
+  // Defensive: ensure numeric values even if API returns corrupted strings
+  const safeNum = (v) => { const n = typeof v === "number" ? v : parseFloat(v); return isNaN(n) ? 0 : n; };
+
+  const totalSpend = safeNum(summary?.totalSpend);
 
   // Calculate projected cost dynamically
   const now = new Date();

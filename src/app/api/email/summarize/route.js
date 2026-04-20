@@ -2,6 +2,7 @@ import { refreshAccessToken, googleApiRequest } from "@/lib/googleAuth";
 import { generate } from "@/lib/geminiClient";
 
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function POST(request) {
   try {
@@ -31,7 +32,8 @@ export async function POST(request) {
           expiresAt: Date.now() + (refreshed.expires_in * 1000),
         });
       } catch (err) {
-        return Response.json({ error: "Token expired and refresh failed." }, { status: 401 });
+        logRouteError("gmail", "/api/email/summarize error", err, "/api/email/summarize");
+      return Response.json({ error: "Token expired and refresh failed." }, { status: 401 });
       }
     }
 
@@ -114,7 +116,8 @@ export async function POST(request) {
         let cleanJsonStr = aiResponse.replace(/```json/g, '').replace(/```/g, '').trim();
         resultData = JSON.parse(cleanJsonStr);
     } catch (parseError) {
-        console.warn("Failed to parse Gemini JSON output for summarize route:", parseError, "Raw output:", aiResponse);
+        logRouteError("gmail", "/api/email/summarize error", parseError, "/api/email/summarize");
+      console.warn("Failed to parse Gemini JSON output for summarize route:", parseError, "Raw output:", aiResponse);
         // Fallback to unstructured text inside summary
         resultData.summary = aiResponse;
     }
@@ -123,6 +126,7 @@ export async function POST(request) {
 
   } catch (error) {
     console.error("[/api/email/summarize]", error);
+    logRouteError("gmail", "/api/email/summarize error", error, "/api/email/summarize");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

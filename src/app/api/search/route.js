@@ -1,4 +1,5 @@
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 const AGENTS = [
   { id: "agt-conductor", type: "Agent", label: "Ask Conductor", icon: "⚡", module: "agents", desc: "Route a complex request" },
@@ -87,6 +88,7 @@ export async function GET(request) {
         }
       });
     } catch (err) {
+      logRouteError("discovery", "/api/search error", err, "/api/search");
       console.warn("Failed to search clients:", err.message);
     }
 
@@ -117,6 +119,7 @@ export async function GET(request) {
         }
       }
     } catch (err) {
+      logRouteError("discovery", "/api/search error", err, "/api/search");
       console.warn("Failed to search knowledge:", err.message);
     }
 
@@ -126,6 +129,7 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error("[/api/search]", error);
+    logRouteError("discovery", "/api/search error", error, "/api/search");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

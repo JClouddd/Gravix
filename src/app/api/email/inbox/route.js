@@ -1,12 +1,17 @@
-import { getGmailInbox, refreshAccessToken, googleApiRequest } from "@/lib/googleAuth";
+import { getGmailInbox, refreshAccessToken, googleApiRequest, listGmailLabels, createGmailLabel, applyGmailLabel } from "@/lib/googleAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
- * GET /api/email/inbox — Fetch real Gmail inbox or return not-connected status
+ * GET /api/email/inbox — Fetch real Gmail inbox with pagination support
+ * Query params: ?pageToken=xxx for infinite scroll
  */
 export async function GET(request) {
   try {
-    // Check if OAuth tokens exist
+    const { searchParams } = new URL(request.url);
+    const pageToken = searchParams.get("pageToken") || null;
+    const maxResults = parseInt(searchParams.get("maxResults") || "20", 10);
+
     const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
 
     if (!tokensDoc.exists) {
@@ -15,6 +20,7 @@ export async function GET(request) {
         message: "Gmail is not connected. Go to Settings → Integrations → Connect Gmail.",
         connectUrl: "/api/auth/connect",
         inbox: [],
+        nextPageToken: null,
         stats: { total: 0, unread: 0, actionRequired: 0, clientEmails: 0 },
       });
     }
@@ -22,51 +28,52 @@ export async function GET(request) {
     const tokens = tokensDoc.data();
     let accessToken = tokens.accessToken;
 
-    // Refresh if expired
     if (Date.now() > tokens.expiresAt) {
       try {
         const refreshed = await refreshAccessToken(tokens.refreshToken);
         accessToken = refreshed.access_token;
-
-        // Update stored token
         await adminDb.collection("settings").doc("google_oauth").update({
           accessToken: refreshed.access_token,
           expiresAt: Date.now() + (refreshed.expires_in * 1000),
         });
       } catch (err) {
-        return Response.json({
+        logRouteError("gmail", "/api/email/inbox error", err, "/api/email/inbox");
+      return Response.json({
           connected: false,
           message: "Token expired and refresh failed. Please reconnect Gmail.",
           connectUrl: "/api/auth/connect",
           inbox: [],
+          nextPageToken: null,
           stats: { total: 0, unread: 0, actionRequired: 0, clientEmails: 0 },
         });
       }
     }
 
-    // Fetch real inbox
-    const messages = await getGmailInbox(accessToken, 20);
+    // Fetch inbox with pagination
+    const result = await getGmailInbox(accessToken, maxResults, pageToken);
+    const messages = result.emails || [];
+    const nextPageToken = result.nextPageToken || null;
     const unread = messages.filter((m) => !m.isRead).length;
 
     let classifiedMessages = messages;
     let actionRequired = 0;
     let clientEmails = 0;
 
-    if (messages.length > 0) {
+    // Only auto-classify on the first page (no pageToken)
+    if (messages.length > 0 && !pageToken) {
       try {
         const origin = new URL(request.url).origin;
-        // Classify emails
         const classifyRes = await fetch(`${origin}/api/email/classify`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ emails: messages })
+          body: JSON.stringify({ emails: messages }),
         });
 
         if (classifyRes.ok) {
           const { classifications } = await classifyRes.json();
           if (classifications && Array.isArray(classifications)) {
-            classifiedMessages = messages.map(msg => {
-              const classification = classifications.find(c => c.emailId === msg.id);
+            classifiedMessages = messages.map((msg) => {
+              const classification = classifications.find((c) => c.emailId === msg.id);
               if (classification) {
                 if (classification.category === "action-required") actionRequired++;
                 if (classification.category === "client") clientEmails++;
@@ -75,22 +82,71 @@ export async function GET(request) {
               return msg;
             });
 
-            // Trigger pipeline
+
+            // Auto-apply labels
+            try {
+              let currentLabels = [];
+              try {
+                const labelsRes = await listGmailLabels(accessToken);
+                currentLabels = labelsRes.labels || [];
+              } catch (e) {
+                console.error("Failed to list labels:", e);
+                logRouteError("gmail", "/api/email/inbox error", e, "/api/email/inbox");
+              }
+
+              const categoryToLabel = {}; // Cache label mapping
+
+              for (const msg of classifiedMessages) {
+                if (msg.category && msg.category !== "unknown") {
+                  // Map category e.g., "client" -> "Gravix/Client"
+                  const categoryName = msg.category.charAt(0).toUpperCase() + msg.category.slice(1);
+                  const labelName = `Gravix/${categoryName}`;
+
+                  let labelId = categoryToLabel[labelName];
+
+                  if (!labelId) {
+                    const existingLabel = currentLabels.find(l => l.name === labelName);
+                    if (existingLabel) {
+                      labelId = existingLabel.id;
+                    } else {
+                      // Create label
+                      const newLabel = await createGmailLabel(accessToken, labelName, "#4285f4", "#ffffff");
+                      labelId = newLabel.id;
+                      currentLabels.push(newLabel);
+                    }
+                    categoryToLabel[labelName] = labelId;
+                  }
+
+                  if (labelId) {
+                    await applyGmailLabel(accessToken, msg.id, [labelId], []);
+                    // Update the message in our result array
+                    msg.labelIds = [...(msg.labelIds || []), labelId];
+                  }
+                }
+              }
+            } catch (lblErr) {
+              console.error("Failed to auto-apply labels:", lblErr);
+              logRouteError("gmail", "/api/email/inbox error", lblErr, "/api/email/inbox");
+            }
+
+            // Trigger pipeline only on first load
             await fetch(`${origin}/api/automation/email-pipeline`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ emails: classifiedMessages })
+              body: JSON.stringify({ emails: classifiedMessages }),
             });
           }
         }
       } catch (err) {
         console.error("Auto-classification pipeline error:", err);
+        logRouteError("gmail", "/api/email/inbox error", err, "/api/email/inbox");
       }
     }
 
     return Response.json({
       connected: true,
       inbox: classifiedMessages,
+      nextPageToken,
       stats: {
         total: classifiedMessages.length,
         unread,
@@ -100,6 +156,7 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error("[/api/email/inbox]", error);
+    logRouteError("gmail", "/api/email/inbox error", error, "/api/email/inbox");
 
     if (error.message === "TOKEN_EXPIRED") {
       return Response.json({
@@ -107,6 +164,7 @@ export async function GET(request) {
         message: "Gmail session expired. Please reconnect.",
         connectUrl: "/api/auth/connect",
         inbox: [],
+        nextPageToken: null,
         stats: { total: 0, unread: 0, actionRequired: 0, clientEmails: 0 },
       });
     }
@@ -126,7 +184,6 @@ export async function POST(request) {
       return Response.json({ error: "action is required (fetch, classify, archive)" }, { status: 400 });
     }
 
-    // Check OAuth
     const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
     if (!tokensDoc.exists) {
       return Response.json({
@@ -139,7 +196,6 @@ export async function POST(request) {
     const tokens = tokensDoc.data();
     let accessToken = tokens.accessToken;
 
-    // Refresh if needed
     if (Date.now() > tokens.expiresAt) {
       const refreshed = await refreshAccessToken(tokens.refreshToken);
       accessToken = refreshed.access_token;
@@ -149,9 +205,9 @@ export async function POST(request) {
       });
     }
 
-    // Handle actions
     if (action === "fetch") {
-      const messages = await getGmailInbox(accessToken, options.maxResults || 20);
+      const result = await getGmailInbox(accessToken, options.maxResults || 20, options.pageToken || null);
+      const messages = result.emails || [];
 
       let classifiedMessages = messages;
       if (messages.length > 0) {
@@ -160,30 +216,35 @@ export async function POST(request) {
           const classifyRes = await fetch(`${origin}/api/email/classify`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ emails: messages })
+            body: JSON.stringify({ emails: messages }),
           });
 
           if (classifyRes.ok) {
             const { classifications } = await classifyRes.json();
             if (classifications && Array.isArray(classifications)) {
-              classifiedMessages = messages.map(msg => {
-                const classification = classifications.find(c => c.emailId === msg.id);
+              classifiedMessages = messages.map((msg) => {
+                const classification = classifications.find((c) => c.emailId === msg.id);
                 return classification ? { ...msg, ...classification } : msg;
               });
 
               await fetch(`${origin}/api/automation/email-pipeline`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ emails: classifiedMessages })
+                body: JSON.stringify({ emails: classifiedMessages }),
               });
             }
           }
         } catch (err) {
           console.error("Auto-classification pipeline error:", err);
+          logRouteError("gmail", "/api/email/inbox error", err, "/api/email/inbox");
         }
       }
 
-      return Response.json({ connected: true, inbox: classifiedMessages });
+      return Response.json({
+        connected: true,
+        inbox: classifiedMessages,
+        nextPageToken: result.nextPageToken || null,
+      });
     }
 
     if (action === "read" && emailId) {
@@ -197,6 +258,7 @@ export async function POST(request) {
     return Response.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (error) {
     console.error("[/api/email/inbox]", error);
+    logRouteError("gmail", "/api/email/inbox error", error, "/api/email/inbox");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

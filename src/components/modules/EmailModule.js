@@ -1,21 +1,37 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 
 /**
  * Email Module — Gmail inbox with AI classification
  * Smart compose, thread summarization, action extraction
+ * Supports infinite scroll via Gmail pageToken pagination
  */
 export default function EmailModule() {
-  const [isConnected, setIsConnected] = useState(true); // Default true until checked
+  const [isConnected, setIsConnected] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [labels, setLabels] = useState([]);
+  const [selectedLabelId, setSelectedLabelId] = useState("all");
+  const [showNewLabelForm, setShowNewLabelForm] = useState(false);
+  const [newLabelName, setNewLabelName] = useState("");
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [error, setError] = useState(null);
   const [inbox, setInbox] = useState([]);
   const [stats, setStats] = useState({ total: 0, unread: 0 });
 
-  const [activeTab, setActiveTab] = useState("inbox"); // 'inbox' or 'compose'
+  // Pagination state
+  const [nextPageToken, setNextPageToken] = useState(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadMoreRef = useRef(null);
+
+  const [activeTab, setActiveTab] = useState("inbox"); // 'inbox', 'compose', or 'templates'
   const [selectedEmail, setSelectedEmail] = useState(null);
+
+  // Templates CRUD state
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [templateForm, setTemplateForm] = useState({ name: "", subject: "", body: "", category: "General" });
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
   // Classification & Summary State
   const [classifications, setClassifications] = useState({});
@@ -47,10 +63,10 @@ export default function EmailModule() {
   const fetchTemplates = async () => {
     setIsLoadingTemplates(true);
     try {
-      const res = await fetch("/api/agents/courier/templates");
+      const res = await fetch("/api/email/templates");
       if (res.ok) {
         const data = await res.json();
-        setTemplates(data.templates || []);
+        setTemplates(data || []);
       }
     } catch (err) {
       console.error("Failed to fetch templates:", err);
@@ -58,6 +74,100 @@ export default function EmailModule() {
       setIsLoadingTemplates(false);
     }
   };
+
+  const handleSaveTemplate = async () => {
+    if (!templateForm.name || !templateForm.subject || !templateForm.body) return;
+    setIsSavingTemplate(true);
+    try {
+      const method = editingTemplate ? "PUT" : "POST";
+      const payload = editingTemplate ? { id: editingTemplate.id, ...templateForm } : templateForm;
+      const res = await fetch("/api/email/templates", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setEditingTemplate(null);
+        setTemplateForm({ name: "", subject: "", body: "", category: "General" });
+        fetchTemplates();
+      }
+    } catch (err) {
+      console.error("Failed to save template:", err);
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (id) => {
+    try {
+      const res = await fetch(`/api/email/templates?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchTemplates();
+      }
+    } catch (err) {
+      console.error("Failed to delete template:", err);
+    }
+  };
+
+  const handleEditTemplate = (template) => {
+    setEditingTemplate(template);
+    setTemplateForm({
+      name: template.name,
+      subject: template.subject,
+      body: template.body,
+      category: template.category || "General",
+    });
+  };
+
+
+  const fetchLabels = async () => {
+    try {
+      const res = await fetch("/api/email/labels");
+      if (res.ok) {
+        const data = await res.json();
+        setLabels(data.labels || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch labels:", err);
+    }
+  };
+
+  const handleCreateLabel = async () => {
+    if (!newLabelName) return;
+    setIsCreatingLabel(true);
+    try {
+      const res = await fetch("/api/email/labels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newLabelName,
+          backgroundColor: "#4285f4",
+          textColor: "#ffffff"
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.label) {
+          setLabels(prev => [...prev, data.label]);
+        }
+        setShowNewLabelForm(false);
+        setNewLabelName("");
+      } else {
+        alert("Failed to create label");
+      }
+    } catch (err) {
+      console.error("Failed to create label:", err);
+    } finally {
+      setIsCreatingLabel(false);
+    }
+  };
+
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      fetchLabels();
+    });
+  }, []);
 
   const fetchInbox = async () => {
     setIsLoading(true);
@@ -74,6 +184,7 @@ export default function EmailModule() {
       if (data.connected) {
         setInbox(data.inbox || []);
         setStats(data.stats || { total: 0, unread: 0 });
+        setNextPageToken(data.nextPageToken || null);
       }
     } catch (err) {
       console.error(err);
@@ -82,6 +193,30 @@ export default function EmailModule() {
       setIsLoading(false);
     }
   };
+
+  // Load more emails for infinite scroll
+  const loadMoreEmails = useCallback(async () => {
+    if (!nextPageToken || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const res = await fetch(`/api/email/inbox?pageToken=${nextPageToken}`);
+      const data = await res.json();
+      if (data.connected && data.inbox) {
+        setInbox(prev => [...prev, ...data.inbox]);
+        setNextPageToken(data.nextPageToken || null);
+        // Update total stats
+        setStats(prev => ({
+          ...prev,
+          total: prev.total + (data.stats?.total || 0),
+          unread: prev.unread + (data.stats?.unread || 0),
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to load more emails:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [nextPageToken, isLoadingMore]);
 
   const classifyEmails = useCallback(async (emailsToClassify) => {
     if (!emailsToClassify || emailsToClassify.length === 0) return;
@@ -139,6 +274,8 @@ export default function EmailModule() {
           setIsConnected(data.connected);
           if (data.connected && data.inbox) {
             setInbox(data.inbox);
+            setStats(data.stats || { total: 0, unread: 0 });
+            setNextPageToken(data.nextPageToken || null);
           }
         }
       } catch (err) {
@@ -152,6 +289,21 @@ export default function EmailModule() {
     loadData();
     return () => { isMounted = false; };
   }, []);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!loadMoreRef.current || !nextPageToken) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && nextPageToken && !isLoadingMore) {
+          loadMoreEmails();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [nextPageToken, isLoadingMore, loadMoreEmails]);
 
   useEffect(() => {
     let active = true;
@@ -340,6 +492,11 @@ export default function EmailModule() {
     );
   }
 
+
+  const filteredInbox = selectedLabelId === "all"
+    ? inbox
+    : inbox.filter(email => email.labelIds && email.labelIds.includes(selectedLabelId));
+
   return (
     <div>
       <div className="module-header">
@@ -366,6 +523,12 @@ export default function EmailModule() {
           >
             📥 Inbox
           </button>
+          <button
+            className={`btn ${activeTab === "templates" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => { setActiveTab("templates"); setSelectedEmail(null); }}
+          >
+            📄 Templates
+          </button>
         </div>
       </div>
 
@@ -384,6 +547,79 @@ export default function EmailModule() {
               </div>
             )}
 
+            {/* Label Chips Bar */}
+            <div style={{ display: "flex", gap: "8px", overflowX: "auto", padding: "12px 24px", borderBottom: "1px solid var(--card-border)", alignItems: "center" }}>
+              <button
+                onClick={() => setSelectedLabelId("all")}
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: "16px",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  border: "1px solid var(--text-tertiary)",
+                  background: selectedLabelId === "all" ? "var(--text-primary)" : "transparent",
+                  color: selectedLabelId === "all" ? "var(--bg-primary)" : "var(--text-primary)",
+                  transition: "all 0.2s"
+                }}
+              >
+                All
+              </button>
+              {labels.map(label => (
+                <button
+                  key={label.id}
+                  onClick={() => setSelectedLabelId(label.id)}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    border: `1px solid ${label.color?.backgroundColor || "var(--accent)"}`,
+                    background: selectedLabelId === label.id ? (label.color?.backgroundColor || "var(--accent)") : "transparent",
+                    color: selectedLabelId === label.id ? (label.color?.textColor || "#fff") : (label.color?.backgroundColor || "var(--accent)"),
+                    transition: "all 0.2s"
+                  }}
+                >
+                  {label.name.replace("Gravix/", "")}
+                </button>
+              ))}
+              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                {!showNewLabelForm ? (
+                  <button
+                    onClick={() => setShowNewLabelForm(true)}
+                    style={{
+                      padding: "4px 12px",
+                      borderRadius: "16px",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      border: "1px dashed var(--text-tertiary)",
+                      background: "transparent",
+                      color: "var(--text-secondary)",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    + New Label
+                  </button>
+                ) : (
+                  <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={newLabelName}
+                      onChange={e => setNewLabelName(e.target.value)}
+                      placeholder="Label name"
+                      style={{ padding: "2px 8px", fontSize: "12px", borderRadius: "12px", border: "1px solid var(--card-border)", outline: "none", width: "100px" }}
+                    />
+                    <button onClick={handleCreateLabel} disabled={isCreatingLabel} style={{ background: "var(--success)", color: "#fff", border: "none", borderRadius: "12px", padding: "2px 8px", fontSize: "12px", cursor: "pointer" }}>✓</button>
+                    <button onClick={() => setShowNewLabelForm(false)} style={{ background: "var(--error)", color: "#fff", border: "none", borderRadius: "12px", padding: "2px 8px", fontSize: "12px", cursor: "pointer" }}>✕</button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+
             {isLoading ? (
               Array(5).fill(0).map((_, idx) => (
                 <div key={idx} style={{ display: "flex", padding: "16px 24px", borderBottom: "1px solid var(--card-border)" }}>
@@ -396,12 +632,12 @@ export default function EmailModule() {
                 </div>
               ))
             ) : (
-              inbox.length === 0 && !error ? (
+              filteredInbox.length === 0 && !error ? (
                 <div style={{ padding: "32px 24px", textAlign: "center", color: "var(--text-secondary)" }}>
                   No emails found.
                 </div>
               ) : (
-                inbox.map((email, idx) => {
+                filteredInbox.map((email, idx) => {
                   const isUnread = !email.isRead;
                   const senderName = email.from ? email.from.split("<")[0].trim().replace(/"/g, "") : "Unknown";
                   const avatarLetter = senderName ? senderName.charAt(0).toUpperCase() : "?";
@@ -419,7 +655,7 @@ export default function EmailModule() {
                       style={{
                         display: "flex",
                         padding: "16px 24px",
-                        borderBottom: idx < inbox.length - 1 ? "1px solid var(--card-border)" : "none",
+                        borderBottom: idx < filteredInbox.length - 1 ? "1px solid var(--card-border)" : "none",
                         cursor: "pointer",
                         background: isUnread ? "var(--bg-hover)" : "transparent",
                         borderLeft: isUnread ? "4px solid var(--accent)" : "4px solid transparent",
@@ -443,11 +679,26 @@ export default function EmailModule() {
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                           <span style={{ fontWeight: isUnread ? 600 : 500, color: "var(--text-primary)", fontSize: 14 }}>{email.subject}</span>
+
                           {classification && (
                              <span className={`badge ${badgeClass}`}>
                                 {classification.category}
                              </span>
                           )}
+                          {email.labelIds && labels.filter(l => email.labelIds.includes(l.id)).map(label => (
+                             <span
+                               key={label.id}
+                               className="badge"
+                               style={{
+                                 backgroundColor: label.color?.backgroundColor || "var(--accent)",
+                                 color: label.color?.textColor || "#fff",
+                                 border: "none"
+                               }}
+                             >
+                               {label.name.replace("Gravix/", "")}
+                             </span>
+                          ))}
+
                           {isUnread && (
                             <span className="badge badge-info">
                               Unread
@@ -472,6 +723,39 @@ export default function EmailModule() {
                   );
                 })
               )
+            )}
+
+            {/* Infinite scroll trigger */}
+            {nextPageToken && (
+              <div
+                ref={loadMoreRef}
+                style={{
+                  padding: "20px 24px",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 8,
+                  color: "var(--text-secondary)",
+                  fontSize: 13,
+                }}
+              >
+                {isLoadingMore ? (
+                  <>
+                    <div className="skeleton" style={{ width: 20, height: 20, borderRadius: "50%" }}></div>
+                    Loading more emails...
+                  </>
+                ) : (
+                  <button className="btn btn-ghost btn-sm" onClick={loadMoreEmails}>
+                    Load more
+                  </button>
+                )}
+              </div>
+            )}
+
+            {!nextPageToken && inbox.length > 0 && !isLoading && (
+              <div style={{ padding: "16px 24px", textAlign: "center", fontSize: 12, color: "var(--text-tertiary)" }}>
+                End of inbox
+              </div>
             )}
           </div>
         )}
@@ -560,6 +844,77 @@ export default function EmailModule() {
           </div>
         )}
 
+        {activeTab === "templates" && (
+          <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 24 }}>
+            <div style={{ display: "flex", gap: 24 }}>
+              {/* Form Side */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 600 }}>{editingTemplate ? "Edit Template" : "Create Template"}</h3>
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Name</label>
+                  <input className="input" placeholder="Template Name" value={templateForm.name} onChange={e => setTemplateForm({ ...templateForm, name: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Subject</label>
+                  <input className="input" placeholder="Email Subject" value={templateForm.subject} onChange={e => setTemplateForm({ ...templateForm, subject: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Category</label>
+                  <input className="input" placeholder="Category (e.g., General)" value={templateForm.category} onChange={e => setTemplateForm({ ...templateForm, category: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Body</label>
+                  <textarea className="input" style={{ minHeight: 150, resize: "vertical" }} placeholder="Email Body" value={templateForm.body} onChange={e => setTemplateForm({ ...templateForm, body: e.target.value })} />
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn btn-primary" onClick={handleSaveTemplate} disabled={isSavingTemplate || !templateForm.name || !templateForm.subject || !templateForm.body}>
+                    {isSavingTemplate ? "Saving..." : "Save Template"}
+                  </button>
+                  {editingTemplate && (
+                    <button className="btn btn-secondary" onClick={() => { setEditingTemplate(null); setTemplateForm({ name: "", subject: "", body: "", category: "General" }); }}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* List Side */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 600 }}>Existing Templates</h3>
+                  <button className="btn btn-sm btn-secondary" onClick={fetchTemplates} disabled={isLoadingTemplates}>
+                    {isLoadingTemplates ? "Loading..." : "Refresh"}
+                  </button>
+                </div>
+
+                {templates.length === 0 && !isLoadingTemplates && (
+                  <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)" }}>
+                    No templates found. Create one to get started.
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {templates.map(t => (
+                    <div key={t.id} style={{ padding: 16, background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", border: "1px solid var(--card-border)", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t.name}</div>
+                          <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{t.subject}</div>
+                          <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>Category: {t.category || "General"}</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button className="btn btn-sm btn-secondary" onClick={() => handleEditTemplate(t)}>Edit</button>
+                          <button className="btn btn-sm" style={{ color: "var(--error)" }} onClick={() => handleDeleteTemplate(t.id)}>Delete</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === "compose" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -593,7 +948,7 @@ export default function EmailModule() {
                       const t = templates.find(temp => temp.name === e.target.value);
                       if (t) {
                         setComposeSubject(t.subject || "");
-                        setComposeBody(t.bodyTemplate || "");
+                        setComposeBody(t.body || "");
                         setIsAiDraftMode(false); // Switch to manual to show body
                       }
                     }}

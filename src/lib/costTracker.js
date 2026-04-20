@@ -1,6 +1,26 @@
 import { adminDb } from "@/lib/firebaseAdmin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
+/**
+ * Safely coerce a cost value to a number.
+ * Handles: number, string-number, cost objects from estimateCost(), null/undefined
+ */
+function toNumericCost(val) {
+  if (val == null) return 0;
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  if (typeof val === "string") {
+    const n = parseFloat(val);
+    return isNaN(n) ? 0 : n;
+  }
+  // If it's an object (from estimateCost()), extract totalCost
+  if (typeof val === "object") {
+    if (typeof val.totalCost === "number") return val.totalCost;
+    if (typeof val.cost === "number") return val.cost;
+    return 0;
+  }
+  return 0;
+}
+
 export async function logUsage({
   route,
   model,
@@ -22,7 +42,7 @@ export async function logUsage({
       model: model || modelTier || "unknown",
       inputTokens: input,
       outputTokens: output,
-      cost: cost || 0,
+      cost: toNumericCost(cost),
       timestamp: FieldValue.serverTimestamp()
     };
     if (agent) {
@@ -77,7 +97,7 @@ export async function getUsageSummary() {
 
     // Current month spend
     if (docDate >= startOfMonth) {
-      totalSpendCurrentMonth += data.cost || 0;
+      totalSpendCurrentMonth += toNumericCost(data.cost);
       totalCalls += 1;
 
       // Per model breakdown
@@ -87,7 +107,7 @@ export async function getUsageSummary() {
           perModel[modelName] = { calls: 0, cost: 0 };
         }
         perModel[modelName].calls += 1;
-        perModel[modelName].cost += (data.cost || 0);
+        perModel[modelName].cost += toNumericCost(data.cost);
       }
 
       // Per route breakdown
@@ -96,7 +116,7 @@ export async function getUsageSummary() {
           perRoute[data.route] = { calls: 0, cost: 0 };
         }
         perRoute[data.route].calls += 1;
-        perRoute[data.route].cost += (data.cost || 0);
+        perRoute[data.route].cost += toNumericCost(data.cost);
       }
 
       // Per agent breakdown
@@ -104,13 +124,13 @@ export async function getUsageSummary() {
         if (!perAgent[data.agent]) {
           perAgent[data.agent] = 0;
         }
-        perAgent[data.agent] += (data.cost || 0);
+        perAgent[data.agent] += toNumericCost(data.cost);
       }
     }
 
     // totalThisWeek
     if (docDate >= startOfWeek) {
-      totalThisWeek += data.cost || 0;
+      totalThisWeek += toNumericCost(data.cost);
     }
 
     // Daily trend (last 30 days)
@@ -119,7 +139,7 @@ export async function getUsageSummary() {
       if (!dailyTrendMap[dateStr]) {
         dailyTrendMap[dateStr] = { cost: 0 };
       }
-      dailyTrendMap[dateStr].cost += (data.cost || 0);
+      dailyTrendMap[dateStr].cost += toNumericCost(data.cost);
     }
   });
 

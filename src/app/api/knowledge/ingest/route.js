@@ -1,6 +1,7 @@
 import { classifyContent, processUrl, createStagingEntry } from "@/lib/knowledgeEngine";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/knowledge/ingest
@@ -41,7 +42,8 @@ export async function POST(request) {
         }
         return Response.json(data);
       } catch (err) {
-        return Response.json({ error: "Video ingestion failed: " + err.message }, { status: 500 });
+        logRouteError("discovery", "/api/knowledge/ingest error", err, "/api/knowledge/ingest");
+      return Response.json({ error: "Video ingestion failed: " + err.message }, { status: 500 });
       }
     }
 
@@ -60,7 +62,8 @@ export async function POST(request) {
         }
         return Response.json(data);
       } catch (err) {
-        return Response.json({ error: "Failed to process URL: " + err.message }, { status: 500 });
+        logRouteError("discovery", "/api/knowledge/ingest error", err, "/api/knowledge/ingest");
+      return Response.json({ error: "Failed to process URL: " + err.message }, { status: 500 });
       }
     }
 
@@ -73,7 +76,8 @@ export async function POST(request) {
         processedContent = Buffer.from(content, "base64").toString("utf-8");
         finalTitle = fileName || title || "Uploaded File";
       } catch (err) {
-        return Response.json({ error: "Failed to decode file content" }, { status: 400 });
+        logRouteError("discovery", "/api/knowledge/ingest error", err, "/api/knowledge/ingest");
+      return Response.json({ error: "Failed to decode file content" }, { status: 400 });
       }
     }
 
@@ -120,6 +124,7 @@ export async function POST(request) {
         crossrefAnalysis = crossrefData.data?.analysis || null;
       }
     } catch (err) {
+      logRouteError("discovery", "/api/knowledge/ingest error", err, "/api/knowledge/ingest");
       console.warn("[knowledge/ingest] Internal crossref call failed:", err);
     }
 
@@ -129,6 +134,7 @@ export async function POST(request) {
       const { generateNotebook } = await import("@/lib/notebookGenerator");
       notebookGenerated = await generateNotebook(entry);
     } catch (err) {
+      logRouteError("discovery", "/api/knowledge/ingest error", err, "/api/knowledge/ingest");
       console.warn("[knowledge/ingest] Notebook generation skipped:", err.message);
     }
 
@@ -150,6 +156,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/knowledge/ingest]", error);
+    logRouteError("discovery", "/api/knowledge/ingest error", error, "/api/knowledge/ingest");
     return Response.json(
       { error: error.message || "Ingestion failed" },
       { status: 500 }

@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -45,6 +44,7 @@ export default function ColabModule() {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount pattern
   useEffect(() => { fetchNotebooks(); }, [fetchNotebooks]);
 
   const handleRunClick = (notebook) => {
@@ -219,6 +219,79 @@ export default function ColabModule() {
                   </div>
                 )}
 
+                {/* ── Research Dossier (Phase A-D) ── */}
+                {nb.hasResearch && (
+                  <div style={{ marginTop: 8, marginBottom: 8 }}>
+                    {/* Skill Spec Badge */}
+                    {nb.skillSpec && (
+                      <div style={{ padding: 10, borderRadius: 8, background: "linear-gradient(135deg, var(--accent-subtle, rgba(66,133,244,0.08)), var(--bg-secondary))", border: "1px solid var(--accent-border, rgba(66,133,244,0.2))", marginBottom: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>⚡ {nb.skillSpec.skillName}</span>
+                          {nb.validation && (
+                            <span className="badge" style={{
+                              fontSize: 10,
+                              background: nb.validation.overallStatus === "verified" ? "#34a85322" : nb.validation.overallStatus === "caution" ? "#fbbc0522" : "#9aa0a622",
+                              color: nb.validation.overallStatus === "verified" ? "#34a853" : nb.validation.overallStatus === "caution" ? "#fbbc05" : "#9aa0a6",
+                              border: `1px solid ${nb.validation.overallStatus === "verified" ? "#34a85344" : nb.validation.overallStatus === "caution" ? "#fbbc0544" : "#9aa0a644"}`
+                            }}>
+                              {nb.validation.overallStatus === "verified" ? "🟢" : nb.validation.overallStatus === "caution" ? "🟡" : "🔵"} {nb.validation.overallStatus || "pending"}
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ fontSize: 11, color: "var(--text-secondary)", margin: "0 0 6px" }}>{nb.skillSpec.description}</p>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {nb.skillSpec.domainTags?.map(tag => (
+                            <span key={tag} className="badge" style={{ fontSize: 9, background: "var(--accent-subtle, rgba(66,133,244,0.1))", color: "var(--accent)" }}>{tag}</span>
+                          ))}
+                          {nb.skillSpec.antigravityTranslation?.migrationComplexity && (
+                            <span className="badge" style={{ fontSize: 9, background: nb.skillSpec.antigravityTranslation.migrationComplexity === "easy" ? "#34a85322" : "#fbbc0522", color: nb.skillSpec.antigravityTranslation.migrationComplexity === "easy" ? "#34a853" : "#fbbc05" }}>
+                              {nb.skillSpec.antigravityTranslation.migrationComplexity}
+                            </span>
+                          )}
+                          {nb.skillSpec.antigravityTranslation?.estimatedBuildTime && (
+                            <span className="badge" style={{ fontSize: 9, background: "var(--bg-tertiary)" }}>⏱ {nb.skillSpec.antigravityTranslation.estimatedBuildTime}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tool Dossier Summary */}
+                    {nb.researchDossier && nb.researchDossier.length > 0 && (
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                        {nb.researchDossier.map((tool, i) => (
+                          <span key={i} className="badge" style={{ fontSize: 10, background: "var(--bg-tertiary)", border: "1px solid var(--card-border)" }}>
+                            {tool.category === "api" ? "🔌" : tool.category === "platform" ? "☁️" : tool.category === "library" ? "📦" : "🔧"} {tool.toolName}
+                            {tool.pricing?.hasFreeTeir && <span style={{ marginLeft: 4, color: "#34a853" }}>Free</span>}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Google Translation Map */}
+                    {nb.googleTranslation?.mappings?.length > 0 && (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                        {nb.googleTranslation.mappings.map((m, i) => (
+                          <span key={i} className="badge" style={{
+                            fontSize: 9,
+                            background: m.recommendation === "replace" ? "#34a85315" : m.recommendation === "keep" ? "#fbbc0515" : "#4285f415",
+                            color: m.recommendation === "replace" ? "#34a853" : m.recommendation === "keep" ? "#fbbc05" : "#4285f4",
+                            border: `1px solid ${m.recommendation === "replace" ? "#34a85330" : m.recommendation === "keep" ? "#fbbc0530" : "#4285f430"}`
+                          }}>
+                            {m.source} → {m.googleEquivalent || "keep"} ({m.recommendation})
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Research Meta */}
+                    {nb.researchMeta && (
+                      <div className="caption" style={{ color: "var(--text-tertiary)", fontSize: 10 }}>
+                        📊 {nb.researchMeta.toolsResearched} tools researched • {nb.researchMeta.cost} • {nb.researchMeta.executionTime}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <button className="btn btn-secondary btn-sm" onClick={() => handleReviewContent(nb)}>
                     {reviewingNotebook === nb.id ? "Hide Content" : "Review Content"}
@@ -263,7 +336,7 @@ export default function ColabModule() {
                           }
                         }}
                       >
-                        🔀 Merge into "{mergeCandidate.name}"
+                        🔀 Merge into &ldquo;{mergeCandidate.name}&rdquo;
                       </button>
                     )}
                   </div>
