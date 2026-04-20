@@ -1,0 +1,174 @@
+name: Auto-Correct on CI Failure
+
+# Triggers when ANY workflow run completes (CI, Jules Auto Merge, etc.)
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  auto-correct:
+    runs-on: ubuntu-latest
+    # Only fire when CI FAILS
+    if: github.event.workflow_run.conclusion == 'failure'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Collect build error logs
+        id: errors
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID=${{ github.event.workflow_run.id }}
+          REPO=${{ github.repository }}
+          BRANCH=${{ github.event.workflow_run.head_branch }}
+          COMMIT=${{ github.event.workflow_run.head_sha }}
+
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+
+          # Get all failed jobs from this run
+          JOBS=$(gh api repos/$REPO/actions/runs/$RUN_ID/jobs)
+
+          # Extract failed job names and step logs
+          FAILED_JOBS=$(echo "$JOBS" | jq -r '.jobs[] | select(.conclusion == "failure") | .name')
+          echo "failed_jobs=$FAILED_JOBS" >> $GITHUB_OUTPUT
+
+          # Get the full log for the failed run (truncated to last 200 lines per job)
+          ERROR_LOG=""
+          for JOB_ID in $(echo "$JOBS" | jq -r '.jobs[] | select(.conclusion == "failure") | .id'); do
+            JOB_NAME=$(echo "$JOBS" | jq -r ".jobs[] | select(.id == $JOB_ID) | .name")
+            # Get failed steps
+            FAILED_STEPS=$(echo "$JOBS" | jq -r ".jobs[] | select(.id == $JOB_ID) | .steps[] | select(.conclusion == \"failure\") | .name")
+
+            # Download job log
+            JOB_LOG=$(gh api repos/$REPO/actions/jobs/$JOB_ID/logs 2>/dev/null | tail -200 || echo "Could not fetch logs")
+
+            ERROR_LOG="${ERROR_LOG}
+          ### Job: ${JOB_NAME}
+          Failed steps: ${FAILED_STEPS}
+
+          \`\`\`
+          ${JOB_LOG}
+          \`\`\`
+          "
+          done
+
+          # Save error log to file (too large for env var)
+          echo "$ERROR_LOG" > /tmp/error_log.md
+
+      - name: Check for infinite loop guard
+        id: guard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO=${{ github.repository }}
+          BRANCH=${{ steps.errors.outputs.branch }}
+
+          # Count auto-correct issues created in the last hour for this branch
+          RECENT=$(gh issue list \
+            --repo $REPO \
+            --label "auto-correct" \
+            --state open \
+            --search "branch: $BRANCH" \
+            --limit 5 \
+            --json createdAt,title \
+            | jq '[.[] | select(
+                (.createdAt | fromdateiso8601) > (now - 3600)
+              )] | length')
+
+          echo "recent_issues=$RECENT" >> $GITHUB_OUTPUT
+
+          # If 3+ auto-correct issues in the last hour, we're in a loop
+          if [ "$RECENT" -ge "3" ]; then
+            echo "LOOP DETECTED: $RECENT auto-correct issues in the last hour for branch $BRANCH"
+            echo "looping=true" >> $GITHUB_OUTPUT
+          else
+            echo "looping=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Jules fix issue
+        if: steps.guard.outputs.looping == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO=${{ github.repository }}
+          BRANCH=${{ steps.errors.outputs.branch }}
+          COMMIT=${{ steps.errors.outputs.commit }}
+          RUN_ID=${{ steps.errors.outputs.run_id }}
+          FAILED_JOBS=${{ steps.errors.outputs.failed_jobs }}
+          ERROR_LOG=$(cat /tmp/error_log.md)
+
+          # Truncate error log if too long (GitHub issue body limit)
+          if [ ${#ERROR_LOG} -gt 50000 ]; then
+            ERROR_LOG="${ERROR_LOG:0:50000}
+
+          ... (truncated — see full logs at https://github.com/$REPO/actions/runs/$RUN_ID)"
+          fi
+
+          gh issue create \
+            --repo "$REPO" \
+            --title "🔧 Auto-Correct: CI failed on \`$BRANCH\` ($(date +%Y-%m-%d))" \
+            --label "auto-correct,bug" \
+            --body "## CI Build Failed — Auto-Correct Request
+
+          **Branch:** \`$BRANCH\`
+          **Commit:** \`$COMMIT\`
+          **Failed jobs:** $FAILED_JOBS
+          **CI Run:** https://github.com/$REPO/actions/runs/$RUN_ID
+
+          ## Error Logs
+
+          $ERROR_LOG
+
+          ## Instructions
+
+          @jules Please fix the CI failures described above.
+
+          **Rules:**
+          1. Read the error logs carefully — fix the ROOT CAUSE, not just symptoms
+          2. If it is a lint error, fix the lint issue in the source file
+          3. If it is a build/import error, fix the import or dependency
+          4. If it is a test failure, fix the test or the code it tests
+          5. Do NOT disable tests or lint rules to make CI pass
+          6. Push fixes to the \`$BRANCH\` branch if it still exists, otherwise create a new branch
+          7. Run \`npm run lint\` and \`npm run test --if-present\` locally before pushing
+
+          ## Context
+          - The project uses Next.js 16+ with App Router
+          - API routes are in \`src/app/api/\`
+          - Error logging uses \`logRouteError\` from \`@/lib/errorLogger\`
+          - Firebase Admin SDK is in \`@/lib/firebaseAdmin\`
+          "
+
+      - name: Alert on infinite loop
+        if: steps.guard.outputs.looping == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO=${{ github.repository }}
+          BRANCH=${{ steps.errors.outputs.branch }}
+          RUN_ID=${{ steps.errors.outputs.run_id }}
+
+          gh issue create \
+            --repo "$REPO" \
+            --title "🚨 Auto-Correct Loop Detected on \`$BRANCH\`" \
+            --label "auto-correct,critical" \
+            --body "## ⚠️ Infinite Loop Guard Triggered
+
+          The auto-correct system has created 3+ fix issues in the past hour for branch \`$BRANCH\`.
+          This indicates Jules is unable to resolve the CI failure automatically.
+
+          **Manual intervention required.**
+
+          **CI Run:** https://github.com/$REPO/actions/runs/$RUN_ID
+
+          The auto-correct system is now paused for this branch until this issue is closed."
