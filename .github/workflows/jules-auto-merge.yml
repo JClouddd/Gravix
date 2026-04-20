@@ -28,6 +28,9 @@ jobs:
        startsWith(github.head_ref, 'ui-states-'))
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Verify Jules branch (session ID suffix)
         id: verify
         run: |
