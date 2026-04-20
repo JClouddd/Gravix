@@ -49,32 +49,56 @@ jobs:
             if [ "$HOURS_STALE" -ge "24" ]; then
               echo "⚠️ Issue #$NUMBER ($TITLE) is stale — $HOURS_STALE hours since last activity"
 
-              # Check if we already pinged recently (avoid spam)
+              # Check if we already re-triggered recently (avoid spam)
               LAST_COMMENT=$(gh issue view "$NUMBER" --repo "$REPO" --json comments --jq '.comments[-1].body // ""')
-              if echo "$LAST_COMMENT" | grep -q "Stale Issue Reminder"; then
-                # Already pinged, escalate instead
-                echo "Already pinged, escalating #$NUMBER"
+              if echo "$LAST_COMMENT" | grep -q "Re-triggered via Jules API"; then
+                # Already re-triggered once, escalate instead
+                echo "Already re-triggered, escalating #$NUMBER"
                 gh issue edit "$NUMBER" --repo "$REPO" --add-label "needs-attention"
                 gh issue comment "$NUMBER" --repo "$REPO" --body "## 🚨 Escalation: Still No Activity
 
-          This issue has had no activity for **${HOURS_STALE} hours** even after a reminder.
+          This issue has had no activity for **${HOURS_STALE} hours** even after re-triggering Jules.
 
           **Manual review required** — @JClouddd please check if this task should be:
-          - Re-assigned to Jules with more context
+          - Re-created with more specific instructions
           - Broken into smaller sub-tasks
           - Deprioritized or closed
 
           *Automated by Jules Stale Monitor*"
               else
-                # First ping
-                gh issue comment "$NUMBER" --repo "$REPO" --body "## ⏰ Stale Issue Reminder
+                # First detection — re-trigger via Jules API
+                ISSUE_BODY=$(gh issue view "$NUMBER" --repo "$REPO" --json body --jq '.body')
+                RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+                  "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app/api/jules/trigger" \
+                  -H "Content-Type: application/json" \
+                  -d "{
+                    \"prompt\": \"GitHub Issue #${NUMBER}: ${TITLE}\n\n${ISSUE_BODY}\",
+                    \"title\": \"${TITLE} (retry)\",
+                    \"autoApprove\": true
+                  }")
 
-          This issue has had no activity for **${HOURS_STALE} hours**.
+                HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+                BODY=$(echo "$RESPONSE" | sed '$d')
 
-          @jules If you need more context to complete this task, please comment with your questions.
-          If this task is blocked, please explain what is blocking you.
+                if [ "$HTTP_CODE" = "200" ]; then
+                  SESSION_ID=$(echo "$BODY" | jq -r '.sessionId')
+                  gh issue comment "$NUMBER" --repo "$REPO" --body "## ⏰ Stale Issue — Re-triggered via Jules API
+
+          This issue had no activity for **${HOURS_STALE} hours**.
+          New Jules session created: \`$SESSION_ID\`
+
+          If this fails again, the next check will escalate for manual review.
 
           *Automated by Jules Stale Monitor*"
+                else
+                  gh issue comment "$NUMBER" --repo "$REPO" --body "## ⏰ Stale Issue — Re-trigger Failed
+
+          Attempted to re-trigger via Jules API but got HTTP $HTTP_CODE.
+          @JClouddd — manual assignment needed.
+
+          *Automated by Jules Stale Monitor*"
+                  gh issue edit "$NUMBER" --repo "$REPO" --add-label "needs-attention"
+                fi
               fi
             fi
           done
