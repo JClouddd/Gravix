@@ -87,21 +87,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # The GitHub Actions checkout action doesn't fetch the repo by default for some events.
+          # But since we use GitHub CLI (gh) here, we just need to ensure the repository info is available via API calls.
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
 
-          # Get files changed in this PR
-          MY_FILES=$(gh pr diff $PR_NUMBER --name-only | sort)
+          # Get files changed in this PR using GitHub CLI, which doesn't need a local checkout if configured correctly.
+          MY_FILES=$(gh api repos/$REPO/pulls/$PR_NUMBER/files --jq '.[].filename' | sort)
           echo "Files in this PR:"
           echo "$MY_FILES"
 
           # Get all other open PRs with Jules-style branches (10+ digit suffix)
-          OTHER_PRS=$(gh pr list --state open --json number,headRefName \
-            --jq ".[] | select(.number != $PR_NUMBER) | select(.headRefName | test(\"[0-9]{10,}$\")) | .number")
+          # using gh api since gh pr list requires a local repository
+          OTHER_PRS=$(gh api repos/$REPO/pulls?state=open --jq ".[] | select(.number != $PR_NUMBER) | select(.head.ref | test(\"[0-9]{10,}$\")) | .number")
 
           OVERLAP_FOUND=false
           for OTHER in $OTHER_PRS; do
-            OTHER_FILES=$(gh pr diff $OTHER --name-only 2>/dev/null | sort || echo "")
+            OTHER_FILES=$(gh api repos/$REPO/pulls/$OTHER/files --jq '.[].filename' 2>/dev/null | sort || echo "")
             if [ -z "$OTHER_FILES" ]; then continue; fi
 
             OVERLAP=$(comm -12 <(echo "$MY_FILES") <(echo "$OTHER_FILES"))
