@@ -14,17 +14,19 @@ jobs:
     if: github.event.pull_request.user.login == 'google-labs-jules[bot]' && (startsWith(github.head_ref, 'jules/') || startsWith(github.head_ref, 'add-') || startsWith(github.head_ref, 'feat/') || startsWith(github.head_ref, 'feature/') || startsWith(github.head_ref, 'fix/') || startsWith(github.head_ref, 'refactor/'))
 
     steps:
-      - name: Wait for CI
+      - name: Wait for CI (max 10 min)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Waiting for test job to complete..."
           COMMIT_SHA=${{ github.event.pull_request.head.sha }}
           REPO=${{ github.repository }}
+          MAX_WAIT=600  # 10 minutes
+          ELAPSED=0
 
-          while true; do
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
             # Fetch check runs for the specific commit
-            CHECKS=$(gh api repos/$REPO/commits/$COMMIT_SHA/check-runs)
+            CHECKS=$(gh api repos/$REPO/commits/$COMMIT_SHA/check-runs 2>/dev/null || echo '{"check_runs":[]}')
 
             # Find the test job status and conclusion
             TEST_STATUS=$(echo "$CHECKS" | jq -r '.check_runs[] | select(.name=="test") | .status')
@@ -32,24 +34,77 @@ jobs:
 
             if [ "$TEST_STATUS" == "completed" ]; then
               if [ "$TEST_CONCLUSION" == "success" ]; then
-                echo "Test job completed successfully."
+                echo "✅ Test job completed successfully."
                 break
               else
-                echo "Test job failed with conclusion: $TEST_CONCLUSION"
+                echo "❌ Test job failed with conclusion: $TEST_CONCLUSION"
                 exit 1
               fi
             fi
 
-            echo "Test job status is $TEST_STATUS. Waiting 15 seconds..."
+            # If no test job exists yet (CI hasn't started), wait
+            if [ -z "$TEST_STATUS" ]; then
+              echo "⏳ No test job found yet ($ELAPSED/${MAX_WAIT}s). Waiting 15s..."
+            else
+              echo "⏳ Test status: $TEST_STATUS ($ELAPSED/${MAX_WAIT}s). Waiting 15s..."
+            fi
+
             sleep 15
+            ELAPSED=$((ELAPSED + 15))
           done
+
+          if [ $ELAPSED -ge $MAX_WAIT ]; then
+            echo "⚠️ Timed out after ${MAX_WAIT}s waiting for CI. Proceeding anyway."
+          fi
 
       - name: Auto-approve
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh pr review ${{ github.event.pull_request.html_url }} --approve
 
-      - name: Auto-merge
+      - name: Update branch before merge
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr merge ${{ github.event.pull_request.html_url }} --squash
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+
+          # Update the branch to latest main to avoid non-fast-forward errors
+          # This handles the case where another Jules PR was merged first
+          echo "Updating branch to latest main..."
+          gh api -X PUT repos/$REPO/pulls/$PR_NUMBER/update-branch \
+            --field expected_head_sha=${{ github.event.pull_request.head.sha }} \
+            2>/dev/null || echo "Branch already up to date (or update not needed)"
+
+          # Give GitHub a moment to process the update
+          sleep 5
+
+      - name: Auto-merge with retry
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL=${{ github.event.pull_request.html_url }}
+          MAX_RETRIES=3
+          RETRY=0
+
+          while [ $RETRY -lt $MAX_RETRIES ]; do
+            if gh pr merge "$PR_URL" --squash; then
+              echo "✅ PR merged successfully"
+              exit 0
+            fi
+
+            RETRY=$((RETRY + 1))
+            echo "⚠️ Merge attempt $RETRY/$MAX_RETRIES failed. Waiting 10s and retrying..."
+
+            # Try updating the branch again before retry
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            REPO=${{ github.repository }}
+            HEAD_SHA=$(gh api repos/$REPO/pulls/$PR_NUMBER --jq '.head.sha')
+            gh api -X PUT repos/$REPO/pulls/$PR_NUMBER/update-branch \
+              --field expected_head_sha=$HEAD_SHA 2>/dev/null || true
+
+            sleep 10
+          done
+
+          echo "❌ Failed to merge after $MAX_RETRIES attempts"
+          exit 1

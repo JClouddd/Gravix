@@ -47,7 +47,9 @@ CRITICAL RULES:
 const ALL_STATES = [
   "QUEUED",
   "PLANNING",
+  "AWAITING_PLAN_APPROVAL",
   "WAITING_FOR_PLAN_APPROVAL",
+  "AWAITING_USER_FEEDBACK",
   "WAITING_FOR_USER_FEEDBACK",
   "IN_PROGRESS",
   "PAUSED",
@@ -88,6 +90,7 @@ export async function GET() {
       // Take action based on state
       try {
         switch (state) {
+          case "AWAITING_PLAN_APPROVAL":
           case "WAITING_FOR_PLAN_APPROVAL": {
             // Use the dedicated :approvePlan endpoint
             await approvePlan(id);
@@ -100,6 +103,7 @@ export async function GET() {
             break;
           }
 
+          case "AWAITING_USER_FEEDBACK":
           case "WAITING_FOR_USER_FEEDBACK": {
             // Send project context to unblock Jules
             await sendMessage(
@@ -264,11 +268,11 @@ export async function POST(request) {
 
       default: {
         // Auto-detect action based on state
-        if (state === "WAITING_FOR_PLAN_APPROVAL") {
+        if (state === "AWAITING_PLAN_APPROVAL" || state === "WAITING_FOR_PLAN_APPROVAL") {
           await approvePlan(sessionId);
           action = "AUTO_APPROVED";
           detail = "Plan approved via :approvePlan";
-        } else if (state === "WAITING_FOR_USER_FEEDBACK" || state === "PAUSED") {
+        } else if (state === "AWAITING_USER_FEEDBACK" || state === "WAITING_FOR_USER_FEEDBACK" || state === "PAUSED") {
           await sendMessage(sessionId, PROJECT_CONTEXT);
           action = state === "PAUSED" ? "RESUMED" : "CONTEXT_SENT";
           detail = "Project context sent";
