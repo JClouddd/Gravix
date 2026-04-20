@@ -25,8 +25,13 @@ export default function EmailModule() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const loadMoreRef = useRef(null);
 
-  const [activeTab, setActiveTab] = useState("inbox"); // 'inbox' or 'compose'
+  const [activeTab, setActiveTab] = useState("inbox"); // 'inbox', 'compose', or 'templates'
   const [selectedEmail, setSelectedEmail] = useState(null);
+
+  // Templates CRUD state
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [templateForm, setTemplateForm] = useState({ name: "", subject: "", body: "", category: "General" });
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
   // Classification & Summary State
   const [classifications, setClassifications] = useState({});
@@ -58,16 +63,61 @@ export default function EmailModule() {
   const fetchTemplates = async () => {
     setIsLoadingTemplates(true);
     try {
-      const res = await fetch("/api/agents/courier/templates");
+      const res = await fetch("/api/email/templates");
       if (res.ok) {
         const data = await res.json();
-        setTemplates(data.templates || []);
+        setTemplates(data || []);
       }
     } catch (err) {
       console.error("Failed to fetch templates:", err);
     } finally {
       setIsLoadingTemplates(false);
     }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateForm.name || !templateForm.subject || !templateForm.body) return;
+    setIsSavingTemplate(true);
+    try {
+      const method = editingTemplate ? "PUT" : "POST";
+      const payload = editingTemplate ? { id: editingTemplate.id, ...templateForm } : templateForm;
+      const res = await fetch("/api/email/templates", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setEditingTemplate(null);
+        setTemplateForm({ name: "", subject: "", body: "", category: "General" });
+        fetchTemplates();
+      }
+    } catch (err) {
+      console.error("Failed to save template:", err);
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (id) => {
+    try {
+      const res = await fetch(`/api/email/templates?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchTemplates();
+      }
+    } catch (err) {
+      console.error("Failed to delete template:", err);
+    }
+  };
+
+  const handleEditTemplate = (template) => {
+    setEditingTemplate(template);
+    setTemplateForm({
+      name: template.name,
+      subject: template.subject,
+      body: template.body,
+      category: template.category || "General",
+    });
   };
 
 
@@ -473,6 +523,12 @@ export default function EmailModule() {
           >
             📥 Inbox
           </button>
+          <button
+            className={`btn ${activeTab === "templates" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => { setActiveTab("templates"); setSelectedEmail(null); }}
+          >
+            📄 Templates
+          </button>
         </div>
       </div>
 
@@ -788,6 +844,77 @@ export default function EmailModule() {
           </div>
         )}
 
+        {activeTab === "templates" && (
+          <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 24 }}>
+            <div style={{ display: "flex", gap: 24 }}>
+              {/* Form Side */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 600 }}>{editingTemplate ? "Edit Template" : "Create Template"}</h3>
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Name</label>
+                  <input className="input" placeholder="Template Name" value={templateForm.name} onChange={e => setTemplateForm({ ...templateForm, name: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Subject</label>
+                  <input className="input" placeholder="Email Subject" value={templateForm.subject} onChange={e => setTemplateForm({ ...templateForm, subject: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Category</label>
+                  <input className="input" placeholder="Category (e.g., General)" value={templateForm.category} onChange={e => setTemplateForm({ ...templateForm, category: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "var(--text-secondary)" }}>Body</label>
+                  <textarea className="input" style={{ minHeight: 150, resize: "vertical" }} placeholder="Email Body" value={templateForm.body} onChange={e => setTemplateForm({ ...templateForm, body: e.target.value })} />
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn btn-primary" onClick={handleSaveTemplate} disabled={isSavingTemplate || !templateForm.name || !templateForm.subject || !templateForm.body}>
+                    {isSavingTemplate ? "Saving..." : "Save Template"}
+                  </button>
+                  {editingTemplate && (
+                    <button className="btn btn-secondary" onClick={() => { setEditingTemplate(null); setTemplateForm({ name: "", subject: "", body: "", category: "General" }); }}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* List Side */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 600 }}>Existing Templates</h3>
+                  <button className="btn btn-sm btn-secondary" onClick={fetchTemplates} disabled={isLoadingTemplates}>
+                    {isLoadingTemplates ? "Loading..." : "Refresh"}
+                  </button>
+                </div>
+
+                {templates.length === 0 && !isLoadingTemplates && (
+                  <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)" }}>
+                    No templates found. Create one to get started.
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {templates.map(t => (
+                    <div key={t.id} style={{ padding: 16, background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", border: "1px solid var(--card-border)", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t.name}</div>
+                          <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{t.subject}</div>
+                          <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>Category: {t.category || "General"}</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button className="btn btn-sm btn-secondary" onClick={() => handleEditTemplate(t)}>Edit</button>
+                          <button className="btn btn-sm" style={{ color: "var(--error)" }} onClick={() => handleDeleteTemplate(t.id)}>Delete</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === "compose" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -821,7 +948,7 @@ export default function EmailModule() {
                       const t = templates.find(temp => temp.name === e.target.value);
                       if (t) {
                         setComposeSubject(t.subject || "");
-                        setComposeBody(t.bodyTemplate || "");
+                        setComposeBody(t.body || "");
                         setIsAiDraftMode(false); // Switch to manual to show body
                       }
                     }}
