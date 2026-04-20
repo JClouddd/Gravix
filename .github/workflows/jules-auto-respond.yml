@@ -1,0 +1,130 @@
+name: Jules Auto-Respond
+
+# Triggers when Jules comments on an issue asking for clarification
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  auto-respond:
+    runs-on: ubuntu-latest
+    # Only respond to Jules bot comments on open issues
+    if: >
+      github.event.comment.user.login == 'google-labs-jules[bot]' &&
+      github.event.issue.state == 'open'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Analyze Jules comment and respond
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO=${{ github.repository }}
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          COMMENT_BODY="${{ github.event.comment.body }}"
+
+          # Check if Jules is asking a question or reporting inability
+          IS_QUESTION=$(echo "$COMMENT_BODY" | grep -ciE "\?|clarif|question|unclear|which approach|should I|can you|please confirm|not sure|need more|could you" || true)
+          IS_UNABLE=$(echo "$COMMENT_BODY" | grep -ciE "unable|cannot|can't|couldn't|impossible|not possible|failed to|error|blocked" || true)
+          IS_DONE=$(echo "$COMMENT_BODY" | grep -ciE "completed|done|finished|implemented|ready for review|created.*pull request|opened.*PR" || true)
+
+          if [ "$IS_DONE" -gt "0" ]; then
+            echo "Jules reports task complete — no action needed"
+            exit 0
+          fi
+
+          # Build project context to help Jules
+          PROJECT_CONTEXT="## 📋 Project Context (Auto-Generated)
+
+          **Tech Stack:**
+          - Next.js 16+ with App Router (\`src/app/\`)
+          - React 19 (client components use \`'use client'\`)
+          - Firebase Admin SDK (\`@/lib/firebaseAdmin\` → \`adminDb\`, \`adminAuth\`)
+          - Gemini AI (\`@/lib/geminiClient\` → \`chat()\`, \`generate()\`)
+          - Google Workspace APIs (\`@/lib/googleAuth\` → Gmail, Calendar, Tasks, Contacts, Drive)
+          - Error logging (\`@/lib/errorLogger\` → \`logRouteError(source, title, error, route)\`)
+
+          **Key Patterns:**
+          - API routes: \`src/app/api/{feature}/route.js\` using \`NextResponse\` or \`Response.json()\`
+          - All API catch blocks call \`logRouteError()\` for error persistence
+          - OAuth tokens stored in Firestore: \`settings/google_oauth\` (accessToken, refreshToken, expiresAt)
+          - Client components go in \`src/components/modules/\` (e.g., \`AgentsModule.js\`, \`EmailModule.js\`)
+          - CSS uses vanilla CSS with variables from \`globals.css\`
+
+          **Firestore Collections:**
+          - \`settings/\` — app config, OAuth tokens, preferences
+          - \`health_checks/\` — health history
+          - \`system_errors/\` — centralized error log
+          - \`knowledge_base/\` — ingested knowledge documents
+          - \`api_usage/\` — cost/token tracking
+
+          **Available Libraries (already in package.json):**
+          - \`@google/generative-ai\` — Gemini SDK
+          - \`firebase-admin\` — Firestore, Auth, Messaging
+          - \`react-markdown\`, \`remark-gfm\` — Markdown rendering
+          - \`framer-motion\` — Animations
+
+          **Rules:**
+          - Never use \`export default\` for API routes — use named exports (\`GET\`, \`POST\`, etc.)
+          - Always import \`logRouteError\` from \`@/lib/errorLogger\` in API routes
+          - Use \`Response.json()\` or \`NextResponse.json()\` for responses
+          - Google API calls should check for token expiry and refresh via \`refreshAccessToken()\`
+          "
+
+          if [ "$IS_UNABLE" -gt "0" ]; then
+            # Jules can't complete - provide context + escalate
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$PROJECT_CONTEXT
+
+          ---
+
+          **@jules** — The above context should help. If you are still blocked after reviewing this context, please describe exactly what is preventing completion so we can adjust the task.
+
+          *If Jules remains blocked, @JClouddd will be notified for manual review.*
+
+          *Auto-responded by Jules Auto-Respond*"
+
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "jules-blocked"
+
+          elif [ "$IS_QUESTION" -gt "0" ]; then
+            # Jules is asking a question - provide context
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$PROJECT_CONTEXT
+
+          ---
+
+          **@jules** — The above project context should answer common questions about the codebase. Please proceed with your implementation using these patterns. If you still have a specific question, please ask it clearly.
+
+          *Auto-responded by Jules Auto-Respond*"
+          fi
+
+      - name: Handle Jules blocked escalation
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO=${{ github.repository }}
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+
+          # Check if Jules has been blocked on this issue for multiple comments
+          BLOCKED_COMMENTS=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json comments \
+            --jq '[.comments[] | select(.user.login == "google-labs-jules[bot]") | select(.body | test("unable|cannot|can.t|blocked|failed"; "i"))] | length')
+
+          if [ "$BLOCKED_COMMENTS" -ge "2" ]; then
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "needs-attention"
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "## 🚨 Jules Blocked — Manual Review Required
+
+          Jules has reported being blocked on this issue multiple times.
+
+          **@JClouddd** — Please review this issue and either:
+          1. Simplify the task description
+          2. Break it into smaller sub-issues
+          3. Provide the missing information Jules needs
+          4. Reassign to a different approach
+
+          *Automated escalation by Jules Auto-Respond*"
+          fi

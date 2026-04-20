@@ -1,0 +1,107 @@
+name: Jules Stale Issue Monitor
+
+# Runs every 6 hours to catch stale issues
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-stale:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check for stale Jules issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO=${{ github.repository }}
+
+          # Get all open issues that have been assigned to Jules (tagged with @jules)
+          # but have had no activity in 24 hours
+          ISSUES=$(gh issue list \
+            --repo "$REPO" \
+            --state open \
+            --limit 50 \
+            --json number,title,updatedAt,comments,labels)
+
+          echo "$ISSUES" | jq -c '.[]' | while read -r ISSUE; do
+            NUMBER=$(echo "$ISSUE" | jq -r '.number')
+            TITLE=$(echo "$ISSUE" | jq -r '.title')
+            UPDATED=$(echo "$ISSUE" | jq -r '.updatedAt')
+            LABELS=$(echo "$ISSUE" | jq -r '[.labels[].name] | join(",")')
+            COMMENT_COUNT=$(echo "$ISSUE" | jq -r '.comments | length')
+
+            # Skip issues with critical or auto-correct labels (special handling)
+            if echo "$LABELS" | grep -q "critical"; then
+              continue
+            fi
+
+            # Calculate hours since last update
+            UPDATED_EPOCH=$(date -d "$UPDATED" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$UPDATED" +%s 2>/dev/null || echo "0")
+            NOW_EPOCH=$(date +%s)
+            HOURS_STALE=$(( (NOW_EPOCH - UPDATED_EPOCH) / 3600 ))
+
+            if [ "$HOURS_STALE" -ge "24" ]; then
+              echo "⚠️ Issue #$NUMBER ($TITLE) is stale — $HOURS_STALE hours since last activity"
+
+              # Check if we already pinged recently (avoid spam)
+              LAST_COMMENT=$(gh issue view "$NUMBER" --repo "$REPO" --json comments --jq '.comments[-1].body // ""')
+              if echo "$LAST_COMMENT" | grep -q "Stale Issue Reminder"; then
+                # Already pinged, escalate instead
+                echo "Already pinged, escalating #$NUMBER"
+                gh issue edit "$NUMBER" --repo "$REPO" --add-label "needs-attention"
+                gh issue comment "$NUMBER" --repo "$REPO" --body "## 🚨 Escalation: Still No Activity
+
+          This issue has had no activity for **${HOURS_STALE} hours** even after a reminder.
+
+          **Manual review required** — @JClouddd please check if this task should be:
+          - Re-assigned to Jules with more context
+          - Broken into smaller sub-tasks
+          - Deprioritized or closed
+
+          *Automated by Jules Stale Monitor*"
+              else
+                # First ping
+                gh issue comment "$NUMBER" --repo "$REPO" --body "## ⏰ Stale Issue Reminder
+
+          This issue has had no activity for **${HOURS_STALE} hours**.
+
+          @jules If you need more context to complete this task, please comment with your questions.
+          If this task is blocked, please explain what is blocking you.
+
+          *Automated by Jules Stale Monitor*"
+              fi
+            fi
+          done
+
+      - name: Check for unresponded Jules questions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO=${{ github.repository }}
+
+          # Find issues where the last comment is from Jules (asking a question)
+          ISSUES=$(gh issue list \
+            --repo "$REPO" \
+            --state open \
+            --limit 50 \
+            --json number,title,comments)
+
+          echo "$ISSUES" | jq -c '.[]' | while read -r ISSUE; do
+            NUMBER=$(echo "$ISSUE" | jq -r '.number')
+            LAST_AUTHOR=$(echo "$ISSUE" | jq -r '.comments[-1].author.login // "none"')
+            LAST_BODY=$(echo "$ISSUE" | jq -r '.comments[-1].body // ""')
+
+            # If last comment is from Jules bot and contains a question
+            if [ "$LAST_AUTHOR" = "google-labs-jules[bot]" ]; then
+              if echo "$LAST_BODY" | grep -qiE "\?|clarif|question|unclear|which|should I|can you|please confirm|not sure"; then
+                echo "❓ Issue #$NUMBER has an unanswered Jules question"
+                gh issue edit "$NUMBER" --repo "$REPO" --add-label "jules-needs-input"
+              fi
+            fi
+          done
