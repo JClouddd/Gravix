@@ -1,4 +1,14 @@
-import { describe, it, expect, vi } from 'vitest';
+import { vi } from 'vitest';
+vi.mock('@/lib/firebaseAdmin', () => ({
+  adminDb: {
+    collection: vi.fn().mockReturnValue({
+      doc: vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue({ exists: true, data: () => ({ documentsIngested: 10, documentsStaged: 5 }) })
+      })
+    })
+  }
+}));
+import { describe, it, expect } from 'vitest';
 import { GET } from '../status/route.js';
 import { DOCUMENTATION_SOURCES } from '@/lib/knowledgeEngine';
 

@@ -2,6 +2,7 @@ import { classifyContent, processUrl, createStagingEntry } from "@/lib/knowledge
 import { adminDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
 import { logRouteError } from "@/lib/errorLogger";
+import { generateNotebook } from "@/lib/notebookGenerator";
 
 /**
  * POST /api/knowledge/ingest
@@ -131,7 +132,6 @@ export async function POST(request) {
     // Auto-generate notebook config (pending approval)
     let notebookGenerated = null;
     try {
-      const { generateNotebook } = await import("@/lib/notebookGenerator");
       notebookGenerated = await generateNotebook(entry);
     } catch (err) {
       logRouteError("discovery", "/api/knowledge/ingest error", err, "/api/knowledge/ingest");

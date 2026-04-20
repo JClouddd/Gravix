@@ -8,6 +8,18 @@ vi.mock('@/lib/knowledgeEngine', () => ({
   createStagingEntry: vi.fn(),
 }));
 
+vi.mock('@/lib/firebaseAdmin', () => ({
+  adminDb: {
+    collection: vi.fn().mockReturnThis(),
+    doc: vi.fn().mockReturnThis(),
+    set: vi.fn().mockResolvedValue({}),
+  }
+}));
+
+vi.mock('@/lib/notebookGenerator', () => ({
+  generateNotebook: vi.fn().mockResolvedValue(null),
+}));
+
 describe('POST /api/knowledge/ingest', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -73,7 +85,8 @@ describe('POST /api/knowledge/ingest', () => {
       summary: 'Test summary',
       tags: ['test'],
       status: 'staged',
-      crossref: null
+      crossref: null,
+      notebook: null
     });
     expect(data.message).toContain('Content staged for review');
   });
@@ -200,7 +213,8 @@ describe('POST /api/knowledge/ingest', () => {
       summary: 'Test summary',
       tags: ['test'],
       status: 'staged',
-      crossref: null
+      crossref: null,
+      notebook: null
     });
   });
 });

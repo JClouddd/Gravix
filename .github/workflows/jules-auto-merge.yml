@@ -127,7 +127,7 @@ jobs:
         if: steps.verify.outputs.jules == 'true' && steps.overlap.outputs.safe == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr review ${{ github.event.pull_request.html_url }} --approve
+        run: echo "Skipping gh pr review --approve as GitHub Actions token lacks permission to approve its own PR." || true
 
       - name: Update branch before merge
         if: steps.verify.outputs.jules == 'true' && steps.overlap.outputs.safe == 'true'
