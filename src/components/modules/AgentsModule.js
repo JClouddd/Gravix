@@ -2,11 +2,15 @@
 
 import { useState, useEffect } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
+import ModuleSettingsPanel, { GearButton } from "@/components/shared/ModuleSettingsPanel";
 
 const TABS = ["Roster", "Skills", "Workflow", "Tasks", "Proposals", "History"];
 
 export default function AgentsModule() {
   const [activeTab, setActiveTab] = useState("Roster");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const AGENTS_SETTINGS_SCHEMA = [];
 
   // Skills state
   const [expandedSkillId, setExpandedSkillId] = useState(null);
@@ -365,7 +369,18 @@ export default function AgentsModule() {
             <p className="module-subtitle">7 agents — deploy, monitor, and orchestrate</p>
           </div>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <GearButton onClick={() => setIsSettingsOpen(!isSettingsOpen)} />
+        </div>
       </div>
+
+      <ModuleSettingsPanel
+        moduleId="agents"
+        title="Agents Module Settings"
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={AGENTS_SETTINGS_SCHEMA}
+      />
 
       <div style={{
         display: "flex",

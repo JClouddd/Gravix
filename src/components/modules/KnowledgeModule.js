@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
+import ModuleSettingsPanel, { GearButton } from "@/components/shared/ModuleSettingsPanel";
 import KnowledgeVaultTab from "./knowledge/KnowledgeVaultTab";
 import IngestionTab from "./knowledge/IngestionTab";
 import ScholarChatTab from "./knowledge/ScholarChatTab";
@@ -19,6 +20,9 @@ export default function KnowledgeModule() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [stagedEntries, setStagedEntries] = useState([]);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const KNOWLEDGE_SETTINGS_SCHEMA = [];
 
   // Fetch knowledge status
   useEffect(() => {
@@ -57,12 +61,21 @@ export default function KnowledgeModule() {
             </p>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <span className={`badge ${status?.dataStore?.deployed ? "badge-success" : "badge-warning"}`}>
             {status?.dataStore?.deployed ? "Data Store Active" : "Data Store Pending"}
           </span>
+          <GearButton onClick={() => setIsSettingsOpen(!isSettingsOpen)} />
         </div>
       </div>
+
+      <ModuleSettingsPanel
+        moduleId="knowledge"
+        title="Knowledge Module Settings"
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={KNOWLEDGE_SETTINGS_SCHEMA}
+      />
 
       {/* Tabs */}
       <div style={{
