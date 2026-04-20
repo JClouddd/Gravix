@@ -1,0 +1,123 @@
+{
+  "name": "Gravix Full Platform Build — Waves 1-5",
+  "autoApprove": true,
+  "waves": [
+    {
+      "tasks": [
+        {
+          "title": "feat: Add Sentinel patrol and diagnose API routes",
+          "prompt": "Create two new API routes for the Sentinel diagnostic system.\n\n## Route 1: /api/sentinel/patrol/route.js\n\nGET endpoint that performs a full system health sweep:\n1. Check Firestore connectivity (read from 'system_config')\n2. Check all API route groups are responding (hit /api/health)\n3. Check for recent errors in 'system_errors' collection (last 1 hour)\n4. Check jules_file_locks for stale locks (older than 24 hours)\n5. Return a structured report: { status: 'healthy|degraded|critical', checks: [...], errors: [], stale_locks: [], timestamp }\n\n## Route 2: /api/sentinel/diagnose/route.js\n\nPOST endpoint that performs AI root-cause analysis:\n1. Accept { errorData: { message, source, route, stackTrace? } }\n2. Use the Gemini client (import from '@/lib/geminiClient') with QUICK tier\n3. Prompt Gemini: 'You are a system diagnostic AI. Analyze this error and determine: 1) Root cause, 2) Whether it can be auto-fixed by a coding agent, 3) If fixable, provide a specific prompt for the fix. Return JSON: { diagnosis, severity, julesCanFix: boolean, fixPrompt: string|null, fileLocks: string[] }'\n4. Parse the JSON response and return it\n\nBoth routes should use logRouteError from '@/lib/errorLogger' for error handling.\nBoth routes should use adminDb from '@/lib/firebaseAdmin' for Firestore access.",
+          "files": ["src/app/api/sentinel/patrol/route.js", "src/app/api/sentinel/diagnose/route.js"],
+          "fileLocks": ["src/app/api/sentinel/patrol/route.js", "src/app/api/sentinel/diagnose/route.js"],
+          "acceptanceCriteria": "Both routes exist, export GET/POST respectively, use Firestore and Gemini correctly, and return well-structured JSON responses."
+        },
+        {
+          "title": "feat: Add husky pre-commit lint hook",
+          "prompt": "Add pre-commit linting to the Gravix project using husky and lint-staged.\n\n1. Add husky and lint-staged as devDependencies in package.json\n2. Add a 'prepare' script: 'husky' in package.json scripts\n3. Create .husky/pre-commit with: npx lint-staged\n4. Add lint-staged config to package.json:\n   \"lint-staged\": {\n     \"*.{js,jsx}\": [\"eslint --fix\", \"git add\"]\n   }\n5. Make sure the eslint config in .eslintrc.json or eslint.config.mjs is compatible\n\nDo NOT modify any source files. Only add the tooling config.",
+          "files": ["package.json", ".husky/pre-commit"],
+          "fileLocks": ["package.json", ".husky/pre-commit"],
+          "acceptanceCriteria": "package.json has husky, lint-staged devDependencies and prepare script. .husky/pre-commit exists and runs lint-staged."
+        },
+        {
+          "title": "feat: Add ModuleSettingsPanel shared component",
+          "prompt": "Create a shared settings panel component that can be embedded in any module.\n\nFile: src/components/shared/ModuleSettingsPanel.js\n\nRequirements:\n1. 'use client' directive\n2. Accept props: { moduleId, title, settings, onSave, onReset }\n3. settings is an array of: { key, label, type: 'toggle'|'select'|'text'|'number', value, options?: [] }\n4. Render a clean settings form with:\n   - Toggle switches for boolean settings\n   - Dropdowns for select settings\n   - Text inputs for text/number settings\n5. 'Save' and 'Reset to Defaults' buttons at the bottom\n6. Use inline styles with the Gravix design system (dark theme: bg #1a1a2e, text #e0e0e0, accent #00d4ff)\n7. Export as default\n\nThis component will be imported by individual modules (SettingsModule, AgentsModule, etc.) to provide per-module configuration UI.",
+          "files": ["src/components/shared/ModuleSettingsPanel.js"],
+          "fileLocks": ["src/components/shared/ModuleSettingsPanel.js"],
+          "acceptanceCriteria": "Component renders a settings form with toggles, selects, and text inputs. Uses Gravix dark theme. Exports as default."
+        }
+      ]
+    },
+    {
+      "tasks": [
+        {
+          "title": "feat: Add Health Intelligence API routes for Spoonacular, Edamam, USDA",
+          "prompt": "Create health intelligence API routes that aggregate data from multiple nutrition APIs.\n\n## Route 1: /api/health-intel/nutrition/route.js\n\nGET endpoint for food/nutrition search:\n1. Accept query params: ?q=chicken+breast&source=spoonacular|edamam|usda|all\n2. Source implementations:\n   - Spoonacular: GET https://api.spoonacular.com/food/ingredients/search?query={q}&apiKey={key}\n   - USDA FDC: GET https://api.nal.usda.gov/fdc/v1/foods/search?query={q}&api_key={key}\n   - Edamam: GET https://api.edamam.com/api/food-database/v2/parser?ingr={q}&app_id={id}&app_key={key}\n3. API keys should be read from Firestore collection 'api_keys' documents: 'spoonacular', 'usda_fdc', 'edamam'\n4. Normalize results into: { name, calories, protein, carbs, fat, source, sourceId }\n5. If source=all, query all 3 and merge results\n\n## Route 2: /api/health-intel/research/route.js\n\nGET endpoint for health research from PubMed:\n1. Accept ?q=vitamin+d+deficiency&limit=5\n2. Call NCBI E-utilities: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={q}&retmax={limit}&retmode=json\n3. For each PMID, fetch summary: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={ids}&retmode=json\n4. Return: { articles: [{ pmid, title, authors, journal, pubDate, url }] }\n5. No API key needed for NCBI (public access, 3 req/sec)\n\nUse logRouteError from '@/lib/errorLogger' for error handling.",
+          "files": ["src/app/api/health-intel/nutrition/route.js", "src/app/api/health-intel/research/route.js"],
+          "fileLocks": ["src/app/api/health-intel/nutrition/route.js", "src/app/api/health-intel/research/route.js"],
+          "acceptanceCriteria": "Both routes return structured JSON. Nutrition route queries 3 APIs and normalizes data. Research route queries PubMed and returns article summaries."
+        },
+        {
+          "title": "feat: Wire logRouteError into all remaining API routes",
+          "prompt": "Add error logging to all API routes that don't already have it.\n\nThe pattern to add to every catch block:\n```js\nimport { logRouteError } from '@/lib/errorLogger';\n// In catch:\nlogRouteError('groupName', 'Description of error', error, '/api/route/path');\n```\n\nRoutes that need it (check each — skip if already present):\n- src/app/api/calendar/*.js\n- src/app/api/clients/*.js\n- src/app/api/contacts/*.js\n- src/app/api/deploy/*.js\n- src/app/api/drive/*.js\n- src/app/api/meet/*.js\n- src/app/api/notifications/*.js\n- src/app/api/search/*.js\n- src/app/api/settings/*.js\n- src/app/api/export/*.js\n\nFor each file:\n1. Add the import at the top\n2. Find existing catch blocks\n3. Add logRouteError() call before the Response.json error return\n4. Use the appropriate group name (e.g., 'calendar', 'clients', etc.)\n\nDo NOT modify routes that already import logRouteError.",
+          "files": [
+            "src/app/api/calendar/create/route.js",
+            "src/app/api/calendar/events/route.js",
+            "src/app/api/clients/billing/route.js",
+            "src/app/api/contacts/route.js",
+            "src/app/api/drive/route.js",
+            "src/app/api/meet/actions/route.js",
+            "src/app/api/notifications/send/route.js",
+            "src/app/api/search/route.js",
+            "src/app/api/settings/route.js"
+          ],
+          "fileLocks": [
+            "src/app/api/calendar/create/route.js",
+            "src/app/api/calendar/events/route.js",
+            "src/app/api/clients/billing/route.js",
+            "src/app/api/contacts/route.js",
+            "src/app/api/drive/route.js",
+            "src/app/api/meet/actions/route.js",
+            "src/app/api/notifications/send/route.js",
+            "src/app/api/search/route.js",
+            "src/app/api/settings/route.js"
+          ],
+          "acceptanceCriteria": "All listed API routes import logRouteError and call it in their catch blocks."
+        }
+      ]
+    },
+    {
+      "tasks": [
+        {
+          "title": "feat: Add HealthModule with nutrition search and research tabs",
+          "prompt": "Create a new HealthModule component for the Gravix dashboard.\n\nFile: src/components/modules/HealthModule.js\n\n'use client' directive.\n\nRequirements:\n1. Three tabs: 'Nutrition Search', 'Research', 'Meal Planner'\n2. Nutrition Search tab:\n   - Search input with source selector (All, Spoonacular, USDA, Edamam)\n   - Results grid showing food items with calories, protein, carbs, fat\n   - Calls GET /api/health-intel/nutrition?q={query}&source={source}\n3. Research tab:\n   - Search input for PubMed queries\n   - Results list showing article title, authors, journal, date, link to PubMed\n   - Calls GET /api/health-intel/research?q={query}\n4. Meal Planner tab:\n   - Placeholder with 'Coming Soon' message styled with Gravix theme\n5. Use Gravix dark theme (bg #1a1a2e, cards #16213e, accent #00d4ff, text #e0e0e0)\n6. Loading states with skeleton loaders\n7. Error handling with user-friendly messages\n\nAlso update src/components/GravixDashboard.js to:\n1. Add HealthModule to the lazy imports\n2. Add 'Health' to the navigation menu with a heart icon (💊 or similar)\n3. Render HealthModule when the health nav item is selected",
+          "files": ["src/components/modules/HealthModule.js", "src/components/GravixDashboard.js"],
+          "fileLocks": ["src/components/modules/HealthModule.js", "src/components/GravixDashboard.js"],
+          "acceptanceCriteria": "HealthModule renders with 3 tabs. Nutrition search calls the API and displays results. Research tab queries PubMed. Dashboard navigation includes Health."
+        },
+        {
+          "title": "feat: Add pipeline from-plan Gemini route",
+          "prompt": "Create an API route that converts a markdown implementation plan into pipeline wave JSON using Gemini.\n\nFile: src/app/api/jules/pipeline/from-plan/route.js\n\nPOST endpoint:\n1. Accept { planMarkdown, autoStart: boolean }\n2. Use Gemini client (import from '@/lib/geminiClient') with STANDARD tier\n3. Prompt Gemini with:\n   'You are a build pipeline architect. Convert this implementation plan into a JSON array of waves.\n   Each wave contains tasks that can run in parallel (no file conflicts between tasks in the same wave).\n   Tasks that depend on prior tasks must be in later waves.\n   \n   For each task, generate:\n   - title: conventional commit format (feat:, fix:, chore:)\n   - prompt: detailed instructions for a coding agent\n   - files: list of files that will be read\n   - fileLocks: list of files that will be modified\n   - acceptanceCriteria: what done looks like\n   \n   Return ONLY valid JSON: { waves: [{ tasks: [...] }] }\n   \n   Plan:\n   {planMarkdown}'\n4. Parse the JSON from Gemini response\n5. If autoStart is true, POST the result to /api/jules/pipeline to create and start it\n6. If autoStart is false, return the wave JSON for review\n\nUse logRouteError from '@/lib/errorLogger' for error handling.\nUse adminDb from '@/lib/firebaseAdmin' if needed.",
+          "files": ["src/app/api/jules/pipeline/from-plan/route.js"],
+          "fileLocks": ["src/app/api/jules/pipeline/from-plan/route.js"],
+          "acceptanceCriteria": "Route accepts plan markdown, uses Gemini to generate wave JSON, optionally auto-starts the pipeline."
+        }
+      ]
+    },
+    {
+      "tasks": [
+        {
+          "title": "feat: Add AgentsModule Pipeline tab with real-time status",
+          "prompt": "Add a 'Pipeline' tab to the existing AgentsModule that shows active pipeline status and provides controls.\n\nModify: src/components/modules/AgentsModule.js\n\nAdd a new tab called 'Pipeline' (alongside existing tabs like Tasks, Builder, etc.).\n\nPipeline tab requirements:\n1. On mount, fetch GET /api/jules/pipeline to list all pipelines\n2. For each pipeline, show:\n   - Name, status badge (running=green, paused=yellow, completed=blue, failed=red)\n   - Wave progress bar showing currentWave/totalWaves\n   - Expandable wave details showing each task with:\n     - Title, status badge, session ID link\n     - Triggered time, completed time\n     - Error message if failed\n3. Controls section:\n   - 'Pause' button → PATCH /api/jules/pipeline { id, action: 'pause' }\n   - 'Resume' button → PATCH /api/jules/pipeline { id, action: 'resume' }\n   - 'Skip Wave' button → PATCH /api/jules/pipeline { id, action: 'skip-wave' }\n   - 'Retry Task' button on failed tasks → PATCH /api/jules/pipeline { id, action: 'retry-task', taskIndex, waveNumber }\n4. 'New Pipeline' section:\n   - Textarea to paste implementation plan markdown\n   - 'Generate Waves' button → POST /api/jules/pipeline/from-plan { planMarkdown, autoStart: false }\n   - Preview of generated waves\n   - 'Deploy Pipeline' button → POST /api/jules/pipeline with the generated waves\n5. Auto-refresh every 30 seconds\n6. Use Gravix dark theme (bg #1a1a2e, cards #16213e, accent #00d4ff)\n\nIMPORTANT: The existing AgentsModule has multiple tabs already. Add Pipeline as a NEW tab without breaking existing tabs. Look at the existing tab pattern and follow it exactly.",
+          "files": ["src/components/modules/AgentsModule.js"],
+          "fileLocks": ["src/components/modules/AgentsModule.js"],
+          "acceptanceCriteria": "Pipeline tab shows active pipelines with wave progress bars, task status cards, Pause/Resume/Skip controls, and a New Pipeline form. Auto-refreshes every 30 seconds."
+        },
+        {
+          "title": "feat: Add unified SettingsModule architecture with per-module configs",
+          "prompt": "Refactor the SettingsModule to support a unified settings architecture with per-module configuration pages.\n\nModify: src/components/modules/SettingsModule.js\n\nRequirements:\n1. Replace the current flat settings with a categorized layout:\n   - 'General' section: Theme toggle, notification preferences\n   - 'Integrations' section: Google Workspace status, API key management\n   - 'Modules' section: Per-module settings using ModuleSettingsPanel\n   - 'System' section: Cache controls, data export, danger zone\n2. Left sidebar navigation for section switching\n3. Integrations section:\n   - Shows connection status for Google (Gmail, Calendar, Drive)\n   - Shows status for each API key (Spoonacular, USDA, Edamam, etc.)\n   - 'Manage Keys' button that reads from Firestore 'api_keys' collection\n4. Modules section:\n   - List of all 10 modules with toggles to enable/disable\n   - Click a module to expand its specific settings\n   - Import ModuleSettingsPanel from '@/components/shared/ModuleSettingsPanel'\n5. System section:\n   - 'Clear Cache' button\n   - 'Export Data' button → calls /api/export\n   - 'Reset All Settings' with confirmation dialog\n6. Save all settings to Firestore 'user_settings' collection\n7. Load settings on mount from Firestore\n\nUse Gravix dark theme. Use adminDb/Firestore for persistence.",
+          "files": ["src/components/modules/SettingsModule.js"],
+          "fileLocks": ["src/components/modules/SettingsModule.js"],
+          "acceptanceCriteria": "SettingsModule has categorized sections with sidebar navigation. Integrations show API status. Modules section uses ModuleSettingsPanel. All settings persist to Firestore."
+        }
+      ]
+    },
+    {
+      "tasks": [
+        {
+          "title": "feat: Add Adaptive Intelligence System (AIS) with learning engine",
+          "prompt": "Create the Adaptive Intelligence System — a learning engine that improves Gravix behavior over time.\n\n## File 1: src/lib/aisEngine.js\n\nCore AIS engine:\n1. Export function `recordInteraction(type, input, output, feedback)` — stores user interaction patterns in Firestore 'ais_interactions'\n2. Export function `getRecommendations(context)` — queries recent interactions and uses Gemini to suggest optimizations\n3. Export function `getInsights()` — aggregates interaction data into insights: most used features, common errors, peak usage times\n4. Use adminDb from '@/lib/firebaseAdmin'\n5. Use Gemini QUICK tier for recommendations\n\n## File 2: src/app/api/ais/insights/route.js\n\nGET endpoint:\n1. Call getInsights() from aisEngine\n2. Return { insights: { topFeatures, errorPatterns, usageHours, suggestions } }\n\n## File 3: src/app/api/ais/recommend/route.js\n\nPOST endpoint:\n1. Accept { context: 'What should I work on next?' }\n2. Call getRecommendations(context)\n3. Return { recommendations: [...] }\n\nUse logRouteError for error handling in both routes.",
+          "files": ["src/lib/aisEngine.js", "src/app/api/ais/insights/route.js", "src/app/api/ais/recommend/route.js"],
+          "fileLocks": ["src/lib/aisEngine.js", "src/app/api/ais/insights/route.js", "src/app/api/ais/recommend/route.js"],
+          "acceptanceCriteria": "AIS engine stores interactions, generates recommendations via Gemini, and provides usage insights. Both API routes work and return structured JSON."
+        },
+        {
+          "title": "feat: Add App Check middleware for API route protection",
+          "prompt": "Add Firebase App Check to protect API routes from unauthorized access.\n\n## File 1: src/middleware.js (create or modify)\n\nNext.js middleware that:\n1. Checks for X-Firebase-AppCheck header on all /api/* routes\n2. Skips check for /api/health (public health check)\n3. Skips check if NEXT_PUBLIC_SKIP_APP_CHECK env var is 'true' (for local dev)\n4. If header present, verify the token using Firebase Admin SDK\n5. If invalid → return 401 { error: 'Unauthorized - Invalid App Check token' }\n6. If missing and not skipped → return 401 { error: 'Unauthorized - App Check required' }\n\n## File 2: src/lib/appCheck.js\n\nUtility:\n1. Export verifyAppCheckToken(token) — uses firebase-admin to verify\n2. Handles expired tokens gracefully\n3. Caches verification results for 1 hour\n\nIMPORTANT: Since not all clients may have App Check configured yet, add a grace period. If env APPCHECK_ENFORCEMENT is not 'strict', log warnings but allow requests through. Only block when enforcement is strict.",
+          "files": ["src/middleware.js", "src/lib/appCheck.js"],
+          "fileLocks": ["src/middleware.js", "src/lib/appCheck.js"],
+          "acceptanceCriteria": "Middleware checks App Check tokens on API routes. Grace mode allows requests with warnings. Strict mode blocks unauthorized requests."
+        }
+      ]
+    }
+  ]
+}

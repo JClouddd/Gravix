@@ -14,18 +14,10 @@ jobs:
     # Jules creates PRs under the repo owner's account, not a bot account.
     # Jules branches always end with a numeric session ID suffix (10+ digits).
     # Match: feat/, fix/, refactor/, feature/, jules/, add-, list-, code-health-, optimize-, ui-states-
-    if: >
-      contains(github.head_ref, '-') &&
-      (startsWith(github.head_ref, 'jules/') ||
-       startsWith(github.head_ref, 'feat/') ||
-       startsWith(github.head_ref, 'feature/') ||
-       startsWith(github.head_ref, 'fix/') ||
-       startsWith(github.head_ref, 'refactor/') ||
-       startsWith(github.head_ref, 'add-') ||
-       startsWith(github.head_ref, 'list-') ||
-       startsWith(github.head_ref, 'code-health-') ||
-       startsWith(github.head_ref, 'optimize-') ||
-       startsWith(github.head_ref, 'ui-states-'))
+    # Removed strict branch prefix checks entirely.
+    # We now strictly rely on the "Verify Jules branch" step below to identify
+    # the 10-digit session ID suffix. This avoids breaking pipelines due to minor
+    # typo prefixes (e.g. feat- vs feat/, chore/).
 
     steps:
       - name: Verify Jules branch (session ID suffix)
