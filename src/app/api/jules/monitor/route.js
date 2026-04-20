@@ -239,12 +239,30 @@ export async function GET() {
             break;
           }
 
-          // No action needed
+          // No action needed for these active states
           case "QUEUED":
           case "PLANNING":
           case "IN_PROGRESS":
-          case "COMPLETED":
             break;
+
+          case "COMPLETED": {
+            // Release file locks and auto-trigger queued tasks
+            try {
+              const releaseResult = await releaseLocksAndPromoteQueue(id, title);
+              if (releaseResult.released || releaseResult.triggered > 0) {
+                results.actions.push({
+                  session: id, title,
+                  action: "LOCKS_RELEASED",
+                  detail: `Released ${releaseResult.released} lock(s), triggered ${releaseResult.triggered} queued task(s)`,
+                  triggeredTasks: releaseResult.triggeredTasks,
+                });
+              }
+            } catch (lockErr) {
+              // Lock release is best-effort — don't break monitoring
+              console.error("[monitor] Lock release error:", lockErr.message);
+            }
+            break;
+          }
 
           default: {
             results.actions.push({
@@ -486,4 +504,120 @@ TASK-SPECIFIC GUIDANCE:
 ${specificGuidance}
 
 IMPORTANT: Do NOT ask for further clarification. Make decisions autonomously and proceed with implementation. Create any files that don't exist. Submit your changes when done.`;
+}
+
+/**
+ * Release file locks for a completed session and auto-trigger
+ * any queued tasks that were blocked by those locks.
+ */
+async function releaseLocksAndPromoteQueue(sessionId, title) {
+  const db = adminDb();
+  const result = { released: 0, triggered: 0, triggeredTasks: [] };
+
+  // Find and delete active locks for this session
+  const lockSnap = await db
+    .collection("jules_file_locks")
+    .where("status", "==", "active")
+    .where("sessionId", "==", sessionId)
+    .get();
+
+  for (const doc of lockSnap.docs) {
+    await doc.ref.delete();
+    result.released++;
+  }
+
+  if (result.released === 0) return result;
+
+  // Find queued tasks that were blocked by this session
+  const queueSnap = await db
+    .collection("jules_file_locks")
+    .where("status", "==", "queued")
+    .where("blockedBy", "array-contains", sessionId)
+    .get();
+
+  for (const doc of queueSnap.docs) {
+    const queued = doc.data();
+
+    // Remove this session from blockedBy
+    const remainingBlockers = (queued.blockedBy || []).filter((id) => id !== sessionId);
+
+    if (remainingBlockers.length > 0) {
+      // Still blocked by other sessions — update but don't trigger
+      await doc.ref.update({ blockedBy: remainingBlockers });
+      continue;
+    }
+
+    // No more blockers — trigger the task!
+    try {
+      // Re-check for new conflicts (tasks created after this one was queued)
+      const currentActiveSnap = await db
+        .collection("jules_file_locks")
+        .where("status", "==", "active")
+        .get();
+
+      let hasNewConflict = false;
+      for (const activeLock of currentActiveSnap.docs) {
+        const active = activeLock.data();
+        const activeFiles = active.fileLocks || [];
+        const queuedFiles = queued.fileLocks || [];
+
+        for (const qf of queuedFiles) {
+          for (const af of activeFiles) {
+            if (qf === af || qf.startsWith(af + "/") || af.startsWith(qf + "/")) {
+              hasNewConflict = true;
+              break;
+            }
+          }
+          if (hasNewConflict) break;
+        }
+        if (hasNewConflict) break;
+      }
+
+      if (hasNewConflict) {
+        // New conflict appeared — keep queued
+        continue;
+      }
+
+      // Actually trigger the task via the internal trigger logic
+      const triggerResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_URL || "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app"}/api/jules/trigger`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: queued.prompt,
+            title: queued.title,
+            files: queued.files || [],
+            fileLocks: queued.fileLocks || [],
+            autoApprove: queued.autoApprove !== false,
+            acceptanceCriteria: queued.acceptanceCriteria || "",
+          }),
+        }
+      );
+
+      const triggerResult = await triggerResponse.json();
+
+      if (triggerResult.success && !triggerResult.queued) {
+        // Successfully triggered — delete the queue entry
+        await doc.ref.delete();
+        result.triggered++;
+        result.triggeredTasks.push({
+          title: queued.title,
+          sessionId: triggerResult.sessionId,
+        });
+
+        await logToFirestore(
+          triggerResult.sessionId,
+          queued.title,
+          "queue_promoted",
+          `Auto-triggered after ${title} (${sessionId}) completed`
+        );
+      }
+    } catch (triggerErr) {
+      console.error("[monitor] Failed to auto-trigger queued task:", triggerErr.message);
+      // Don't delete queue entry — it'll be retried next monitor cycle
+    }
+  }
+
+  return result;
 }

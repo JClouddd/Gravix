@@ -88,8 +88,55 @@ jobs:
             echo "⚠️ Timed out after ${MAX_WAIT}s waiting for CI. Proceeding anyway."
           fi
 
-      - name: Update branch before merge
+
+      - name: Check file overlap with other Jules PRs
+        id: overlap
         if: steps.verify.outputs.jules == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+
+          # Get files changed in this PR
+          MY_FILES=$(gh pr diff $PR_NUMBER --name-only | sort)
+          echo "Files in this PR:"
+          echo "$MY_FILES"
+
+          # Get all other open PRs with Jules-style branches (10+ digit suffix)
+          OTHER_PRS=$(gh pr list --state open --json number,headRefName \
+            --jq ".[] | select(.number != $PR_NUMBER) | select(.headRefName | test(\"[0-9]{10,}$\")) | .number")
+
+          OVERLAP_FOUND=false
+          for OTHER in $OTHER_PRS; do
+            OTHER_FILES=$(gh pr diff $OTHER --name-only 2>/dev/null | sort || echo "")
+            if [ -z "$OTHER_FILES" ]; then continue; fi
+
+            OVERLAP=$(comm -12 <(echo "$MY_FILES") <(echo "$OTHER_FILES"))
+            if [ -n "$OVERLAP" ]; then
+              echo "⚠️ File overlap with PR #$OTHER:"
+              echo "$OVERLAP"
+              OVERLAP_FOUND=true
+            fi
+          done
+
+          if [ "$OVERLAP_FOUND" = true ]; then
+            echo "🚫 Blocking auto-merge — file overlap detected with another Jules PR"
+            gh pr edit $PR_NUMBER --add-label "needs-review" 2>/dev/null || true
+            echo "safe=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ No file overlap — safe to auto-merge"
+            echo "safe=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Auto-approve
+        if: steps.verify.outputs.jules == 'true' && steps.overlap.outputs.safe == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr review ${{ github.event.pull_request.html_url }} --approve
+
+      - name: Update branch before merge
+        if: steps.verify.outputs.jules == 'true' && steps.overlap.outputs.safe == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -107,7 +154,7 @@ jobs:
           sleep 5
 
       - name: Auto-merge with retry
-        if: steps.verify.outputs.jules == 'true'
+        if: steps.verify.outputs.jules == 'true' && steps.overlap.outputs.safe == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
