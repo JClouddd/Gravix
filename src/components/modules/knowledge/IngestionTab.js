@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo } from "react";
 const YOUTUBE_REGEX = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)/;
 
 export default function IngestionTab({
+  status,
   stagedEntries,
   setStagedEntries,
   setActiveTab
@@ -179,6 +180,35 @@ export default function IngestionTab({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Data Store Status */}
+      <div className="card" style={{ background: "var(--bg-tertiary)" }}>
+        <h3 className="h4" style={{ marginBottom: 16 }}>Data Store Status</h3>
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+          <div>
+            <span className="caption" style={{ color: "var(--text-secondary)" }}>Name</span>
+            <div className="body-md" style={{ fontWeight: 500 }}>{status?.dataStore?.id || "N/A"}</div>
+          </div>
+          <div>
+            <span className="caption" style={{ color: "var(--text-secondary)" }}>Deployed</span>
+            <div className="body-md">
+              <span className={`badge ${status?.dataStore?.deployed ? "badge-success" : "badge-warning"}`}>
+                {status?.dataStore?.deployed ? "Active" : "Pending"}
+              </span>
+            </div>
+          </div>
+          <div>
+            <span className="caption" style={{ color: "var(--text-secondary)" }}>Documents Ingested</span>
+            <div className="body-md" style={{ fontWeight: 500 }}>{status?.stats?.documentsIngested || 0}</div>
+          </div>
+          <div>
+            <span className="caption" style={{ color: "var(--text-secondary)" }}>Last Sync Time</span>
+            <div className="body-md" style={{ fontWeight: 500 }}>
+              {status?.stats?.lastIngest ? new Date(status.stats.lastIngest).toLocaleString() : "Never"}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Drag and Drop Zone */}
       <div
         className="card"
