@@ -32,7 +32,7 @@ env:
 
   # App
   - variable: NEXT_PUBLIC_BASE_URL
-    value: https://gravix.web.app
+    value: https://gravix--antigravity-hub-jcloud.us-east4.hosted.app
   - variable: USE_ADK_AGENTS
     value: "false"
   - variable: GOOGLE_CLOUD_REGION
