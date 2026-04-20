@@ -21,7 +21,7 @@ export default function ClientsModule() {
   const [clients, setClients] = useState(MOCK_CLIENTS);
 
   const [selectedClient, setSelectedClient] = useState(null);
-  const [activeTab, setActiveTab] = useState("overview"); // overview, billing, communications
+  const [activeTab, setActiveTab] = useState("overview"); // overview, billing, communications, contacts
 
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [billingEntries, setBillingEntries] = useState([]);
@@ -31,6 +31,10 @@ export default function ClientsModule() {
   const [newContract, setNewContract] = useState({ title: "", type: "project", startDate: "", endDate: "", value: "", notes: "", status: "draft" });
   const [communicationsData, setCommunicationsData] = useState({ communications: [], totalEmails: 0, totalMeetings: 0 });
   const [isFetchingData, setIsFetchingData] = useState(false);
+  const [contacts, setContacts] = useState([]);
+  const [isFetchingContacts, setIsFetchingContacts] = useState(false);
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [newContact, setNewContact] = useState({ firstName: "", lastName: "", email: "", phone: "", organization: "" });
 
   const [newBilling, setNewBilling] = useState({ description: "", amount: "", hours: "", date: "", type: "invoice" });
 
@@ -79,6 +83,45 @@ export default function ClientsModule() {
     }
   };
 
+
+  const fetchContacts = async () => {
+    setIsFetchingContacts(true);
+    try {
+      const res = await fetch("/api/contacts");
+      if (res.ok) {
+        const data = await res.json();
+        setContacts(data.contacts || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch contacts", err);
+    } finally {
+      setIsFetchingContacts(false);
+    }
+  };
+
+  const handleAddContact = async (e) => {
+    e.preventDefault();
+    if (!newContact.firstName && !newContact.lastName) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newContact)
+      });
+      if (res.ok) {
+        setNewContact({ firstName: "", lastName: "", email: "", phone: "", organization: "" });
+        setShowContactForm(false);
+        fetchContacts();
+      }
+    } catch (err) {
+      console.error("Failed to add contact", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleAddContract = async (e) => {
     e.preventDefault();
     if (!newContract.title || !newContract.type || !newContract.status) return;
@@ -112,6 +155,10 @@ export default function ClientsModule() {
       } else if (activeTab === "contracts") {
         fetchContracts();
       }
+    }
+
+    if (activeTab === "contacts") {
+      fetchContacts();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient, activeTab]);
@@ -226,6 +273,13 @@ export default function ClientsModule() {
             onClick={() => setActiveTab('communications')}
           >
             Communications
+          </button>
+          <button
+            className={`btn btn-ghost ${activeTab === 'contacts' ? 'active' : ''}`}
+            style={{ borderBottom: activeTab === 'contacts' ? '2px solid var(--primary)' : 'none', borderRadius: 0 }}
+            onClick={() => setActiveTab('contacts')}
+          >
+            Contacts
           </button>
         </div>
 
@@ -367,6 +421,131 @@ export default function ClientsModule() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </div>
+          )}
+
+
+          {activeTab === 'contacts' && (
+            <div className="tab-pane">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                <h3>Google Contacts</h3>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button className="btn btn-secondary" onClick={fetchContacts} disabled={isFetchingContacts}>
+                    {isFetchingContacts ? 'Syncing...' : 'Sync Contacts'}
+                  </button>
+                  <button className="btn btn-primary" onClick={() => setShowContactForm(!showContactForm)}>
+                    + New Contact
+                  </button>
+                </div>
+              </div>
+
+              {showContactForm && (
+                <div className="glass-panel" style={{ marginBottom: "1.5rem", padding: "1.5rem" }}>
+                  <h4>Create New Contact</h4>
+                  <form onSubmit={handleAddContact} style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
+                    <div style={{ display: "flex", gap: "1rem" }}>
+                      <div style={{ flex: 1 }}>
+                        <label className="form-label">First Name</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={newContact.firstName}
+                          onChange={(e) => setNewContact({...newContact, firstName: e.target.value})}
+                          placeholder="First Name"
+                          required
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label className="form-label">Last Name</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={newContact.lastName}
+                          onChange={(e) => setNewContact({...newContact, lastName: e.target.value})}
+                          placeholder="Last Name"
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "1rem" }}>
+                      <div style={{ flex: 1 }}>
+                        <label className="form-label">Email</label>
+                        <input
+                          type="email"
+                          className="form-input"
+                          value={newContact.email}
+                          onChange={(e) => setNewContact({...newContact, email: e.target.value})}
+                          placeholder="email@example.com"
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label className="form-label">Phone</label>
+                        <input
+                          type="tel"
+                          className="form-input"
+                          value={newContact.phone}
+                          onChange={(e) => setNewContact({...newContact, phone: e.target.value})}
+                          placeholder="+1 555-0123"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="form-label">Organization</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={newContact.organization}
+                        onChange={(e) => setNewContact({...newContact, organization: e.target.value})}
+                        placeholder="Company Name"
+                      />
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.5rem" }}>
+                      <button type="button" className="btn btn-ghost" onClick={() => setShowContactForm(false)}>Cancel</button>
+                      <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                        {isSubmitting ? 'Creating...' : 'Create Contact'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {isFetchingContacts && contacts.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)" }}>
+                  Loading contacts...
+                </div>
+              ) : contacts.length > 0 ? (
+                <div className="table-container" style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
+                        <th style={{ padding: "0.75rem", color: "var(--text-secondary)", fontWeight: 500 }}>Name</th>
+                        <th style={{ padding: "0.75rem", color: "var(--text-secondary)", fontWeight: 500 }}>Email</th>
+                        <th style={{ padding: "0.75rem", color: "var(--text-secondary)", fontWeight: 500 }}>Phone</th>
+                        <th style={{ padding: "0.75rem", color: "var(--text-secondary)", fontWeight: 500 }}>Organization</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contacts.map((contact, idx) => (
+                        <tr key={idx} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                          <td style={{ padding: "0.75rem", fontWeight: 500 }}>{contact.name}</td>
+                          <td style={{ padding: "0.75rem" }}>{contact.email || "-"}</td>
+                          <td style={{ padding: "0.75rem" }}>{contact.phone || "-"}</td>
+                          <td style={{ padding: "0.75rem" }}>{contact.organization || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: "3rem", background: "rgba(0,0,0,0.02)", borderRadius: "8px" }}>
+                  <p style={{ color: "var(--text-secondary)", marginBottom: "1rem" }}>No contacts found.</p>
+                  <p style={{ fontSize: "0.85rem", color: "var(--text-tertiary)" }}>
+                    Click &quot;Sync Contacts&quot; to load from Google People API.
+                  </p>
                 </div>
               )}
             </div>
