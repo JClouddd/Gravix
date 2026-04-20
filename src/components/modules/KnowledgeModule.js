@@ -6,12 +6,13 @@ import KnowledgeVaultTab from "./knowledge/KnowledgeVaultTab";
 import IngestionTab from "./knowledge/IngestionTab";
 import ScholarChatTab from "./knowledge/ScholarChatTab";
 import SourcesTab from "./knowledge/SourcesTab";
+import DriveTab from "./knowledge/DriveTab";
 
 /**
  * Knowledge Module — Brain Vault + Ingestion staging + Scholar chat
  * Fully wired to /api/knowledge/* endpoints
  */
-const TABS = ["Knowledge", "Ingestion", "Scholar", "Sources"];
+const TABS = ["Knowledge", "Drive", "Ingestion", "Scholar", "Sources"];
 
 export default function KnowledgeModule() {
   const [activeTab, setActiveTab] = useState("Knowledge");
@@ -109,6 +110,10 @@ export default function KnowledgeModule() {
 
       <div style={{ display: activeTab === "Sources" ? "block" : "none" }}>
         <SourcesTab status={status} />
+      </div>
+
+      <div style={{ display: activeTab === "Drive" ? "block" : "none" }}>
+        <DriveTab />
       </div>
     </div>
   );
