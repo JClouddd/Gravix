@@ -4,6 +4,8 @@
  * Writes to Firestore `system_errors` collection via the ingest API.
  */
 
+import { sendDevOpsAlert } from "@/lib/telegramClient";
+
 const ERROR_SOURCES = [
   "firebase_deploy", "firebase_auth", "firestore",
   "cloud_functions", "github_ci", "jules",
@@ -57,7 +59,15 @@ export async function logError(source, severity, title, message, context = {}) {
  * @param {string} route - The API route path (e.g., "/api/email/inbox")
  */
 export async function logRouteError(source, title, error, route) {
-  return logError(source, "error", title, error?.message || String(error), {
+  const errorMessage = error?.message || String(error);
+
+  // Fire and forget Telegram devops alert
+  const alertText = `🚨 <b>Error Alert</b>\n<b>Source:</b> ${source}\n<b>Route:</b> ${route}\n<b>Title:</b> ${title}\n<b>Message:</b> ${errorMessage}`;
+  sendDevOpsAlert(alertText).catch((err) => {
+    console.error("[ErrorLogger] Failed to send Telegram alert:", err);
+  });
+
+  return logError(source, "error", title, errorMessage, {
     route,
     stack: error?.stack?.split("\n").slice(0, 5).join("\n"),
   });
