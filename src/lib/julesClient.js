@@ -1,11 +1,18 @@
 /**
- * julesClient.js — Jules API Client
+ * julesClient.js — Jules API Client (v1alpha)
  *
- * Interacts with jules.googleapis.com/v1alpha to:
- * - List connected sources (repos)
- * - Create sessions (tasks)
- * - Check session status
- * - Approve plans
+ * Full state machine support:
+ *   QUEUED → PLANNING → WAITING_FOR_PLAN_APPROVAL → IN_PROGRESS → COMPLETED
+ *                    ↘ WAITING_FOR_USER_FEEDBACK ↗
+ *                    ↘ PAUSED ↗
+ *                    ↘ FAILED
+ *
+ * Endpoints:
+ *   - List sources (repos)
+ *   - Create/get/list sessions
+ *   - Approve plans
+ *   - Send messages (for user feedback)
+ *   - List activities (for monitoring)
  *
  * API Key stored in Secret Manager: jules-api-key
  */
@@ -83,19 +90,34 @@ export async function listSessions() {
   return julesRequest("/sessions");
 }
 
-/* ── Send Activity (approve plan, send message) ───────────────── */
+/* ── Approve Plan (dedicated endpoint) ────────────────────────── */
+export async function approvePlan(sessionId) {
+  return julesRequest(`/sessions/${sessionId}:approvePlan`, "POST", {});
+}
+
+/* ── Send Message (for user feedback / unblocking) ────────────── */
+export async function sendMessage(sessionId, message) {
+  return julesRequest(`/sessions/${sessionId}/activities`, "POST", {
+    sendMessage: { message },
+  });
+}
+
+/* ── List Activities (monitor session progress) ───────────────── */
+export async function listActivities(sessionId) {
+  return julesRequest(`/sessions/${sessionId}/activities`);
+}
+
+/* ── Send Activity (approve plan, send message — legacy compat) ── */
 export async function sendActivity(sessionId, { type = "message", content = "" }) {
-  const body = {};
-
   if (type === "approve") {
-    body.approvePlan = {};
+    return approvePlan(sessionId);
   } else if (type === "reject") {
-    body.rejectPlan = { reason: content };
+    return julesRequest(`/sessions/${sessionId}/activities`, "POST", {
+      rejectPlan: { reason: content },
+    });
   } else {
-    body.sendMessage = { message: content };
+    return sendMessage(sessionId, content);
   }
-
-  return julesRequest(`/sessions/${sessionId}/activities`, "POST", body);
 }
 
 /* ── Convenience: Fire-and-Forget Task ────────────────────────── */
@@ -128,6 +150,9 @@ const defaultExport = {
   createSession,
   getSession,
   listSessions,
+  approvePlan,
+  sendMessage,
+  listActivities,
   sendActivity,
   triggerTask,
 };
