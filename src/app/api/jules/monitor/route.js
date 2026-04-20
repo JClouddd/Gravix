@@ -358,6 +358,7 @@ export async function GET() {
               for (let i = 0; i < nextWave.tasks.length; i++) {
                 const task = nextWave.tasks[i];
                 try {
+                  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app";
                   const res = await fetch(`${BASE_URL}/api/jules/trigger`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
