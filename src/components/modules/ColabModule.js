@@ -13,6 +13,19 @@ export default function ColabModule() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState("Pending");
+
+  // Selection state
+  const [selectedNotebookIds, setSelectedNotebookIds] = useState([]);
+
+  const handleSelectNotebook = (id) => {
+    setSelectedNotebookIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+
   // Execution flow state
   const [selectedNotebook, setSelectedNotebook] = useState(null);
   const [parameters, setParameters] = useState({});
@@ -169,7 +182,35 @@ export default function ColabModule() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div style={{
+        display: "flex",
+        gap: 4,
+        marginBottom: 24,
+        borderBottom: "1px solid var(--card-border)",
+      }}>
+        {["Pending", "Approved", "Rejected"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: "10px 18px",
+              fontSize: 14,
+              fontWeight: activeTab === tab ? 600 : 400,
+              color: activeTab === tab ? "var(--accent-hover)" : "var(--text-secondary)",
+              borderBottom: activeTab === tab ? "2px solid var(--accent)" : "2px solid transparent",
+              transition: "all var(--duration-fast) var(--ease-out)",
+              background: "none",
+              cursor: "pointer",
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
       {/* ── Pending Notebooks Review ──────────────────────────── */}
+      <div style={{ display: activeTab === "Pending" ? "block" : "none" }}>
       {pendingNotebooks.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <h3 className="h4" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
@@ -191,6 +232,14 @@ export default function ColabModule() {
 
               return (
               <div key={nb.id} className="card" style={{ borderLeft: `3px solid ${typeInfo.color}` }}>
+                <div style={{ position: "absolute", top: 16, right: 16 }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedNotebookIds.includes(nb.id)}
+                    onChange={() => handleSelectNotebook(nb.id)}
+                    style={{ cursor: "pointer", width: 16, height: 16 }}
+                  />
+                </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div>
                     <div className="h5">{nb.name}</div>
@@ -374,7 +423,10 @@ export default function ColabModule() {
         </div>
       )}
 
+      </div>
+
       {/* ── Active Notebooks ──────────────────────────────────── */}
+      <div style={{ display: activeTab === "Approved" ? "block" : "none" }}>
       {loading ? (
         <div className="empty-state">
           <div className="status-dot pulse" style={{ width: 24, height: 24, background: "var(--accent)" }}></div>
@@ -387,7 +439,15 @@ export default function ColabModule() {
       ) : (
         <div className="grid-auto" style={{ marginBottom: 24 }}>
           {notebooks.map((nb) => (
-            <div key={nb.id || nb.name} className="card" style={{ display: "flex", flexDirection: "column" }}>
+            <div key={nb.id || nb.name} className="card" style={{ display: "flex", flexDirection: "column", position: "relative" }}>
+              <div style={{ position: "absolute", top: 16, right: 16 }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedNotebookIds.includes(nb.id)}
+                    onChange={() => handleSelectNotebook(nb.id)}
+                    style={{ cursor: "pointer", width: 16, height: 16 }}
+                  />
+              </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                 <span style={{ fontSize: 24 }}>{nb.icon || "📓"}</span>
                 <div className="h4">{nb.name}</div>
@@ -521,6 +581,46 @@ export default function ColabModule() {
           </div>
         )}
       </div>
+      </div>
+
+      {/* ── Rejected Notebooks ──────────────────────────────────── */}
+      <div style={{ display: activeTab === "Rejected" ? "block" : "none" }}>
+        <div className="empty-state" style={{ padding: 32 }}>
+          <div className="empty-state-icon">❌</div>
+          <p className="empty-state-title">No rejected notebooks</p>
+          <p className="empty-state-desc">You do not have any rejected notebooks at this time.</p>
+        </div>
+      </div>
+
+      {/* Floating Action Bar */}
+      {selectedNotebookIds.length > 0 && (
+        <div style={{
+          position: "fixed",
+          bottom: 24,
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "var(--bg-secondary)",
+          border: "1px solid var(--card-border)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+          padding: "12px 24px",
+          borderRadius: 32,
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          zIndex: 1000
+        }}>
+          <span className="body-sm" style={{ fontWeight: 600 }}>
+            {selectedNotebookIds.length} selected
+          </span>
+          <div style={{ width: 1, height: 24, background: "var(--card-border)" }} />
+          <button className="btn btn-primary btn-sm">
+            ✅ Batch Approve
+          </button>
+          <button className="btn btn-sm" style={{ background: "var(--error-subtle, rgba(239,68,68,0.1))", color: "var(--error)" }}>
+            ❌ Batch Reject
+          </button>
+        </div>
+      )}
     </div>
   );
 }
