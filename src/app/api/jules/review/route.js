@@ -1,4 +1,5 @@
 import { listSessions, getSession, sendActivity } from "@/lib/julesClient";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET  /api/jules/review — Fetch all sessions with their current status
@@ -61,6 +62,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[/api/jules/review GET]", error);
+    logRouteError("jules", "/api/jules/review error", error, "/api/jules/review");
 
     if (error.message.includes("JULES_API_KEY")) {
       return Response.json({
@@ -115,6 +117,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/jules/review POST]", error);
+    logRouteError("jules", "/api/jules/review error", error, "/api/jules/review");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

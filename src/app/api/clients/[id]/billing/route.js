@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function GET(request, { params }) {
   try {
@@ -22,6 +23,7 @@ export async function GET(request, { params }) {
     return NextResponse.json({ entries }, { status: 200 });
   } catch (error) {
     console.error("Error fetching billing entries:", error);
+    logRouteError("runtime", "/api/clients/[id]/billing error", error, "/api/clients/[id]/billing");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -59,6 +61,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ created: true, entryId: newDocRef.id }, { status: 201 });
   } catch (error) {
     console.error("Error creating billing entry:", error);
+    logRouteError("runtime", "/api/clients/[id]/billing error", error, "/api/clients/[id]/billing");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

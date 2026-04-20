@@ -1,4 +1,5 @@
 import { generate } from "@/lib/geminiClient";
+import { logRouteError } from "@/lib/errorLogger";
 
 const PROJECT = process.env.GOOGLE_CLOUD_PROJECT || "antigravity-hub-jcloud";
 const DATA_STORE = "gravix-knowledge";
@@ -26,6 +27,7 @@ export async function POST(request) {
     try {
       discoveryResults = await searchDataStore(query);
     } catch (err) {
+      logRouteError("discovery", "/api/knowledge/query error", err, "/api/knowledge/query");
       console.warn("[knowledge/query] Data Store search failed, falling back to Gemini:", err.message);
     }
 
@@ -70,6 +72,7 @@ Always cite sources when using search grounding.`,
     });
   } catch (error) {
     console.error("[/api/knowledge/query]", error);
+    logRouteError("discovery", "/api/knowledge/query error", error, "/api/knowledge/query");
     return Response.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

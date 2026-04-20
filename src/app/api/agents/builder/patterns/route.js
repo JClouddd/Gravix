@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { generate } from "@/lib/geminiClient";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function GET() {
   try {
@@ -10,6 +11,7 @@ export async function GET() {
     return NextResponse.json({ patterns });
   } catch (error) {
     console.error("Error fetching code patterns:", error);
+    logRouteError("agent", "/api/agents/builder/patterns error", error, "/api/agents/builder/patterns");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -46,6 +48,7 @@ export async function POST() {
         }
       } catch (err) {
         console.error(`Error fetching files for PR ${pr.number}:`, err);
+        logRouteError("agent", "/api/agents/builder/patterns error", err, "/api/agents/builder/patterns");
       }
       return [];
     });
@@ -92,6 +95,7 @@ ${changesText.slice(0, 50000)} // Limit to avoid token overflow`;
       }
     } catch (e) {
       console.error("Failed to parse Gemini output as JSON", e);
+      logRouteError("agent", "/api/agents/builder/patterns error", e, "/api/agents/builder/patterns");
     }
 
     // 4. Store in Firestore
@@ -119,6 +123,7 @@ ${changesText.slice(0, 50000)} // Limit to avoid token overflow`;
 
   } catch (error) {
     console.error("Error extracting patterns:", error);
+    logRouteError("agent", "/api/agents/builder/patterns error", error, "/api/agents/builder/patterns");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

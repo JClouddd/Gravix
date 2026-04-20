@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { generate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
 import { classifyContent, createStagingEntry } from "@/lib/knowledgeEngine";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/knowledge/ingest-video
@@ -122,7 +123,8 @@ async function fetchYouTubeMetadata(videoId, apiKey) {
       }));
     }
   } catch (err) {
-    console.warn("[ingest-video] YouTube metadata fetch failed:", err.message);
+    logRouteError("discovery", "/api/knowledge/ingest-video error", err, "/api/knowledge/ingest-video");
+      console.warn("[ingest-video] YouTube metadata fetch failed:", err.message);
   }
 
   return metadata;
@@ -291,7 +293,8 @@ export async function POST(request) {
           }
         }
       } catch (retryErr) {
-        console.warn("[ingest-video] Retry extraction failed:", retryErr.message);
+        logRouteError("discovery", "/api/knowledge/ingest-video error", retryErr, "/api/knowledge/ingest-video");
+      console.warn("[ingest-video] Retry extraction failed:", retryErr.message);
       }
     }
 
@@ -417,6 +420,7 @@ export async function POST(request) {
       const { generateNotebook } = await import("@/lib/notebookGenerator");
       notebookGenerated = await generateNotebook(entry);
     } catch (err) {
+      logRouteError("discovery", "/api/knowledge/ingest-video error", err, "/api/knowledge/ingest-video");
       console.warn("[ingest-video] Notebook generation skipped:", err.message);
     }
 
@@ -472,6 +476,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/knowledge/ingest-video]", error);
+    logRouteError("discovery", "/api/knowledge/ingest-video error", error, "/api/knowledge/ingest-video");
     return Response.json(
       { error: error.message || "Video ingestion failed" },
       { status: 500 }

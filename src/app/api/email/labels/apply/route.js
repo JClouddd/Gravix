@@ -1,5 +1,6 @@
 import { applyGmailLabel, refreshAccessToken } from "@/lib/googleAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 async function getAccessToken() {
   const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
@@ -36,6 +37,7 @@ export async function POST(request) {
     return Response.json({ success: true });
   } catch (error) {
     console.error("[/api/email/labels/apply POST]", error);
+    logRouteError("gmail", "/api/email/labels/apply error", error, "/api/email/labels/apply");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

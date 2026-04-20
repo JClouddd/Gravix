@@ -1,5 +1,6 @@
 import { updateTask, refreshAccessToken } from "@/lib/googleAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/tasks/update — Updates a Google Task
@@ -56,6 +57,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/tasks/update]", error);
+    logRouteError("tasks", "/api/tasks/update error", error, "/api/tasks/update");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

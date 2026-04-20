@@ -1,4 +1,5 @@
 import { generate } from "@/lib/geminiClient";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function GET() {
   return Response.json({
@@ -77,6 +78,7 @@ export async function POST(request) {
       analysis = JSON.parse(analysisStr);
     } catch (e) {
       console.error("Failed to parse Gemini output as JSON", analysisStr);
+      logRouteError("meet", "/api/meet/transcripts error", e, "/api/meet/transcripts");
       return Response.json({ error: "Failed to parse analysis." }, { status: 500 });
     }
 
@@ -107,6 +109,7 @@ export async function POST(request) {
 
   } catch (error) {
     console.error("[/api/meet/transcripts] Error:", error);
+    logRouteError("meet", "/api/meet/transcripts error", error, "/api/meet/transcripts");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

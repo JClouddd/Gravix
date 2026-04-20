@@ -1,5 +1,6 @@
 
 import { triggerPipeline } from "@/lib/automationEngine";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/automation/email-pipeline
@@ -36,6 +37,7 @@ export async function POST(request) {
         }
       } catch (err) {
         console.error("Pipeline error for email", email.id, err);
+        logRouteError("runtime", "/api/automation/email-pipeline error", err, "/api/automation/email-pipeline");
         pipelineResults.push({ emailId: email.id, error: err.message });
       }
     }
@@ -49,6 +51,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/automation/email-pipeline]", error);
+    logRouteError("runtime", "/api/automation/email-pipeline error", error, "/api/automation/email-pipeline");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

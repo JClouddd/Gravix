@@ -1,4 +1,5 @@
 import { scholarChat } from "@/lib/knowledgeEngine";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/knowledge/review
@@ -33,6 +34,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/knowledge/review]", error);
+    logRouteError("discovery", "/api/knowledge/review error", error, "/api/knowledge/review");
     return Response.json(
       { error: error.message || "Review chat failed" },
       { status: 500 }

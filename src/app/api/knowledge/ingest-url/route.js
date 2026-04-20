@@ -1,5 +1,6 @@
 import { classifyContent, createStagingEntry } from "@/lib/knowledgeEngine";
 import dns from "dns";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * Validates if an IP is private/local.
@@ -55,7 +56,8 @@ async function validateUrlForSSRF(urlString) {
 
     return true;
   } catch (err) {
-    throw new Error(`Invalid URL or SSRF prevention blocked access: ${err.message}`);
+    logRouteError("discovery", "/api/knowledge/ingest-url error", err, "/api/knowledge/ingest-url");
+      throw new Error(`Invalid URL or SSRF prevention blocked access: ${err.message}`);
   }
 }
 
@@ -110,7 +112,8 @@ export async function POST(request) {
           .trim();
 
       } catch (err) {
-        throw new Error(`Failed to process webpage: ${err.message}`);
+        logRouteError("discovery", "/api/knowledge/ingest-url error", err, "/api/knowledge/ingest-url");
+      throw new Error(`Failed to process webpage: ${err.message}`);
       }
     }
 
@@ -143,6 +146,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/knowledge/ingest-url]", error);
+    logRouteError("discovery", "/api/knowledge/ingest-url error", error, "/api/knowledge/ingest-url");
     return Response.json(
       { error: error.message || "URL Ingestion failed" },
       { status: 500 }

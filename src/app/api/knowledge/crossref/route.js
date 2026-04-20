@@ -1,6 +1,7 @@
 import { adminDb } from "@/lib/firebaseAdmin";
 
 import { structuredGenerate } from "@/lib/geminiClient";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/knowledge/crossref
@@ -35,6 +36,7 @@ export async function POST(request) {
         console.warn("[knowledge/crossref] Knowledge query failed:", await searchRes.text());
       }
     } catch (err) {
+      logRouteError("discovery", "/api/knowledge/crossref error", err, "/api/knowledge/crossref");
       console.warn("[knowledge/crossref] Internal fetch to /api/knowledge/query failed:", err);
     }
 
@@ -118,6 +120,7 @@ ${existingKnowledgeContext}
       });
       crossrefResult = geminiRes.data;
     } catch (err) {
+      logRouteError("discovery", "/api/knowledge/crossref error", err, "/api/knowledge/crossref");
       console.warn("[knowledge/crossref] Gemini structured generation failed:", err);
       // Fallback empty result
     }
@@ -132,12 +135,14 @@ ${existingKnowledgeContext}
     try {
       await adminDb.collection("knowledge_crossrefs").add( crossrefData);
     } catch (dbErr) {
+      logRouteError("discovery", "/api/knowledge/crossref error", dbErr, "/api/knowledge/crossref");
       console.warn("[knowledge/crossref] Failed to save to Firestore:", dbErr);
     }
 
     return Response.json({ success: true, data: crossrefData });
   } catch (error) {
     console.error("[/api/knowledge/crossref] POST error:", error);
+    logRouteError("discovery", "/api/knowledge/crossref error", error, "/api/knowledge/crossref");
     return Response.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }
@@ -159,6 +164,7 @@ export async function GET(request) {
     return Response.json({ success: true, data: results });
   } catch (error) {
     console.error("[/api/knowledge/crossref] GET error:", error);
+    logRouteError("discovery", "/api/knowledge/crossref error", error, "/api/knowledge/crossref");
     return Response.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }

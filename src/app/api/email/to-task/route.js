@@ -1,6 +1,7 @@
 import { refreshAccessToken, googleApiRequest } from "@/lib/googleAuth";
 
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function POST(request) {
   try {
@@ -29,7 +30,8 @@ export async function POST(request) {
           expiresAt: Date.now() + (refreshed.expires_in * 1000),
         });
       } catch (err) {
-        return Response.json({ error: "Token expired and refresh failed." }, { status: 401 });
+        logRouteError("gmail", "/api/email/to-task error", err, "/api/email/to-task");
+      return Response.json({ error: "Token expired and refresh failed." }, { status: 401 });
       }
     }
 
@@ -88,6 +90,7 @@ export async function POST(request) {
 
   } catch (error) {
     console.error("[/api/email/to-task]", error);
+    logRouteError("gmail", "/api/email/to-task error", error, "/api/email/to-task");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

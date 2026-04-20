@@ -6,6 +6,7 @@
 import { generate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /* ── Default Notebooks (always available) ──────────────────────── */
 const DEFAULT_NOTEBOOKS = [
@@ -89,7 +90,8 @@ export async function GET() {
       };
     });
   } catch (err) {
-    console.warn("[colab/execute] Failed to read notebooks from Firestore:", err.message);
+    logRouteError("colab", "/api/colab/execute error", err, "/api/colab/execute");
+      console.warn("[colab/execute] Failed to read notebooks from Firestore:", err.message);
   }
 
   const allNotebooks = [...DEFAULT_NOTEBOOKS, ...dynamicNotebooks];
@@ -113,7 +115,8 @@ export async function POST(request) {
     let body;
     try {
       body = await request.json();
-    } catch(e) {
+    } catch (e) {
+      logRouteError("colab", "/api/colab/execute error", e, "/api/colab/execute");
       return Response.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
@@ -147,7 +150,8 @@ export async function POST(request) {
           };
         }
       } catch (err) {
-        console.warn("[colab/execute] Firestore lookup failed:", err.message);
+        logRouteError("colab", "/api/colab/execute error", err, "/api/colab/execute");
+      console.warn("[colab/execute] Firestore lookup failed:", err.message);
       }
     }
 
@@ -179,6 +183,7 @@ export async function POST(request) {
         costEstimate: notebook.costEstimate
       });
     } catch (workerError) {
+      logRouteError("colab", "/api/colab/execute error", workerError, "/api/colab/execute");
       console.warn("[/api/colab/execute] Worker unavailable, using Gemini:", workerError.message);
 
       // Validate required params
@@ -229,6 +234,7 @@ export async function POST(request) {
     }
   } catch (error) {
     console.error("[/api/colab/execute]", error);
+    logRouteError("colab", "/api/colab/execute error", error, "/api/colab/execute");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

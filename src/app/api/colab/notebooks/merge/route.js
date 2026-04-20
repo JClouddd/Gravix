@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/colab/notebooks/merge
@@ -99,6 +100,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/colab/notebooks/merge]", error);
+    logRouteError("colab", "/api/colab/notebooks/merge error", error, "/api/colab/notebooks/merge");
     return Response.json(
       { error: error.message || "Merge failed" },
       { status: 500 }

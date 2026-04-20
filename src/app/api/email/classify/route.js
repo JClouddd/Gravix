@@ -1,4 +1,5 @@
 import { structuredGenerate } from "@/lib/geminiClient";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function POST(request) {
   try {
@@ -61,6 +62,7 @@ export async function POST(request) {
 
   } catch (error) {
     console.error("[/api/email/classify]", error);
+    logRouteError("gmail", "/api/email/classify error", error, "/api/email/classify");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

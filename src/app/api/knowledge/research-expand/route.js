@@ -1,6 +1,7 @@
 import { generate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/knowledge/research-expand
@@ -69,7 +70,8 @@ export async function POST(request) {
           }
         }
       } catch (err) {
-        console.warn("[research-expand] Failed to fetch linked entry:", err.message);
+        logRouteError("discovery", "/api/knowledge/research-expand error", err, "/api/knowledge/research-expand");
+      console.warn("[research-expand] Failed to fetch linked entry:", err.message);
       }
     }
 
@@ -185,6 +187,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/knowledge/research-expand]", error);
+    logRouteError("discovery", "/api/knowledge/research-expand error", error, "/api/knowledge/research-expand");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }
@@ -248,7 +251,8 @@ Provide a comprehensive research dossier. Return valid JSON:
     dossier.priority = tool.priority;
     return dossier;
   } catch (err) {
-    return {
+    logRouteError("discovery", "/api/knowledge/research-expand error", err, "/api/knowledge/research-expand");
+      return {
       toolName: tool.name,
       error: err.message,
       _tokens: 0,
@@ -304,7 +308,8 @@ For each tool, return JSON:
     mapping._tokens = result.tokens?.total || 0;
     return mapping;
   } catch (err) {
-    return { mappings: [], error: err.message, _tokens: 0 };
+    logRouteError("discovery", "/api/knowledge/research-expand error", err, "/api/knowledge/research-expand");
+      return { mappings: [], error: err.message, _tokens: 0 };
   }
 }
 
@@ -380,7 +385,8 @@ Return a JSON skill specification:
     spec._tokens = result.tokens?.total || 0;
     return spec;
   } catch (err) {
-    return { skillName: title, error: err.message, _tokens: 0 };
+    logRouteError("discovery", "/api/knowledge/research-expand error", err, "/api/knowledge/research-expand");
+      return { skillName: title, error: err.message, _tokens: 0 };
   }
 }
 
@@ -446,6 +452,7 @@ Return JSON validation report:
     validation._tokens = result.tokens?.total || 0;
     return validation;
   } catch (err) {
-    return { overallStatus: "unknown", confidenceScore: 0, error: err.message, _tokens: 0 };
+    logRouteError("discovery", "/api/knowledge/research-expand error", err, "/api/knowledge/research-expand");
+      return { overallStatus: "unknown", confidenceScore: 0, error: err.message, _tokens: 0 };
   }
 }

@@ -1,4 +1,5 @@
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/knowledge/context?domains=video_generation,ai_media
@@ -110,6 +111,7 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error("[/api/knowledge/context]", error);
+    logRouteError("discovery", "/api/knowledge/context error", error, "/api/knowledge/context");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }
@@ -194,6 +196,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/knowledge/context POST]", error);
+    logRouteError("discovery", "/api/knowledge/context error", error, "/api/knowledge/context");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 
 import { adminDb } from "@/lib/firebaseAdmin";
 import { structuredGenerate } from "@/lib/geminiClient";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function POST(request) {
   try {
@@ -59,6 +60,7 @@ export async function POST(request) {
       }
     } catch (e) {
       console.error("[conductor/analyze] Error parsing gemini response", e);
+      logRouteError("agent", "/api/agents/conductor/analyze error", e, "/api/agents/conductor/analyze");
     }
 
     const proposalsRef = adminDb.collection("agent_proposals");
@@ -80,6 +82,7 @@ export async function POST(request) {
     return Response.json({ analyzed: true, proposals: generatedProposals, timestamp });
   } catch (error) {
     console.error("[conductor/analyze] POST Error:", error);
+    logRouteError("agent", "/api/agents/conductor/analyze error", error, "/api/agents/conductor/analyze");
     return Response.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }
@@ -98,6 +101,7 @@ export async function GET(request) {
     return Response.json({ proposals });
   } catch (error) {
     console.error("[conductor/analyze] GET Error:", error);
+    logRouteError("agent", "/api/agents/conductor/analyze error", error, "/api/agents/conductor/analyze");
     return Response.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }
@@ -115,6 +119,7 @@ export async function PUT(request) {
     return Response.json({ success: true, id, status });
   } catch (error) {
     console.error("[conductor/analyze] PUT Error:", error);
+    logRouteError("agent", "/api/agents/conductor/analyze error", error, "/api/agents/conductor/analyze");
     return Response.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }

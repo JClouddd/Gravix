@@ -1,4 +1,5 @@
 import { getAuthUrl } from "@/lib/googleAuth";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/auth/connect
@@ -13,7 +14,8 @@ export async function GET(request) {
     const authUrl = getAuthUrl(redirectUri);
     return Response.redirect(authUrl, 302);
   } catch (error) {
-    // If OAuth isn't configured yet, return a helpful error
+    logRouteError("firebase_auth", "/api/auth/connect error", error, "/api/auth/connect");
+      // If OAuth isn't configured yet, return a helpful error
     return Response.json({
       error: "OAuth not configured",
       message: error.message,

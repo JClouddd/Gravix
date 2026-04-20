@@ -1,5 +1,6 @@
 import { getTaskLists, getTasks, refreshAccessToken, updateTask } from "@/lib/googleAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function GET() {
   try {
@@ -27,7 +28,8 @@ export async function GET() {
           expiresAt: Date.now() + (refreshed.expires_in * 1000),
         });
       } catch (err) {
-        return Response.json({
+        logRouteError("tasks", "/api/tasks/list error", err, "/api/tasks/list");
+      return Response.json({
           connected: false,
           connectUrl: "/api/auth/connect",
           lists: [],
@@ -72,6 +74,7 @@ export async function GET() {
         });
       } catch (e) {
         console.error(`Failed to fetch tasks for list ${list.id}`, e);
+        logRouteError("tasks", "/api/tasks/list error", e, "/api/tasks/list");
         return [];
       }
     });
@@ -86,6 +89,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[/api/tasks/list]", error);
+    logRouteError("tasks", "/api/tasks/list error", error, "/api/tasks/list");
 
     if (error.message === "TOKEN_EXPIRED") {
       return Response.json({
@@ -122,7 +126,8 @@ export async function POST(request) {
           expiresAt: Date.now() + (refreshed.expires_in * 1000),
         });
       } catch (err) {
-        return Response.json({ error: "Token expired and refresh failed." }, { status: 401 });
+        logRouteError("tasks", "/api/tasks/list error", err, "/api/tasks/list");
+      return Response.json({ error: "Token expired and refresh failed." }, { status: 401 });
       }
     }
 
@@ -144,12 +149,14 @@ export async function POST(request) {
         }
       } catch (e) {
         console.error(`Failed to process tasks for list ${list.id}`, e);
+        logRouteError("tasks", "/api/tasks/list error", e, "/api/tasks/list");
       }
     }
 
     return Response.json({ success: true, closedTasksCount: closedCount });
   } catch (error) {
     console.error("[/api/tasks/list POST]", error);
+    logRouteError("tasks", "/api/tasks/list error", error, "/api/tasks/list");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

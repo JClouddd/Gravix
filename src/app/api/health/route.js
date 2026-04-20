@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function GET(request) {
   const origin = new URL(request.url).origin;
@@ -18,7 +19,8 @@ export async function GET(request) {
     if (!res.ok) throw new Error("Gemini returned non-OK");
     services.gemini = { status: "pass", latency: Date.now() - start };
   } catch (error) {
-    services.gemini = { status: "fail", error: error.message };
+    logRouteError("runtime", "/api/health error", error, "/api/health");
+      services.gemini = { status: "fail", error: error.message };
     overallStatus = "down"; // critical failure
   }
 
@@ -33,7 +35,8 @@ export async function GET(request) {
       throw new Error("Knowledge store not deployed");
     }
   } catch (error) {
-    services.knowledge = { status: "fail", error: error.message };
+    logRouteError("runtime", "/api/health error", error, "/api/health");
+      services.knowledge = { status: "fail", error: error.message };
     if (overallStatus !== "down") overallStatus = "degraded";
   }
 
@@ -58,7 +61,8 @@ export async function GET(request) {
       if (overallStatus !== "down") overallStatus = "degraded";
     }
   } catch (error) {
-    services.firestore = { status: "fail", error: error.message };
+    logRouteError("runtime", "/api/health error", error, "/api/health");
+      services.firestore = { status: "fail", error: error.message };
     services.gmail = { status: "fail", error: "Firestore down" };
     services.calendar = { status: "fail", error: "Firestore down" };
     if (overallStatus !== "down") overallStatus = "degraded";
@@ -72,7 +76,8 @@ export async function GET(request) {
     if (!res.ok) throw new Error("Jules returned non-OK");
     services.jules = { status: "pass", latency: Date.now() - start, sessions: data.sessions?.length || 0 };
   } catch (error) {
-    services.jules = { status: "fail", error: error.message };
+    logRouteError("runtime", "/api/health error", error, "/api/health");
+      services.jules = { status: "fail", error: error.message };
     if (overallStatus !== "down") overallStatus = "degraded";
   }
 
@@ -94,6 +99,7 @@ export async function GET(request) {
     });
   } catch (err) {
     console.error("Failed to write health history:", err);
+    logRouteError("runtime", "/api/health error", err, "/api/health");
   }
 
   // Get uptime
@@ -104,6 +110,7 @@ export async function GET(request) {
     uptime = histData.uptime;
   } catch (err) {
     console.error("Failed to fetch health history:", err);
+    logRouteError("runtime", "/api/health error", err, "/api/health");
   }
 
   return NextResponse.json({ ...healthData, uptime });

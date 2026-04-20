@@ -1,5 +1,6 @@
 import { listCalendars, getCalendarEventsMulti, refreshAccessToken } from "@/lib/googleAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/calendar/events — Fetches events from ALL user calendars
@@ -31,7 +32,8 @@ export async function GET() {
           expiresAt: Date.now() + (refreshed.expires_in * 1000),
         });
       } catch (err) {
-        return Response.json({
+        logRouteError("calendar", "/api/calendar/events error", err, "/api/calendar/events");
+      return Response.json({
           connected: false,
           connectUrl: "/api/auth/connect",
           events: [],
@@ -119,6 +121,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[/api/calendar/events]", error);
+    logRouteError("calendar", "/api/calendar/events error", error, "/api/calendar/events");
 
     if (error.message === "TOKEN_EXPIRED") {
       return Response.json({

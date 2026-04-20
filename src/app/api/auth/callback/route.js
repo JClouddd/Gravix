@@ -1,6 +1,7 @@
 import { exchangeCode } from "@/lib/googleAuth";
 
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/auth/callback
@@ -43,6 +44,7 @@ export async function GET(request) {
     return redirectWithMessage("success", "Google Workspace connected successfully!");
   } catch (err) {
     console.error("[/api/auth/callback]", err);
+    logRouteError("firebase_auth", "/api/auth/callback error", err, "/api/auth/callback");
     return redirectWithMessage("error", err.message);
   }
 }

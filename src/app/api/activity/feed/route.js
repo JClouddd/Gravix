@@ -1,4 +1,5 @@
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function GET() {
   try {
@@ -22,6 +23,7 @@ export async function GET() {
         });
       });
     } catch (err) {
+      logRouteError("runtime", "/api/activity/feed error", err, "/api/activity/feed");
       console.warn("Failed to fetch agent_routing_log:", err.message);
     }
 
@@ -43,6 +45,7 @@ export async function GET() {
         });
       });
     } catch (err) {
+      logRouteError("runtime", "/api/activity/feed error", err, "/api/activity/feed");
       console.warn("Failed to fetch health_checks:", err.message);
     }
 
@@ -64,6 +67,7 @@ export async function GET() {
         });
       });
     } catch (err) {
+      logRouteError("runtime", "/api/activity/feed error", err, "/api/activity/feed");
       console.warn("Failed to fetch ingestion_staging:", err.message);
     }
 
@@ -85,6 +89,7 @@ export async function GET() {
         });
       });
     } catch (err) {
+      logRouteError("runtime", "/api/activity/feed error", err, "/api/activity/feed");
       console.warn("Failed to fetch api_usage:", err.message);
     }
 
@@ -97,6 +102,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[/api/activity/feed]", error);
+    logRouteError("runtime", "/api/activity/feed error", error, "/api/activity/feed");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

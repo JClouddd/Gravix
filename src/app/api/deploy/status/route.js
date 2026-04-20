@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { logRouteError } from "@/lib/errorLogger";
 
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || "antigravity-hub-jcloud";
 const LOCATION = process.env.GOOGLE_CLOUD_REGION || "us-east4";
@@ -58,6 +59,7 @@ async function getAccessToken() {
     return tokenData.access_token;
   } catch (err) {
     console.error("[deploy/status] Auth error:", err.message);
+    logRouteError("firebase_deploy", "/api/deploy/status error", err, "/api/deploy/status");
     return null;
   }
 }
@@ -188,6 +190,7 @@ export async function GET() {
     });
   } catch (err) {
     console.error("[deploy/status] Error:", err);
+    logRouteError("firebase_deploy", "/api/deploy/status error", err, "/api/deploy/status");
     return NextResponse.json(
       { error: err.message, connected: false },
       { status: 500 }
@@ -224,6 +227,7 @@ async function fallbackCloudBuild(token) {
     return mapCloudBuilds(data.builds || []);
   } catch (err) {
     console.error("[deploy/status] Cloud Build fallback error:", err);
+    logRouteError("firebase_deploy", "/api/deploy/status error", err, "/api/deploy/status");
     return NextResponse.json({
       connected: false,
       error: err.message,

@@ -1,5 +1,6 @@
 import { getGmailInbox, refreshAccessToken, googleApiRequest, listGmailLabels, createGmailLabel, applyGmailLabel } from "@/lib/googleAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/email/inbox — Fetch real Gmail inbox with pagination support
@@ -36,7 +37,8 @@ export async function GET(request) {
           expiresAt: Date.now() + (refreshed.expires_in * 1000),
         });
       } catch (err) {
-        return Response.json({
+        logRouteError("gmail", "/api/email/inbox error", err, "/api/email/inbox");
+      return Response.json({
           connected: false,
           message: "Token expired and refresh failed. Please reconnect Gmail.",
           connectUrl: "/api/auth/connect",
@@ -89,6 +91,7 @@ export async function GET(request) {
                 currentLabels = labelsRes.labels || [];
               } catch (e) {
                 console.error("Failed to list labels:", e);
+                logRouteError("gmail", "/api/email/inbox error", e, "/api/email/inbox");
               }
 
               const categoryToLabel = {}; // Cache label mapping
@@ -123,6 +126,7 @@ export async function GET(request) {
               }
             } catch (lblErr) {
               console.error("Failed to auto-apply labels:", lblErr);
+              logRouteError("gmail", "/api/email/inbox error", lblErr, "/api/email/inbox");
             }
 
             // Trigger pipeline only on first load
@@ -135,6 +139,7 @@ export async function GET(request) {
         }
       } catch (err) {
         console.error("Auto-classification pipeline error:", err);
+        logRouteError("gmail", "/api/email/inbox error", err, "/api/email/inbox");
       }
     }
 
@@ -151,6 +156,7 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error("[/api/email/inbox]", error);
+    logRouteError("gmail", "/api/email/inbox error", error, "/api/email/inbox");
 
     if (error.message === "TOKEN_EXPIRED") {
       return Response.json({
@@ -230,6 +236,7 @@ export async function POST(request) {
           }
         } catch (err) {
           console.error("Auto-classification pipeline error:", err);
+          logRouteError("gmail", "/api/email/inbox error", err, "/api/email/inbox");
         }
       }
 
@@ -251,6 +258,7 @@ export async function POST(request) {
     return Response.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (error) {
     console.error("[/api/email/inbox]", error);
+    logRouteError("gmail", "/api/email/inbox error", error, "/api/email/inbox");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

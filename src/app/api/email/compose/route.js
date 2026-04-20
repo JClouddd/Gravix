@@ -2,6 +2,7 @@ import { sendGmail, refreshAccessToken } from "@/lib/googleAuth";
 import { generate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/email/compose
@@ -33,7 +34,8 @@ export async function POST(request) {
           agent: "courier",
         });
       } catch (err) {
-        console.warn("[costTracker] Failed:", err.message);
+        logRouteError("gmail", "/api/email/compose error", err, "/api/email/compose");
+      console.warn("[costTracker] Failed:", err.message);
       }
 
       let draft;
@@ -92,6 +94,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/email/compose]", error);
+    logRouteError("gmail", "/api/email/compose error", error, "/api/email/compose");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

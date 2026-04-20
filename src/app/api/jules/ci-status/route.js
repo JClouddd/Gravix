@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/jules/ci-status — Fetch latest GitHub Actions CI status
@@ -98,6 +99,7 @@ export async function GET() {
     });
   } catch (err) {
     console.error("CI status fetch error:", err);
+    logRouteError("jules", "/api/jules/ci-status error", err, "/api/jules/ci-status");
     return NextResponse.json(
       { error: "Failed to fetch CI status", message: err.message },
       { status: 500 }

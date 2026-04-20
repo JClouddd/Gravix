@@ -5,6 +5,7 @@ import { adminDb } from "@/lib/firebaseAdmin";
 import { GET as getHealth } from "@/app/api/health/route";
 // Import analyze logic
 import { POST as runAnalyze } from "@/app/api/agents/sentinel/analyze/route";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function POST(request) {
   try {
@@ -19,6 +20,7 @@ export async function POST(request) {
       healthData = await healthRes.json();
     } catch (error) {
       console.error("Failed to run health checks from sentinel:", error);
+      logRouteError("runtime", "/api/automation/sentinel-check error", error, "/api/automation/sentinel-check");
       healthData = { error: error.message };
     }
 
@@ -77,6 +79,7 @@ export async function POST(request) {
           });
         } catch (notifError) {
           console.error("Failed to simulate notification:", notifError);
+          logRouteError("runtime", "/api/automation/sentinel-check error", notifError, "/api/automation/sentinel-check");
         }
       }
     }
@@ -86,6 +89,7 @@ export async function POST(request) {
         await batch.commit();
       } catch (err) {
         console.error("Batch commit failed:", err);
+        logRouteError("runtime", "/api/automation/sentinel-check error", err, "/api/automation/sentinel-check");
       }
     }
 
@@ -97,6 +101,7 @@ export async function POST(request) {
       analyzeResult = await analyzeRes.json();
     } catch (error) {
       console.error("Failed to run sentinel analysis:", error);
+      logRouteError("runtime", "/api/automation/sentinel-check error", error, "/api/automation/sentinel-check");
       analyzeResult = { error: error.message };
     }
 
@@ -108,6 +113,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("Error in sentinel-check:", error);
+    logRouteError("runtime", "/api/automation/sentinel-check error", error, "/api/automation/sentinel-check");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

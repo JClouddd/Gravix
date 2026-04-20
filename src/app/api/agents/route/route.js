@@ -2,6 +2,7 @@ import { structuredGenerate, generate } from "@/lib/geminiClient";
 import { logUsage } from "@/lib/costTracker";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { getAgentContext } from "@/lib/knowledgeEngine";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * Gets a routing decision from Conductor using Gemini structured output.
@@ -67,7 +68,8 @@ async function logRoutingDecision(message, agent) {
       timestamp: new Date().toISOString()
     });
   } catch (err) {
-    console.warn("[agent_routing_log] Failed to log routing decision:", err.message);
+    logRouteError("agent", "/api/agents/route error", err, "/api/agents/route");
+      console.warn("[agent_routing_log] Failed to log routing decision:", err.message);
   }
 }
 
@@ -87,7 +89,8 @@ async function logRoutingCost(routingResult) {
       agent: "conductor",
     });
   } catch (err) {
-    console.warn("[costTracker] Failed to log:", err.message);
+    logRouteError("agent", "/api/agents/route error", err, "/api/agents/route");
+      console.warn("[costTracker] Failed to log:", err.message);
   }
 }
 
@@ -104,7 +107,8 @@ async function getConversationContext(agentName) {
     const memSnapshot = await memoryQuery.get();
     previousSummaries = memSnapshot.docs.map(d => d.data().summary).reverse();
   } catch (err) {
-    console.warn("[agents/route] failed to fetch memory context:", err.message);
+    logRouteError("agent", "/api/agents/route error", err, "/api/agents/route");
+      console.warn("[agents/route] failed to fetch memory context:", err.message);
   }
 
   return previousSummaries.length > 0
@@ -123,12 +127,14 @@ async function executeTools(agent, message, origin, agentResponse) {
       const statusRes = await fetch(`${origin}/api/knowledge/status`);
       if (statusRes.ok) agentResponse.toolData.systemStatus = await statusRes.json();
     } catch (e) {
+      logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
       console.warn("[agents/route] forge status fetch failed:", e.message);
     }
     try {
       const costsRes = await fetch(`${origin}/api/costs/summary`);
       if (costsRes.ok) agentResponse.toolData.costs = await costsRes.json();
     } catch (e) {
+      logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
       console.warn("[agents/route] forge costs fetch failed:", e.message);
     }
   } else if (agent === "scholar") {
@@ -142,6 +148,7 @@ async function executeTools(agent, message, origin, agentResponse) {
         agentResponse.toolData.groundedResults = await queryRes.json();
       }
     } catch (e) {
+      logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
       console.warn("[agents/route] scholar query fetch failed:", e.message);
     }
   } else if (agent === "analyst") {
@@ -157,7 +164,8 @@ async function executeTools(agent, message, origin, agentResponse) {
           agentResponse.toolData.notebooks = data.notebooks;
         }
       } catch (e) {
-         console.warn("[agents/route] analyst colab fetch failed:", e.message);
+         logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
+      console.warn("[agents/route] analyst colab fetch failed:", e.message);
       }
     }
   } else if (agent === "courier") {
@@ -172,7 +180,8 @@ async function executeTools(agent, message, origin, agentResponse) {
           agentResponse.toolData.emailStatus = await emailRes.json();
         }
       } catch (e) {
-        console.warn("[agents/route] courier email fetch failed:", e.message);
+        logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
+      console.warn("[agents/route] courier email fetch failed:", e.message);
       }
     }
   } else if (agent === "builder") {
@@ -187,7 +196,8 @@ async function executeTools(agent, message, origin, agentResponse) {
           agentResponse.toolData.julesStatus = await julesRes.json();
         }
       } catch (e) {
-        console.warn("[agents/route] builder jules fetch failed:", e.message);
+        logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
+      console.warn("[agents/route] builder jules fetch failed:", e.message);
       }
     }
   } else if (agent === "sentinel") {
@@ -195,13 +205,15 @@ async function executeTools(agent, message, origin, agentResponse) {
       const summaryRes = await fetch(`${origin}/api/costs/summary`);
       if (summaryRes.ok) agentResponse.toolData.costSummary = await summaryRes.json();
     } catch (e) {
-       console.warn("[agents/route] sentinel summary fetch failed:", e.message);
+       logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
+      console.warn("[agents/route] sentinel summary fetch failed:", e.message);
     }
     try {
       const breakdownRes = await fetch(`${origin}/api/costs/breakdown`);
       if (breakdownRes.ok) agentResponse.toolData.costBreakdown = await breakdownRes.json();
     } catch (e) {
-       console.warn("[agents/route] sentinel breakdown fetch failed:", e.message);
+       logRouteError("agent", "/api/agents/route error", e, "/api/agents/route");
+      console.warn("[agents/route] sentinel breakdown fetch failed:", e.message);
     }
   }
 }
@@ -222,7 +234,8 @@ async function logAgentCost(agent, agentResult) {
       agent: agent,
     });
   } catch (err) {
-    console.warn("[costTracker] Failed to log:", err.message);
+    logRouteError("agent", "/api/agents/route error", err, "/api/agents/route");
+      console.warn("[costTracker] Failed to log:", err.message);
   }
 }
 
@@ -247,7 +260,8 @@ async function saveConversationMemory(agent, message, agentText) {
       timestamp: new Date().toISOString()
     });
   } catch (err) {
-     console.warn("[agents/route] failed to save memory:", err.message);
+     logRouteError("agent", "/api/agents/route error", err, "/api/agents/route");
+      console.warn("[agents/route] failed to save memory:", err.message);
   }
 }
 
@@ -332,6 +346,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/agents/route]", error);
+    logRouteError("agent", "/api/agents/route error", error, "/api/agents/route");
     return Response.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

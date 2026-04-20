@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { structuredGenerate, generate } from "@/lib/geminiClient";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 async function generateProjectPlan(clientName, needs, notes) {
   const planSchema = {
@@ -31,6 +32,7 @@ async function generateProjectPlan(clientName, needs, notes) {
     return JSON.parse(response.text);
   } catch (err) {
     console.error("Gemini project plan generation failed:", err);
+    logRouteError("runtime", "/api/automation/client-onboard error", err, "/api/automation/client-onboard");
     throw new Error("Failed to generate project plan");
   }
 }
@@ -62,6 +64,7 @@ async function createTasks(tasks, accessToken, clientName) {
       }
     } catch (err) {
       console.error("Task creation error:", err);
+      logRouteError("runtime", "/api/automation/client-onboard error", err, "/api/automation/client-onboard");
     }
   }
   return tasksCreated;
@@ -104,6 +107,7 @@ async function scheduleKickoff(clientName, needs, clientEmail, accessToken) {
     }
   } catch (err) {
     console.error("Kickoff scheduling error:", err);
+    logRouteError("runtime", "/api/automation/client-onboard error", err, "/api/automation/client-onboard");
     return false;
   }
 }
@@ -126,6 +130,7 @@ async function draftWelcomeEmail(clientName, needs, clientEmail) {
     return true;
   } catch (err) {
     console.error("Welcome email drafting error:", err);
+    logRouteError("runtime", "/api/automation/client-onboard error", err, "/api/automation/client-onboard");
     return false;
   }
 }
@@ -168,6 +173,7 @@ export async function POST(request) {
       // 2. Generate project plan using Gemini structured output
       plan = await generateProjectPlan(clientName, needs, notes);
     } catch (err) {
+      logRouteError("runtime", "/api/automation/client-onboard error", err, "/api/automation/client-onboard");
       return NextResponse.json({ error: err.message }, { status: 500 });
     }
 
@@ -191,6 +197,7 @@ export async function POST(request) {
 
   } catch (error) {
     console.error("[/api/automation/client-onboard]", error);
+    logRouteError("runtime", "/api/automation/client-onboard error", error, "/api/automation/client-onboard");
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }

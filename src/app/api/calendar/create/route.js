@@ -1,5 +1,6 @@
 import { createCalendarEvent, refreshAccessToken } from "@/lib/googleAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/calendar/create — Creates a new calendar event
@@ -62,6 +63,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/calendar/create]", error);
+    logRouteError("calendar", "/api/calendar/create error", error, "/api/calendar/create");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

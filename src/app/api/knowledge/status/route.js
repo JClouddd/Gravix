@@ -1,5 +1,6 @@
 import { DOCUMENTATION_SOURCES } from "@/lib/knowledgeEngine";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/knowledge/status
@@ -30,7 +31,8 @@ export async function GET() {
       };
     }
   } catch (err) {
-    console.warn("[knowledge/status] Failed to read stats:", err.message);
+    logRouteError("discovery", "/api/knowledge/status error", err, "/api/knowledge/status");
+      console.warn("[knowledge/status] Failed to read stats:", err.message);
   }
 
   // Check which sources have been ingested
@@ -51,7 +53,8 @@ export async function GET() {
       }
     });
   } catch (err) {
-    console.warn("[knowledge/status] Failed to check source statuses:", err.message);
+    logRouteError("discovery", "/api/knowledge/status error", err, "/api/knowledge/status");
+      console.warn("[knowledge/status] Failed to check source statuses:", err.message);
   }
 
   return Response.json({

@@ -1,4 +1,5 @@
 import { pipelineRegistry, triggerPipeline } from "@/lib/automationEngine";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function POST(request) {
   try {
@@ -22,6 +23,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/automation/trigger]", error);
+    logRouteError("runtime", "/api/automation/trigger error", error, "/api/automation/trigger");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

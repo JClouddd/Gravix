@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function GET(request, { params }) {
   try {
@@ -33,6 +34,7 @@ export async function GET(request, { params }) {
         });
       });
     } catch (e) {
+      logRouteError("runtime", "/api/clients/[id]/communications error", e, "/api/clients/[id]/communications");
       console.warn("Could not fetch emails:", e);
     }
 
@@ -56,6 +58,7 @@ export async function GET(request, { params }) {
         });
       });
     } catch (e) {
+      logRouteError("runtime", "/api/clients/[id]/communications error", e, "/api/clients/[id]/communications");
       console.warn("Could not fetch meetings:", e);
     }
 
@@ -70,6 +73,7 @@ export async function GET(request, { params }) {
 
   } catch (error) {
     console.error("Error fetching communications:", error);
+    logRouteError("runtime", "/api/clients/[id]/communications error", error, "/api/clients/[id]/communications");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

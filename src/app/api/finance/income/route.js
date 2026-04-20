@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebaseAdmin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/finance/income — List income entries + totals
@@ -36,6 +37,7 @@ export async function GET() {
     return Response.json({ entries, totalIncome, monthlyIncome });
   } catch (error) {
     console.error("[/api/finance/income] GET error:", error);
+    logRouteError("runtime", "/api/finance/income error", error, "/api/finance/income");
     return Response.json({ entries: [], totalIncome: 0, monthlyIncome: 0 });
   }
 }
@@ -90,6 +92,7 @@ export async function POST(request) {
     return Response.json({ entries, totalIncome, monthlyIncome });
   } catch (error) {
     console.error("[/api/finance/income] POST error:", error);
+    logRouteError("runtime", "/api/finance/income error", error, "/api/finance/income");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

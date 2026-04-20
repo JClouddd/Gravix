@@ -1,5 +1,6 @@
 import { listGmailLabels, createGmailLabel, refreshAccessToken } from "@/lib/googleAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 async function getAccessToken() {
   const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
@@ -33,6 +34,7 @@ export async function GET(request) {
     return Response.json({ labels: userLabels });
   } catch (error) {
     console.error("[/api/email/labels GET]", error);
+    logRouteError("gmail", "/api/email/labels error", error, "/api/email/labels");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }
@@ -51,6 +53,7 @@ export async function POST(request) {
     return Response.json({ success: true, label: result });
   } catch (error) {
     console.error("[/api/email/labels POST]", error);
+    logRouteError("gmail", "/api/email/labels error", error, "/api/email/labels");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { listCalendars, refreshAccessToken } from "@/lib/googleAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * GET /api/calendar/list — Returns all calendars the user has access to
@@ -49,6 +50,7 @@ export async function GET() {
     return Response.json({ connected: true, calendars });
   } catch (error) {
     console.error("[/api/calendar/list]", error);
+    logRouteError("calendar", "/api/calendar/list error", error, "/api/calendar/list");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

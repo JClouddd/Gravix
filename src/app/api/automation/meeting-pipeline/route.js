@@ -2,6 +2,7 @@
 import { adminDb } from "@/lib/firebaseAdmin";
 import { refreshAccessToken, googleApiRequest } from "@/lib/googleAuth";
 import { generate } from "@/lib/geminiClient";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function POST(request) {
   try {
@@ -32,7 +33,8 @@ export async function POST(request) {
           expiresAt: Date.now() + (refreshed.expires_in * 1000),
         });
       } catch (err) {
-        return Response.json({ error: "Token refresh failed. Please reconnect." }, { status: 401 });
+        logRouteError("runtime", "/api/automation/meeting-pipeline error", err, "/api/automation/meeting-pipeline");
+      return Response.json({ error: "Token refresh failed. Please reconnect." }, { status: 401 });
       }
     }
 
@@ -67,6 +69,7 @@ export async function POST(request) {
         tasksCreated++;
       } catch (err) {
         console.error("Failed to create task", err);
+        logRouteError("runtime", "/api/automation/meeting-pipeline error", err, "/api/automation/meeting-pipeline");
       }
     });
 
@@ -103,6 +106,7 @@ export async function POST(request) {
         eventsCreated++;
       } catch (err) {
         console.error("Failed to create follow-up event", err);
+        logRouteError("runtime", "/api/automation/meeting-pipeline error", err, "/api/automation/meeting-pipeline");
       }
     });
 
@@ -126,6 +130,7 @@ export async function POST(request) {
           await batch.commit();
         } catch (err) {
           console.error("Failed to store decisions batch", err);
+          logRouteError("runtime", "/api/automation/meeting-pipeline error", err, "/api/automation/meeting-pipeline");
         }
       }
     })();
@@ -157,6 +162,7 @@ export async function POST(request) {
         emailDrafted = true;
       } catch (err) {
         console.error("Failed to draft email", err);
+        logRouteError("runtime", "/api/automation/meeting-pipeline error", err, "/api/automation/meeting-pipeline");
       }
     })();
 
@@ -178,6 +184,7 @@ export async function POST(request) {
 
   } catch (error) {
     console.error("[/api/automation/meeting-pipeline] Error:", error);
+    logRouteError("runtime", "/api/automation/meeting-pipeline error", error, "/api/automation/meeting-pipeline");
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

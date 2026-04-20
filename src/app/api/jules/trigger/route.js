@@ -1,6 +1,7 @@
 import { triggerTask } from "@/lib/julesClient";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { logRouteError } from "@/lib/errorLogger";
 
 /**
  * POST /api/jules/trigger — Trigger a Jules task with full context injection
@@ -85,6 +86,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("[/api/jules/trigger POST]", error);
+    logRouteError("jules", "/api/jules/trigger error", error, "/api/jules/trigger");
 
     if (error.message.includes("JULES_API_KEY")) {
       return Response.json({

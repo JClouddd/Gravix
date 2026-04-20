@@ -1,4 +1,5 @@
 import { routeToAgent, listAgentTools } from "@/lib/agentEngine";
+import { logRouteError } from "@/lib/errorLogger";
 
 export async function POST(request, { params }) {
   try {
@@ -17,6 +18,7 @@ export async function POST(request, { params }) {
     return Response.json(response);
   } catch (error) {
     console.error(`[/api/agents/invoke/${params.name}]`, error);
+    logRouteError("agent", "/api/agents/invoke/[name] error", error, "/api/agents/invoke/[name]");
     return Response.json(
       { error: error.message || "Internal server error" },
       { status: 500 }
@@ -35,6 +37,7 @@ export async function GET(request, { params }) {
     });
   } catch (error) {
     console.error(`[/api/agents/invoke/${params.name}] GET`, error);
+    logRouteError("agent", "/api/agents/invoke/[name] error", error, "/api/agents/invoke/[name]");
     return Response.json(
       { error: error.message || "Internal server error" },
       { status: 500 }
