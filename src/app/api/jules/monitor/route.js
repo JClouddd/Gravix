@@ -220,12 +220,32 @@ export async function GET() {
                 });
               }
             } else {
-              results.actions.push({
-                session: id, title,
-                action: "FAILED_EXHAUSTED",
-                detail: "Task failed after 2 retries. Needs manual intervention.",
-              });
-              await logToFirestore(id, title, "failed_exhausted", "Max retries reached");
+              // Check if this belongs to a pipeline -> Sentinel self-healing
+              const lockSnap = await db
+                .collection("jules_file_locks")
+                .where("sessionId", "==", `sessions/${id}`)
+                .limit(1)
+                .get();
+
+              const lockData = lockSnap.empty ? null : lockSnap.docs[0].data();
+
+              if (lockData?.pipelineId) {
+                const healResult = await handlePipelineTaskFailure(id, title, lockData.pipelineId);
+                results.actions.push({
+                  session: id, title,
+                  action: healResult.action || "SENTINEL_HEAL_ATTEMPT",
+                  detail: healResult.detail || "Sentinel self-healing triggered",
+                  pipelineId: lockData.pipelineId,
+                });
+                await logToFirestore(id, title, "sentinel_healing", healResult.detail);
+              } else {
+                results.actions.push({
+                  session: id, title,
+                  action: "FAILED_EXHAUSTED",
+                  detail: "Task failed after 2 retries. Needs manual intervention.",
+                });
+                await logToFirestore(id, title, "failed_exhausted", "Max retries reached");
+              }
             }
             break;
           }
@@ -261,6 +281,21 @@ export async function GET() {
               // Lock release is best-effort — don't break monitoring
               console.error("[monitor] Lock release error:", lockErr.message);
             }
+
+            // Check if this session belongs to a pipeline and advance if ready
+            try {
+              const pipelineResult = await checkAndAdvancePipelines(id, title);
+              if (pipelineResult.action) {
+                results.actions.push({
+                  session: id, title,
+                  action: pipelineResult.action,
+                  detail: pipelineResult.detail,
+                  pipelineId: pipelineResult.pipelineId,
+                });
+              }
+            } catch (pipeErr) {
+              console.error("[monitor] Pipeline check error:", pipeErr.message);
+            }
             break;
           }
 
@@ -281,6 +316,94 @@ export async function GET() {
           detail: actionError.message,
         });
       }
+    }
+    // ── Pipeline sweep: check merging waves even if no sessions just completed ──
+    try {
+      const db = adminDb();
+      const mergingPipes = await db
+        .collection("jules_pipelines")
+        .where("status", "in", ["running", "merging"])
+        .get();
+
+      for (const pipeDoc of mergingPipes.docs) {
+        const pipeline = pipeDoc.data();
+        const currentWave = pipeline.waves[pipeline.currentWave];
+
+        if (currentWave?.status === "merging") {
+          const mergeResult = await checkWavePRsMerged(currentWave, pipeline.currentWave + 1);
+          const mergeStarted = new Date(currentWave.mergeCheckStartedAt).getTime();
+          const elapsed = Date.now() - mergeStarted;
+          const GRACE_MS = 5 * 60 * 1000;
+
+          if (mergeResult.allMerged && elapsed >= GRACE_MS) {
+            currentWave.status = "completed";
+            currentWave.completedAt = new Date().toISOString();
+
+            const nextWaveIdx = pipeline.currentWave + 1;
+
+            if (nextWaveIdx >= pipeline.totalWaves) {
+              pipeline.status = "completed";
+              results.actions.push({
+                session: "pipeline-sweep", title: pipeline.name,
+                action: "PIPELINE_COMPLETED",
+                detail: `🎉 Pipeline "${pipeline.name}" completed! All ${pipeline.totalWaves} waves finished.`,
+                pipelineId: pipeDoc.id,
+              });
+            } else {
+              pipeline.currentWave = nextWaveIdx;
+              const nextWave = pipeline.waves[nextWaveIdx];
+              nextWave.status = "running";
+              nextWave.triggeredAt = new Date().toISOString();
+
+              for (let i = 0; i < nextWave.tasks.length; i++) {
+                const task = nextWave.tasks[i];
+                try {
+                  const res = await fetch(`${BASE_URL}/api/jules/trigger`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      prompt: task.prompt,
+                      title: task.title,
+                      files: task.files,
+                      fileLocks: task.fileLocks,
+                      autoApprove: task.autoApprove,
+                      acceptanceCriteria: task.acceptanceCriteria,
+                      _pipelineId: pipeDoc.id,
+                      _waveNumber: nextWaveIdx,
+                    }),
+                  });
+                  const trigResult = await res.json();
+                  if (trigResult.sessionId) {
+                    task.sessionId = trigResult.sessionId.replace("sessions/", "");
+                    task.status = "triggered";
+                    task.triggeredAt = new Date().toISOString();
+                  }
+                } catch (err) {
+                  task.status = "failed";
+                  task.error = err.message;
+                }
+              }
+
+              results.actions.push({
+                session: "pipeline-sweep", title: pipeline.name,
+                action: "PIPELINE_WAVE_ADVANCED",
+                detail: `Wave ${pipeline.currentWave + 1} of ${pipeline.totalWaves} triggered (grace period done).`,
+                pipelineId: pipeDoc.id,
+              });
+            }
+
+            pipeline.updatedAt = new Date().toISOString();
+            await pipeDoc.ref.update({
+              waves: pipeline.waves,
+              currentWave: pipeline.currentWave,
+              status: pipeline.status,
+              updatedAt: pipeline.updatedAt,
+            });
+          }
+        }
+      }
+    } catch (sweepErr) {
+      console.error("[monitor] Pipeline sweep error:", sweepErr.message);
     }
 
     return Response.json(results);
@@ -620,4 +743,275 @@ async function releaseLocksAndPromoteQueue(sessionId, title) {
   }
 
   return result;
+}
+
+/**
+ * Check if a completed session belongs to a pipeline and advance waves.
+ *
+ * Flow:
+ *   1. Find pipeline containing this sessionId
+ *   2. Mark task as completed
+ *   3. If all tasks in wave completed → set wave to "merging"
+ *   4. For "merging" waves → check if PRs are merged via GitHub API
+ *   5. If all merged + 5 min grace → trigger next wave
+ *   6. If task failed after retries → Sentinel diagnose → auto-fix
+ */
+async function checkAndAdvancePipelines(sessionId, title) {
+  const db = adminDb();
+  const result = { action: null, detail: null, pipelineId: null };
+
+  // Find running pipelines
+  const pipeSnap = await db
+    .collection("jules_pipelines")
+    .where("status", "in", ["running", "merging"])
+    .get();
+
+  if (pipeSnap.empty) return result;
+
+  for (const pipeDoc of pipeSnap.docs) {
+    const pipeline = pipeDoc.data();
+    const pipelineId = pipeDoc.id;
+    const currentWave = pipeline.waves[pipeline.currentWave];
+
+    if (!currentWave) continue;
+
+    // Find this session in the current wave's tasks
+    let taskFound = false;
+    let allCompleted = true;
+
+    for (const task of currentWave.tasks) {
+      const taskSessionId = (task.sessionId || "").replace("sessions/", "");
+
+      if (taskSessionId === sessionId && task.status === "triggered") {
+        task.status = "completed";
+        task.completedAt = new Date().toISOString();
+        taskFound = true;
+        result.pipelineId = pipelineId;
+        result.action = "PIPELINE_TASK_COMPLETED";
+        result.detail = `Task "${task.title}" completed in Wave ${pipeline.currentWave + 1}`;
+      }
+
+      if (task.status !== "completed" && task.status !== "pr_merged") {
+        allCompleted = false;
+      }
+    }
+
+    if (!taskFound) continue;
+
+    // Check if all tasks in this wave are done
+    if (allCompleted && currentWave.status === "running") {
+      currentWave.status = "merging";
+      currentWave.mergeCheckStartedAt = new Date().toISOString();
+      result.action = "PIPELINE_WAVE_MERGING";
+      result.detail = `All tasks in Wave ${pipeline.currentWave + 1} completed. Waiting for PR merges.`;
+    }
+
+    // For waves in "merging" status — check PR merge status
+    if (currentWave.status === "merging") {
+      const mergeResult = await checkWavePRsMerged(currentWave, pipeline.currentWave + 1);
+
+      if (mergeResult.allMerged) {
+        // Check grace period (5 minutes for Firebase deploy)
+        const mergeStarted = new Date(currentWave.mergeCheckStartedAt).getTime();
+        const elapsed = Date.now() - mergeStarted;
+        const GRACE_MS = 5 * 60 * 1000; // 5 minutes
+
+        if (elapsed >= GRACE_MS) {
+          // Grace period passed — advance to next wave!
+          currentWave.status = "completed";
+          currentWave.completedAt = new Date().toISOString();
+
+          const nextWaveIdx = pipeline.currentWave + 1;
+
+          if (nextWaveIdx >= pipeline.totalWaves) {
+            // All waves done!
+            pipeline.status = "completed";
+            result.action = "PIPELINE_COMPLETED";
+            result.detail = `🎉 Pipeline "${pipeline.name}" completed! All ${pipeline.totalWaves} waves finished.`;
+          } else {
+            // Trigger next wave
+            pipeline.currentWave = nextWaveIdx;
+            const nextWave = pipeline.waves[nextWaveIdx];
+            nextWave.status = "running";
+            nextWave.triggeredAt = new Date().toISOString();
+
+            const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app";
+
+            for (let i = 0; i < nextWave.tasks.length; i++) {
+              const task = nextWave.tasks[i];
+              try {
+                const res = await fetch(`${BASE_URL}/api/jules/trigger`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    prompt: task.prompt,
+                    title: task.title,
+                    files: task.files,
+                    fileLocks: task.fileLocks,
+                    autoApprove: task.autoApprove,
+                    acceptanceCriteria: task.acceptanceCriteria,
+                    _pipelineId: pipelineId,
+                    _waveNumber: nextWaveIdx,
+                  }),
+                });
+                const trigResult = await res.json();
+                if (trigResult.sessionId) {
+                  task.sessionId = trigResult.sessionId.replace("sessions/", "");
+                  task.status = "triggered";
+                  task.triggeredAt = new Date().toISOString();
+                }
+              } catch (err) {
+                task.status = "failed";
+                task.error = err.message;
+              }
+            }
+
+            result.action = "PIPELINE_WAVE_ADVANCED";
+            result.detail = `Wave ${pipeline.currentWave} of ${pipeline.totalWaves} triggered with ${nextWave.tasks.length} task(s).`;
+          }
+        } else {
+          result.action = "PIPELINE_WAVE_GRACE_PERIOD";
+          result.detail = `PRs merged. Waiting ${Math.ceil((GRACE_MS - elapsed) / 60000)} more min for Firebase deploy.`;
+        }
+      } else {
+        result.action = "PIPELINE_WAITING_MERGE";
+        result.detail = `Waiting for ${mergeResult.unmerged} PR(s) to merge in Wave ${pipeline.currentWave + 1}.`;
+      }
+    }
+
+    // Save pipeline state
+    pipeline.updatedAt = new Date().toISOString();
+    await pipeDoc.ref.update({
+      waves: pipeline.waves,
+      currentWave: pipeline.currentWave,
+      status: pipeline.status,
+      updatedAt: pipeline.updatedAt,
+    });
+
+    break; // Only process one pipeline per session
+  }
+
+  return result;
+}
+
+/**
+ * Check if all PRs for a wave's tasks have been merged via GitHub API.
+ */
+async function checkWavePRsMerged(wave, waveLabel) {
+  const result = { allMerged: true, unmerged: 0 };
+
+  const githubToken = process.env.GITHUB_TOKEN;
+  if (!githubToken) {
+    // Can't check — assume merged after grace period
+    return result;
+  }
+
+  for (const task of wave.tasks) {
+    if (task.status === "pr_merged") continue;
+
+    // Search for PRs with matching title
+    try {
+      const searchTitle = task.title.replace(/[[\]]/g, "");
+      const res = await fetch(
+        `https://api.github.com/search/issues?q=repo:JClouddd/Gravix+is:pr+"${encodeURIComponent(searchTitle)}"&per_page=5`,
+        {
+          headers: {
+            Authorization: `token ${githubToken}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+        }
+      );
+
+      if (!res.ok) {
+        // API error — assume not merged yet but don't block forever
+        result.unmerged++;
+        result.allMerged = false;
+        continue;
+      }
+
+      const data = await res.json();
+      const matchingPR = data.items?.find(
+        (pr) => pr.pull_request?.merged_at != null
+      );
+
+      if (matchingPR) {
+        task.status = "pr_merged";
+      } else {
+        result.unmerged++;
+        result.allMerged = false;
+      }
+    } catch {
+      // Network error — skip this check
+      result.unmerged++;
+      result.allMerged = false;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Handle a failed pipeline task — use Sentinel to diagnose and auto-fix.
+ * Called from the FAILED handler when a session belongs to a pipeline.
+ */
+async function handlePipelineTaskFailure(sessionId, title, pipelineId) {
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app";
+
+  try {
+    // Call Sentinel diagnose
+    const diagRes = await fetch(`${BASE_URL}/api/sentinel/diagnose`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        errorData: {
+          message: `Jules task failed: ${title}`,
+          source: "jules-pipeline",
+          route: "/api/jules/pipeline",
+        },
+      }),
+    });
+
+    if (!diagRes.ok) return { action: "SENTINEL_UNAVAILABLE" };
+
+    const diagnosis = await diagRes.json();
+
+    if (diagnosis.julesCanFix && diagnosis.fixPrompt) {
+      // Auto-create fix task
+      const fixRes = await fetch(`${BASE_URL}/api/jules/trigger`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: diagnosis.fixPrompt,
+          title: `fix: Auto-repair for "${title}"`,
+          files: diagnosis.fileLocks || [],
+          fileLocks: diagnosis.fileLocks || [],
+          autoApprove: true,
+          acceptanceCriteria: "The fix resolves the original failure.",
+          _pipelineId: pipelineId,
+        }),
+      });
+
+      const fixResult = await fixRes.json();
+      return {
+        action: "SENTINEL_FIX_TRIGGERED",
+        detail: `Sentinel diagnosed and triggered fix. Session: ${fixResult.sessionId}`,
+        diagnosis: diagnosis.diagnosis,
+      };
+    }
+
+    // Sentinel says it can't auto-fix — pause pipeline
+    const db = adminDb();
+    const pipeRef = db.collection("jules_pipelines").doc(pipelineId);
+    await pipeRef.update({
+      status: "paused",
+      updatedAt: new Date().toISOString(),
+    });
+
+    return {
+      action: "PIPELINE_PAUSED",
+      detail: `Sentinel cannot auto-fix. Pipeline paused. Diagnosis: ${diagnosis.diagnosis}`,
+    };
+  } catch (err) {
+    return { action: "SENTINEL_ERROR", detail: err.message };
+  }
 }
