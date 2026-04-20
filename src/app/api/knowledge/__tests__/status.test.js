@@ -3,6 +3,20 @@ import { GET } from '../status/route.js';
 import { DOCUMENTATION_SOURCES } from '@/lib/knowledgeEngine';
 
 // Mock the module since we don't need to actually call it
+
+vi.mock('@/lib/firebaseAdmin', () => ({
+  adminDb: {
+    collection: vi.fn().mockReturnValue({
+      doc: vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue({ exists: false, data: () => ({}) })
+      }),
+      where: vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue({ empty: true, docs: [] })
+      })
+    })
+  }
+}));
+
 vi.mock('@/lib/knowledgeEngine', () => ({
   DOCUMENTATION_SOURCES: [
     { id: 'source1', name: 'Source 1', url: 'http://source1.com' },

@@ -1,4 +1,23 @@
 import { describe, it, expect } from 'vitest';
+
+import { vi } from 'vitest';
+
+vi.mock('@/lib/firebaseAdmin', () => ({
+  adminDb: {
+    collection: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          size: 0,
+          docs: []
+        })
+      }),
+      doc: vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue({ exists: false })
+      })
+    })
+  }
+}));
+
 import { GET } from '../route';
 
 describe('Knowledge Context API', () => {

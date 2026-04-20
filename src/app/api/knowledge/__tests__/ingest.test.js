@@ -2,6 +2,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST } from '../ingest/route.js';
 import { classifyContent, processUrl, createStagingEntry } from '@/lib/knowledgeEngine';
 
+
+vi.mock('@/lib/firebaseAdmin', () => ({
+  adminDb: {
+    collection: vi.fn().mockReturnValue({
+      doc: vi.fn().mockReturnValue({
+        set: vi.fn().mockResolvedValue(true),
+        get: vi.fn().mockResolvedValue({ exists: false, data: () => ({}) })
+      }),
+      add: vi.fn().mockResolvedValue({ id: 'mock-doc-id' }),
+      where: vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue({ empty: true, docs: [] })
+      })
+    })
+  }
+}));
+
 vi.mock('@/lib/knowledgeEngine', () => ({
   classifyContent: vi.fn(),
   processUrl: vi.fn(),
@@ -73,7 +89,8 @@ describe('POST /api/knowledge/ingest', () => {
       summary: 'Test summary',
       tags: ['test'],
       status: 'staged',
-      crossref: null
+      crossref: null,
+      notebook: null
     });
     expect(data.message).toContain('Content staged for review');
   });
@@ -200,7 +217,8 @@ describe('POST /api/knowledge/ingest', () => {
       summary: 'Test summary',
       tags: ['test'],
       status: 'staged',
-      crossref: null
+      crossref: null,
+      notebook: null
     });
   });
 });
