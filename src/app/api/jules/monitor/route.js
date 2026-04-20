@@ -246,6 +246,7 @@ export async function GET() {
                 });
                 await logToFirestore(id, title, "failed_exhausted", "Max retries reached");
               }
+            }
             break;
           }
 
