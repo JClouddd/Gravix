@@ -106,8 +106,8 @@ jobs:
           echo "$MY_FILES"
 
           # Get all other open PRs with Jules-style branches (10+ digit suffix)
-          OTHER_PRS=$(gh pr list --state open --json number,headRefName \
-            --jq ".[] | select(.number != $PR_NUMBER) | select(.headRefName | test(\"[0-9]{10,}$\")) | .number")
+          # using gh api since gh pr list requires a local repository
+          OTHER_PRS=$(gh api repos/$REPO/pulls?state=open --jq ".[] | select(.number != $PR_NUMBER) | select(.head.ref | test(\"[0-9]{10,}$\")) | .number")
 
           OVERLAP_FOUND=false
           for OTHER in $OTHER_PRS; do
