@@ -97,6 +97,7 @@ jobs:
 
       - name: Create Jules fix issue
         if: steps.guard.outputs.looping == 'false'
+        id: create_issue
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -129,25 +130,42 @@ jobs:
 
           $ERROR_LOG
 
-          ## Instructions
-
-          @jules Please fix the CI failures described above.
-
-          **Rules:**
-          1. Read the error logs carefully — fix the ROOT CAUSE, not just symptoms
-          2. If it is a lint error, fix the lint issue in the source file
-          3. If it is a build/import error, fix the import or dependency
-          4. If it is a test failure, fix the test or the code it tests
-          5. Do NOT disable tests or lint rules to make CI pass
-          6. Push fixes to the \`$BRANCH\` branch if it still exists, otherwise create a new branch
-          7. Run \`npm run lint\` and \`npm run test --if-present\` locally before pushing
-
           ## Context
           - The project uses Next.js 16+ with App Router
           - API routes are in \`src/app/api/\`
           - Error logging uses \`logRouteError\` from \`@/lib/errorLogger\`
           - Firebase Admin SDK is in \`@/lib/firebaseAdmin\`
           "
+
+      - name: Trigger Jules task via API
+        if: steps.guard.outputs.looping == 'false'
+        run: |
+          BRANCH=${{ steps.errors.outputs.branch }}
+          COMMIT=${{ steps.errors.outputs.commit }}
+          RUN_ID=${{ steps.errors.outputs.run_id }}
+          ERROR_LOG=$(cat /tmp/error_log.md | head -100)
+
+          # Call the deployed Jules trigger endpoint
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app/api/jules/trigger" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"prompt\": \"CI build failed on branch ${BRANCH} at commit ${COMMIT}. Fix the errors below. CI Run: https://github.com/${{ github.repository }}/actions/runs/${RUN_ID}\n\nError logs:\n${ERROR_LOG}\",
+              \"title\": \"fix: Auto-correct CI failure on ${BRANCH}\",
+              \"autoApprove\": true,
+              \"acceptanceCriteria\": \"1. Fix the root cause of the CI failure\n2. Run npx next lint before committing\n3. Push to a new branch and create a PR\"
+            }")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            SESSION_ID=$(echo "$BODY" | jq -r '.sessionId')
+            echo "✅ Jules task created: $SESSION_ID"
+          else
+            echo "⚠️ Jules API call failed ($HTTP_CODE): $BODY"
+            echo "Falling back to GitHub issue only — Jules will need manual assignment"
+          fi
 
       - name: Alert on infinite loop
         if: steps.guard.outputs.looping == 'true'
