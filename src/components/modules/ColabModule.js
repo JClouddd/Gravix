@@ -28,6 +28,12 @@ export default function ColabModule() {
   const [reviewContent, setReviewContent] = useState(null);
   const [reviewLoading, setReviewLoading] = useState(false);
 
+  // Multi-select and context form state
+  const [selectedNotebooks, setSelectedNotebooks] = useState(new Set());
+  const [showContextForm, setShowContextForm] = useState(false);
+  const [contextForm, setContextForm] = useState({ gitUrl: "", docUrl: "", prompt: "", notes: "" });
+  const [contextSubmitting, setContextSubmitting] = useState(false);
+
   const fetchNotebooks = useCallback(async () => {
     try {
       const response = await fetch("/api/colab/execute");
@@ -45,7 +51,7 @@ export default function ColabModule() {
     }
   }, []);
 
-  useEffect(() => { fetchNotebooks(); }, [fetchNotebooks]);
+  useEffect(() => { Promise.resolve().then(() => fetchNotebooks()); }, [fetchNotebooks]);
 
   const handleRunClick = (notebook) => {
     setSelectedNotebook(notebook);
@@ -154,6 +160,66 @@ export default function ColabModule() {
     }
   };
 
+  // Multi-select handlers
+  const toggleSelectAll = (checked) => {
+    if (checked) {
+      setSelectedNotebooks(new Set(pendingNotebooks.map(nb => nb.id)));
+    } else {
+      setSelectedNotebooks(new Set());
+    }
+  };
+
+  const toggleSelectNotebook = (id) => {
+    setSelectedNotebooks(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBatchAction = async (action) => {
+    const ids = Array.from(selectedNotebooks);
+    if (ids.length === 0) return;
+
+    try {
+      if (action === "jules") {
+        await Promise.all(ids.map(id => fetch("/api/jules/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notebookId: id }) })));
+      } else if (action === "approve") {
+        await Promise.all(ids.map(id => fetch("/api/colab/notebooks/approve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notebookId: id, action: "approve" }) })));
+      } else if (action === "deny") {
+        await Promise.all(ids.map(id => fetch("/api/colab/notebooks/approve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notebookId: id, action: "reject" }) })));
+      } else if (action === "archive") {
+        // Future endpoint
+        console.log("Archive not implemented yet");
+      }
+
+      setSelectedNotebooks(new Set());
+      fetchNotebooks();
+    } catch (err) {
+      console.error(`Batch action ${action} failed:`, err);
+    }
+  };
+
+  // Context Form Handler
+  const handleContextSubmit = async (e) => {
+    e.preventDefault();
+    setContextSubmitting(true);
+    try {
+      await fetch("/api/knowledge/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(contextForm),
+      });
+      setContextForm({ gitUrl: "", docUrl: "", prompt: "", notes: "" });
+      setShowContextForm(false);
+    } catch (err) {
+      console.error("Context submit failed:", err);
+    } finally {
+      setContextSubmitting(false);
+    }
+  };
+
   return (
     <div>
       <div className="module-header">
@@ -169,12 +235,64 @@ export default function ColabModule() {
         </div>
       </div>
 
+      {/* ── Supplementary Input Form ──────────────────────────── */}
+      <div style={{ marginBottom: 24 }}>
+        <button className="btn btn-secondary btn-sm" onClick={() => setShowContextForm(!showContextForm)}>
+          {showContextForm ? "- Hide Context" : "+ Add Context"}
+        </button>
+        {showContextForm && (
+          <div className="card" style={{ marginTop: 12, background: "var(--bg-secondary)", borderRadius: "var(--radius-md)" }}>
+            <h3 className="h5" style={{ marginBottom: 12 }}>Supplementary Context</h3>
+            <form onSubmit={handleContextSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <label className="body-sm" style={{ display: "block", marginBottom: 4 }}>Git Repo URL</label>
+                <input type="url" className="input" placeholder="https://github.com/..." value={contextForm.gitUrl} onChange={(e) => setContextForm({ ...contextForm, gitUrl: e.target.value })} style={{ width: "100%" }} />
+              </div>
+              <div>
+                <label className="body-sm" style={{ display: "block", marginBottom: 4 }}>Documentation URL</label>
+                <input type="url" className="input" placeholder="https://docs..." value={contextForm.docUrl} onChange={(e) => setContextForm({ ...contextForm, docUrl: e.target.value })} style={{ width: "100%" }} />
+              </div>
+              <div>
+                <label className="body-sm" style={{ display: "block", marginBottom: 4 }}>Prompt / Instructions</label>
+                <textarea className="input" rows="3" placeholder="Enter instructions..." value={contextForm.prompt} onChange={(e) => setContextForm({ ...contextForm, prompt: e.target.value })} style={{ width: "100%" }} />
+              </div>
+              <div>
+                <label className="body-sm" style={{ display: "block", marginBottom: 4 }}>Notes</label>
+                <textarea className="input" rows="2" placeholder="Any additional notes..." value={contextForm.notes} onChange={(e) => setContextForm({ ...contextForm, notes: e.target.value })} style={{ width: "100%" }} />
+              </div>
+              <div style={{ alignSelf: "flex-start" }}>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={contextSubmitting}>
+                  {contextSubmitting ? "Submitting..." : "Submit"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+
       {/* ── Pending Notebooks Review ──────────────────────────── */}
       {pendingNotebooks.length > 0 && (
         <div style={{ marginBottom: 24 }}>
+          {selectedNotebooks.size > 0 && (
+            <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg-secondary)", borderBottom: "1px solid var(--card-border)", padding: "8px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, borderRadius: "var(--radius-md)", flexWrap: "wrap", gap: 8 }}>
+              <span className="body-sm" style={{ fontWeight: "bold" }}>{selectedNotebooks.size} selected</span>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button className="btn btn-sm" style={{ background: "var(--accent)", color: "white" }} onClick={() => handleBatchAction("jules")}>Send to Jules</button>
+                <button className="btn btn-sm" style={{ background: "#34a853", color: "white" }} onClick={() => handleBatchAction("approve")}>Approve All</button>
+                <button className="btn btn-sm" style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }} onClick={() => handleBatchAction("archive")}>Archive</button>
+                <button className="btn btn-sm" style={{ background: "transparent", color: "var(--error)", border: "1px solid var(--error)" }} onClick={() => handleBatchAction("deny")}>Deny All</button>
+                <button className="btn btn-sm btn-secondary" onClick={() => toggleSelectAll(false)}>Deselect All</button>
+              </div>
+            </div>
+          )}
+
           <h3 className="h4" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
             📋 Pending Review
             <span className="badge badge-warning">{pendingNotebooks.length}</span>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+              <input type="checkbox" style={{ width: 16, height: 16, accentColor: "var(--accent)" }} checked={selectedNotebooks.size === pendingNotebooks.length && pendingNotebooks.length > 0} onChange={(e) => toggleSelectAll(e.target.checked)} />
+              <span className="body-sm">Select All</span>
+            </div>
           </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {pendingNotebooks.map((nb) => {
@@ -190,8 +308,11 @@ export default function ColabModule() {
               const mergeCandidate = nb.mergeCandidate;
 
               return (
-              <div key={nb.id} className="card" style={{ borderLeft: `3px solid ${typeInfo.color}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+              <div key={nb.id} className="card" style={{ borderLeft: `3px solid ${typeInfo.color}`, position: "relative" }}>
+                <div style={{ position: "absolute", top: 12, left: -10, zIndex: 2 }}>
+                  <input type="checkbox" style={{ width: 16, height: 16, accentColor: "var(--accent)" }} checked={selectedNotebooks.has(nb.id)} onChange={() => toggleSelectNotebook(nb.id)} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, paddingLeft: 12 }}>
                   <div>
                     <div className="h5">{nb.name}</div>
                     <p className="body-sm" style={{ color: "var(--text-secondary)", marginTop: 4 }}>{nb.description}</p>
@@ -336,7 +457,7 @@ export default function ColabModule() {
                           }
                         }}
                       >
-                        🔀 Merge into "{mergeCandidate.name}"
+                        🔀 Merge into &quot;{mergeCandidate.name}&quot;
                       </button>
                     )}
                   </div>
