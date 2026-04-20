@@ -90,7 +90,7 @@ export async function POST(request) {
     };
 
     // Store in Firestore
-    const db = adminDb();
+    const db = adminDb;
     const docRef = await db.collection("jules_pipelines").add(pipeline);
     const pipelineId = docRef.id;
 
@@ -158,7 +158,7 @@ export async function POST(request) {
 // ── GET: Check Pipeline Status ───────────────────────────────
 export async function GET(request) {
   try {
-    const db = adminDb();
+    const db = adminDb;
     const { searchParams } = new URL(request.url);
     const pipelineId = searchParams.get("id");
 
@@ -222,7 +222,7 @@ export async function GET(request) {
 // ── PATCH: Manual Controls ───────────────────────────────────
 export async function PATCH(request) {
   try {
-    const db = adminDb();
+    const db = adminDb;
     const { id, action, taskIndex, waveNumber } = await request.json();
 
     if (!id || !action) {

@@ -25,7 +25,7 @@ import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function GET() {
   try {
-    const db = adminDb();
+    const db = adminDb;
     // Show active locks and queued tasks
     const [activeSnap, queueSnap] = await Promise.all([
       db.collection("jules_file_locks")
@@ -76,7 +76,7 @@ export async function POST(request) {
 
     // ── FILE LOCK CHECK ──────────────────────────────────────
     if (effectiveLocks.length > 0 && !forceNoQueue) {
-      const db = adminDb();
+      const db = adminDb;
 
       // Get all active locks
       const activeSnap = await db
@@ -187,7 +187,7 @@ export async function POST(request) {
     // ── REGISTER FILE LOCKS ──────────────────────────────────
     if (effectiveLocks.length > 0) {
       try {
-        const db = adminDb();
+        const db = adminDb;
         await db.collection("jules_file_locks").add({
           status: "active",
           sessionId: result.sessionId,

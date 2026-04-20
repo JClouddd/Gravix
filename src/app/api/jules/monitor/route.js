@@ -319,7 +319,7 @@ export async function GET() {
     }
     // ── Pipeline sweep: check merging waves even if no sessions just completed ──
     try {
-      const db = adminDb();
+      const db = adminDb;
       const mergingPipes = await db
         .collection("jules_pipelines")
         .where("status", "in", ["running", "merging"])
@@ -503,7 +503,7 @@ export async function POST(request) {
 
 async function logToFirestore(sessionId, title, action, detail) {
   try {
-    const db = adminDb();
+    const db = adminDb;
     await db.collection("jules_monitor_log").add({
       sessionId,
       title,
@@ -518,7 +518,7 @@ async function logToFirestore(sessionId, title, action, detail) {
 
 async function getRetryCount(sessionId) {
   try {
-    const db = adminDb();
+    const db = adminDb;
     const snaps = await db
       .collection("jules_monitor_log")
       .where("sessionId", "==", sessionId)
@@ -532,7 +532,7 @@ async function getRetryCount(sessionId) {
 
 async function checkAlreadyAnswered(sessionId) {
   try {
-    const db = adminDb();
+    const db = adminDb;
     const snaps = await db
       .collection("jules_monitor_log")
       .where("sessionId", "==", sessionId)
@@ -634,7 +634,7 @@ IMPORTANT: Do NOT ask for further clarification. Make decisions autonomously and
  * any queued tasks that were blocked by those locks.
  */
 async function releaseLocksAndPromoteQueue(sessionId, title) {
-  const db = adminDb();
+  const db = adminDb;
   const result = { released: 0, triggered: 0, triggeredTasks: [] };
 
   // Find and delete active locks for this session
@@ -757,7 +757,7 @@ async function releaseLocksAndPromoteQueue(sessionId, title) {
  *   6. If task failed after retries → Sentinel diagnose → auto-fix
  */
 async function checkAndAdvancePipelines(sessionId, title) {
-  const db = adminDb();
+  const db = adminDb;
   const result = { action: null, detail: null, pipelineId: null };
 
   // Find running pipelines
@@ -1000,7 +1000,7 @@ async function handlePipelineTaskFailure(sessionId, title, pipelineId) {
     }
 
     // Sentinel says it can't auto-fix — pause pipeline
-    const db = adminDb();
+    const db = adminDb;
     const pipeRef = db.collection("jules_pipelines").doc(pipelineId);
     await pipeRef.update({
       status: "paused",
