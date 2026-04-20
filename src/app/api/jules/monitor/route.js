@@ -1,33 +1,52 @@
-import { listSessions, getSession, sendActivity } from "@/lib/julesClient";
+import { listSessions, getSession, sendActivity, triggerTask } from "@/lib/julesClient";
 import { logRouteError } from "@/lib/errorLogger";
 import { adminDb } from "@/lib/firebaseAdmin";
 
 /**
- * GET /api/jules/monitor — Monitor all Jules sessions and auto-handle states
+ * GET /api/jules/monitor — Monitor all Jules sessions and auto-handle ALL states
  *
- * Checks every active session and takes action:
- *   - WAITING_FOR_PLAN_APPROVAL → auto-approves
- *   - WAITING_FOR_USER → sends project context + clarification
- *   - FAILED → logs error, re-triggers if under retry limit
- *   - COMPLETED → logs success
+ * Complete state machine:
+ *   - IN_PROGRESS           → no action, still working
+ *   - COMPLETED             → log success, check if PR was created
+ *   - WAITING_FOR_PLAN_APPROVAL → auto-approve the plan
+ *   - WAITING_FOR_USER      → send project context to unblock
+ *   - FAILED                → log + auto-retry if under limit
+ *   - PAUSED                → auto-resume with sendActivity
+ *   - CANCELLED             → log, no action
+ *   - UNKNOWN/OTHER         → log warning
  *
- * POST /api/jules/monitor — Force re-check a specific session
- *   Body: { sessionId: string }
+ * POST /api/jules/monitor — Force action on a specific session
+ *   Body: { sessionId: string, action?: "approve" | "retry" | "context" | "resume" }
  */
 
 const PROJECT_CONTEXT = `You are working on Gravix — a Next.js 16 app on Firebase App Hosting.
 
-Key patterns:
+CRITICAL RULES:
 - API routes: src/app/api/{feature}/route.js using named exports (GET, POST, etc.)
-- All catch blocks must call logRouteError() from @/lib/errorLogger
+- All catch blocks MUST call logRouteError() from @/lib/errorLogger
 - Firebase Admin: import { adminDb } from "@/lib/firebaseAdmin"
-- OAuth tokens: Firestore settings/google_oauth (accessToken, refreshToken, expiresAt)
-- Google APIs: use src/lib/googleAuth.js for token management
-- Gemini: use src/lib/geminiClient.js
-- Client components: 'use client' directive, go in src/components/modules/
-- CSS: vanilla CSS with variables from globals.css
-- Never run npm run build — Firebase App Hosting handles it
-- Run npx next lint before committing`;
+- OAuth tokens: Firestore doc at settings/google_oauth (accessToken, refreshToken, expiresAt)
+- Google Workspace APIs: use src/lib/googleAuth.js for token management
+- Gemini AI: use src/lib/geminiClient.js
+- Client components: MUST have 'use client' directive, go in src/components/modules/
+- CSS: vanilla CSS with CSS variables from globals.css — NO Tailwind
+- NEVER run "npm run build" locally — Firebase App Hosting builds on push
+- Run "npx next lint" before submitting changes
+- All routes should return Response.json()
+- Test files go in __tests__/ directories
+- Use import aliases: @/lib/, @/components/`;
+
+const ALL_STATES = [
+  "IN_PROGRESS",
+  "COMPLETED", 
+  "WAITING_FOR_PLAN_APPROVAL",
+  "WAITING_FOR_USER",
+  "FAILED",
+  "PAUSED",
+  "CANCELLED",
+  "CREATING",
+  "QUEUED",
+];
 
 export async function GET() {
   try {
@@ -37,90 +56,137 @@ export async function GET() {
       timestamp: new Date().toISOString(),
       total: sessions.length,
       actions: [],
-      summary: {
-        in_progress: 0,
-        completed: 0,
-        failed: 0,
-        waiting_approval: 0,
-        waiting_user: 0,
-        other: 0,
-      },
+      summary: {},
+      unhandledStates: [],
     };
+
+    // Initialize all known states to 0
+    ALL_STATES.forEach((s) => (results.summary[s] = 0));
+    results.summary.UNKNOWN = 0;
 
     for (const session of sessions) {
       const state = session.state || "UNKNOWN";
       const id = session.id || session.name?.split("/").pop();
       const title = session.title || "Untitled";
 
-      // Count states
-      if (state === "IN_PROGRESS") results.summary.in_progress++;
-      else if (state === "COMPLETED") results.summary.completed++;
-      else if (state === "FAILED") results.summary.failed++;
-      else if (state === "WAITING_FOR_PLAN_APPROVAL") results.summary.waiting_approval++;
-      else if (state === "WAITING_FOR_USER") results.summary.waiting_user++;
-      else results.summary.other++;
+      // Count state
+      if (results.summary[state] !== undefined) {
+        results.summary[state]++;
+      } else {
+        results.summary.UNKNOWN++;
+        results.unhandledStates.push({ state, title, id });
+      }
 
       // Take action based on state
       try {
-        if (state === "WAITING_FOR_PLAN_APPROVAL") {
-          // Auto-approve the plan
-          await sendActivity(id, { type: "approve" });
-          results.actions.push({
-            session: id,
-            title,
-            action: "AUTO_APPROVED",
-            detail: "Plan auto-approved to proceed with implementation",
-          });
-
-          // Log to Firestore
-          await logToFirestore(id, title, "plan_approved", "Plan auto-approved by monitor");
-
-        } else if (state === "WAITING_FOR_USER") {
-          // Send context to help Jules continue
-          await sendActivity(id, {
-            type: "message",
-            content: `Here is the project context to help you proceed:\n\n${PROJECT_CONTEXT}\n\nPlease continue with your implementation. If you need a specific answer, state the exact question and I will provide it.`,
-          });
-          results.actions.push({
-            session: id,
-            title,
-            action: "CONTEXT_SENT",
-            detail: "Sent project context to unblock Jules",
-          });
-
-          await logToFirestore(id, title, "context_sent", "Auto-sent project context");
-
-        } else if (state === "FAILED") {
-          // Check if we already retried
-          const retryCount = await getRetryCount(id);
-
-          if (retryCount < 2) {
-            // Log but don't auto-retry here — stale monitor handles retries
+        switch (state) {
+          case "WAITING_FOR_PLAN_APPROVAL": {
+            await sendActivity(id, { type: "approve" });
             results.actions.push({
-              session: id,
-              title,
-              action: "FAILED_LOGGED",
-              detail: `Task failed (retry ${retryCount}/2). Will be retried by stale monitor if linked to an issue.`,
-              retryCount,
+              session: id, title,
+              action: "AUTO_APPROVED",
+              detail: "Plan auto-approved to proceed with implementation",
             });
+            await logToFirestore(id, title, "plan_approved", "Plan auto-approved by monitor");
+            break;
+          }
 
-            await logToFirestore(id, title, "failed", `Task failed — retry ${retryCount}/2`);
-          } else {
+          case "WAITING_FOR_USER": {
+            await sendActivity(id, {
+              type: "message",
+              content: `Here is the project context to help you proceed:\n\n${PROJECT_CONTEXT}\n\nPlease continue with implementation. If you have a specific question, ask it clearly and I will answer.`,
+            });
             results.actions.push({
-              session: id,
-              title,
-              action: "FAILED_EXHAUSTED",
-              detail: "Task failed after 2 retries. Requires manual intervention.",
+              session: id, title,
+              action: "CONTEXT_SENT",
+              detail: "Sent project context + rules to unblock Jules",
             });
+            await logToFirestore(id, title, "context_sent", "Auto-sent project context");
+            break;
+          }
 
-            await logToFirestore(id, title, "failed_exhausted", "Max retries reached");
+          case "PAUSED": {
+            // Resume paused sessions
+            await sendActivity(id, {
+              type: "message",
+              content: "Please resume. Here is the project context:\n\n" + PROJECT_CONTEXT,
+            });
+            results.actions.push({
+              session: id, title,
+              action: "RESUMED",
+              detail: "Sent resume message to paused session",
+            });
+            await logToFirestore(id, title, "resumed", "Auto-resumed paused session");
+            break;
+          }
+
+          case "FAILED": {
+            const retryCount = await getRetryCount(id);
+
+            if (retryCount < 2) {
+              // Auto-retry by creating a new session with the same title
+              try {
+                const newSession = await triggerTask({
+                  title: `[Retry ${retryCount + 1}] ${title}`,
+                  prompt: `RETRY: The previous attempt at this task failed. Please try again.\n\nOriginal task: ${title}\n\n${PROJECT_CONTEXT}\n\nIMPORTANT: Use the patterns above strictly. Do not deviate.`,
+                  autoApprove: true,
+                });
+
+                results.actions.push({
+                  session: id, title,
+                  action: "AUTO_RETRIED",
+                  detail: `Retry ${retryCount + 1}/2 triggered. New session: ${newSession.sessionId}`,
+                  newSessionId: newSession.sessionId,
+                });
+                await logToFirestore(id, title, "failed", `Auto-retried (${retryCount + 1}/2) → ${newSession.sessionId}`);
+              } catch (retryErr) {
+                results.actions.push({
+                  session: id, title,
+                  action: "RETRY_FAILED",
+                  detail: `Could not auto-retry: ${retryErr.message}`,
+                });
+              }
+            } else {
+              results.actions.push({
+                session: id, title,
+                action: "FAILED_EXHAUSTED",
+                detail: "Task failed after 2 retries. Requires manual intervention.",
+              });
+              await logToFirestore(id, title, "failed_exhausted", "Max retries reached — needs manual fix");
+            }
+            break;
+          }
+
+          case "CANCELLED": {
+            results.actions.push({
+              session: id, title,
+              action: "CANCELLED_LOGGED",
+              detail: "Session was cancelled — no action taken",
+            });
+            break;
+          }
+
+          // No action needed for these
+          case "IN_PROGRESS":
+          case "COMPLETED":
+          case "CREATING":
+          case "QUEUED":
+            break;
+
+          default: {
+            results.actions.push({
+              session: id, title,
+              action: "UNKNOWN_STATE",
+              detail: `Unrecognized state: ${state}. Logged for review.`,
+            });
+            await logToFirestore(id, title, "unknown_state", `State: ${state}`);
+            break;
           }
         }
       } catch (actionError) {
         results.actions.push({
-          session: id,
-          title,
-          action: "ERROR",
+          session: id, title,
+          action: "ACTION_ERROR",
           detail: actionError.message,
         });
       }
@@ -136,7 +202,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { sessionId } = await request.json();
+    const { sessionId, action: requestedAction } = await request.json();
     if (!sessionId) {
       return Response.json({ error: "sessionId is required" }, { status: 400 });
     }
@@ -148,26 +214,45 @@ export async function POST(request) {
     let action = "NO_ACTION";
     let detail = `Session is ${state}`;
 
-    if (state === "WAITING_FOR_PLAN_APPROVAL") {
+    // Allow force actions regardless of state
+    if (requestedAction === "approve") {
       await sendActivity(sessionId, { type: "approve" });
-      action = "AUTO_APPROVED";
-      detail = "Plan approved";
-    } else if (state === "WAITING_FOR_USER") {
+      action = "FORCE_APPROVED";
+      detail = "Plan force-approved via POST";
+    } else if (requestedAction === "context" || requestedAction === "resume") {
       await sendActivity(sessionId, {
         type: "message",
         content: PROJECT_CONTEXT,
       });
-      action = "CONTEXT_SENT";
-      detail = "Project context sent";
+      action = "FORCE_CONTEXT_SENT";
+      detail = "Project context force-sent via POST";
+    } else if (requestedAction === "retry") {
+      const newSession = await triggerTask({
+        title: `[Retry] ${title}`,
+        prompt: `RETRY: Please try this task again.\n\nOriginal: ${title}\n\n${PROJECT_CONTEXT}`,
+        autoApprove: true,
+      });
+      action = "FORCE_RETRIED";
+      detail = `New session created: ${newSession.sessionId}`;
+    } else {
+      // Auto-detect based on state
+      if (state === "WAITING_FOR_PLAN_APPROVAL") {
+        await sendActivity(sessionId, { type: "approve" });
+        action = "AUTO_APPROVED";
+        detail = "Plan approved";
+      } else if (state === "WAITING_FOR_USER" || state === "PAUSED") {
+        await sendActivity(sessionId, {
+          type: "message",
+          content: PROJECT_CONTEXT,
+        });
+        action = state === "PAUSED" ? "RESUMED" : "CONTEXT_SENT";
+        detail = "Project context sent";
+      }
     }
 
-    return Response.json({
-      sessionId,
-      title,
-      state,
-      action,
-      detail,
-    });
+    await logToFirestore(sessionId, title, action.toLowerCase(), detail);
+
+    return Response.json({ sessionId, title, state, action, detail });
   } catch (error) {
     console.error("[/api/jules/monitor POST]", error);
     logRouteError("jules", "/api/jules/monitor POST error", error, "/api/jules/monitor");
@@ -188,7 +273,7 @@ async function logToFirestore(sessionId, title, action, detail) {
       timestamp: new Date().toISOString(),
     });
   } catch {
-    // Fire-and-forget — don't crash monitor
+    // Fire-and-forget
   }
 }
 

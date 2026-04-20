@@ -11,7 +11,7 @@ permissions:
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'google-labs-jules[bot]' && (startsWith(github.head_ref, 'jules/') || startsWith(github.head_ref, 'add-') || startsWith(github.head_ref, 'feature/'))
+    if: github.event.pull_request.user.login == 'google-labs-jules[bot]' && (startsWith(github.head_ref, 'jules/') || startsWith(github.head_ref, 'add-') || startsWith(github.head_ref, 'feat/') || startsWith(github.head_ref, 'feature/') || startsWith(github.head_ref, 'fix/') || startsWith(github.head_ref, 'refactor/'))
 
     steps:
       - name: Wait for CI
