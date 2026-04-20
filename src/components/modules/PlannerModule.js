@@ -32,6 +32,12 @@ export default function PlannerModule() {
   const [taskSort, setTaskSort] = useState("date");
   const [editingTask, setEditingTask] = useState(null);
 
+  // Meetings State
+  const [meetings, setMeetings] = useState([]);
+  const [analyzingMeeting, setAnalyzingMeeting] = useState(null);
+  const [meetingAnalyses, setMeetingAnalyses] = useState({});
+  const [creatingTasks, setCreatingTasks] = useState(false);
+
   // Creation Modals
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -44,12 +50,13 @@ export default function PlannerModule() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [calRes, tasksRes] = await Promise.all([
+      const [calRes, meetRes, tasksRes] = await Promise.all([
         fetch("/api/calendar/events").then(res => res.json()),
+        fetch("/api/meet/transcripts").then(res => res.json()),
         fetch("/api/tasks/list").then(res => res.json())
       ]);
 
-      const connected = calRes.connected && tasksRes.connected;
+      const connected = calRes.connected && tasksRes.connected && (meetRes.connected !== false);
       setIsConnected(connected);
 
       if (connected) {
@@ -99,6 +106,11 @@ export default function PlannerModule() {
           notes: task.notes || "",
         }));
         setTasks(mappedTasks);
+
+        // Map Meetings
+        if (meetRes.meetings) {
+            setMeetings(meetRes.meetings);
+        }
       }
     } catch (err) {
       console.error("Failed to fetch planner data", err);
@@ -776,6 +788,146 @@ export default function PlannerModule() {
     );
   };
 
+
+  // ─── Meetings Tab ──────────────────────────────────────
+  const analyzeMeeting = async (meeting) => {
+    if (meetingAnalyses[meeting.id] || analyzingMeeting === meeting.id) return;
+
+    setAnalyzingMeeting(meeting.id);
+    try {
+      const res = await fetch("/api/meet/transcripts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcriptText: meeting.transcriptText })
+      });
+      const data = await res.json();
+      setMeetingAnalyses(prev => ({ ...prev, [meeting.id]: data }));
+    } catch (err) {
+      console.error("Failed to analyze meeting", err);
+    } finally {
+      setAnalyzingMeeting(null);
+    }
+  };
+
+  const handleCreateMeetingTasks = async (meetingId) => {
+    const analysis = meetingAnalyses[meetingId];
+    if (!analysis || !analysis.actionItems || analysis.actionItems.length === 0) return;
+
+    setCreatingTasks(meetingId);
+    try {
+      const res = await fetch("/api/meet/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actions: analysis.actionItems })
+      });
+      const data = await res.json();
+      if (data.created) {
+         fetchData(); // Refresh tasks
+         // Optimistically hide the create button
+         setMeetingAnalyses(prev => {
+             const newAnalyses = {...prev};
+             newAnalyses[meetingId] = {...newAnalyses[meetingId], tasksCreated: true};
+             return newAnalyses;
+         });
+      }
+    } catch (err) {
+      console.error("Failed to create meeting tasks", err);
+    } finally {
+      setCreatingTasks(null);
+    }
+  };
+
+  const renderMeetings = () => {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <h3 className="h4" style={{ marginBottom: "8px" }}>Recent Meetings</h3>
+
+        {meetings.length === 0 ? (
+           <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "24px" }}>No recent meetings with transcripts found.</p>
+        ) : (
+          meetings.map(meeting => {
+            const analysis = meetingAnalyses[meeting.id];
+            const isAnalyzing = analyzingMeeting === meeting.id;
+            const startDate = new Date(meeting.startTime);
+            const endDate = new Date(meeting.endTime);
+            const durationMins = Math.round((endDate - startDate) / 60000);
+
+            return (
+              <div key={meeting.id} className="card" style={{ padding: "16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", cursor: "pointer" }} onClick={() => analyzeMeeting(meeting)}>
+                    <div>
+                        <div style={{ fontWeight: "bold", fontSize: "16px", marginBottom: "4px" }}>Meeting in {meeting.space}</div>
+                        <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                            {startDate.toLocaleString()} • {durationMins} mins • {meeting.participantCount} participant{meeting.participantCount !== 1 ? 's' : ''}
+                        </div>
+                    </div>
+                    <div>
+                        {!analysis && !isAnalyzing && <span className="badge badge-warning">Expand to Analyze</span>}
+                        {isAnalyzing && <span className="badge badge-info">Analyzing...</span>}
+                        {analysis && <span className="badge badge-success">Analyzed</span>}
+                    </div>
+                </div>
+
+                {analysis && (
+                    <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--card-border)", display: "flex", flexDirection: "column", gap: "12px" }}>
+                        <div>
+                            <strong style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Summary</strong>
+                            <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: 0 }}>{analysis.summary}</p>
+                        </div>
+
+                        {analysis.actionItems && analysis.actionItems.length > 0 && (
+                            <div>
+                                <strong style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Action Items</strong>
+                                <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "13px", color: "var(--text-secondary)" }}>
+                                    {analysis.actionItems.map((item, idx) => (
+                                        <li key={idx}>
+                                            <strong>{item.task}</strong> (Assignee: {item.assignee}, Due: {item.deadline})
+                                        </li>
+                                    ))}
+                                </ul>
+                                {!analysis.tasksCreated && (
+                                   <button
+                                      className="btn btn-primary btn-sm"
+                                      style={{ marginTop: "8px" }}
+                                      onClick={() => handleCreateMeetingTasks(meeting.id)}
+                                      disabled={creatingTasks === meeting.id}
+                                   >
+                                      {creatingTasks === meeting.id ? "Creating..." : "Create Tasks"}
+                                   </button>
+                                )}
+                                {analysis.tasksCreated && (
+                                    <span style={{ fontSize: "12px", color: "var(--success)", display: "inline-block", marginTop: "8px" }}>Tasks created ✓</span>
+                                )}
+                            </div>
+                        )}
+
+                        {analysis.decisions && analysis.decisions.length > 0 && (
+                            <div>
+                                <strong style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Decisions</strong>
+                                <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "13px", color: "var(--text-secondary)" }}>
+                                    {analysis.decisions.map((dec, idx) => <li key={idx}>{dec}</li>)}
+                                </ul>
+                            </div>
+                        )}
+
+                        {analysis.followUps && analysis.followUps.length > 0 && (
+                            <div>
+                                <strong style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Follow-ups</strong>
+                                <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "13px", color: "var(--text-secondary)" }}>
+                                    {analysis.followUps.map((fu, idx) => <li key={idx}>{fu.item} ({fu.owner})</li>)}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+    );
+  };
+
   // ─── Schedule Tab ──────────────────────────────────────
   const renderSchedule = () => {
     const hours = Array.from({ length: 11 }, (_, i) => i + 8); // 8am to 6pm
@@ -924,6 +1076,13 @@ export default function PlannerModule() {
         >
           Schedule
         </button>
+        <button
+          className={`btn ${activeTab === "meetings" ? "btn-secondary" : "btn-ghost"} btn-sm`}
+          onClick={() => setActiveTab("meetings")}
+          style={{ background: activeTab === "meetings" ? "var(--bg-hover)" : "transparent" }}
+        >
+          Meetings
+        </button>
       </div>
 
       {isLoading ? (
@@ -936,6 +1095,7 @@ export default function PlannerModule() {
           {activeTab === "calendar" && renderCalendar()}
           {activeTab === "tasks" && renderTasks()}
           {activeTab === "schedule" && renderSchedule()}
+          {activeTab === "meetings" && renderMeetings()}
         </>
       )}
     </div>
