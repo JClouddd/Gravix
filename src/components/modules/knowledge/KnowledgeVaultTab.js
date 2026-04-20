@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { logRouteError } from "@/lib/errorLogger";
+
 
 export default function KnowledgeVaultTab({ status, setActiveTab }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -27,7 +27,7 @@ export default function KnowledgeVaultTab({ status, setActiveTab }) {
 
       setSearchResults(data);
     } catch (err) {
-      logRouteError("discovery", "Search failed in KnowledgeVaultTab", err, "/api/knowledge/query");
+      console.error("[KnowledgeVaultTab] Search failed:", err.message);
       setError(err.message);
     } finally {
       setIsSearching(false);
