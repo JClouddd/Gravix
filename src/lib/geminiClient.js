@@ -441,6 +441,30 @@ export async function structuredGenerate({
   });
 }
 
+/* ── Vector Embeddings ────────────────────────────────────────── */
+
+/**
+ * Generates mathematical embeddings for vector search.
+ *
+ * @param {string} text - The input text to embed.
+ * @returns {Promise<number[]>} - The embedding vector (e.g., 768 dimensions).
+ */
+export async function embed(text) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable is not set");
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+
+  const result = await withRetry(async () => {
+    return await model.embedContent(text);
+  });
+
+  return result.embedding.values;
+}
+
 const defaultExport = {
   generate,
   chat,
@@ -448,5 +472,6 @@ const defaultExport = {
   deepResearch,
   structuredGenerate,
   estimateCost,
+  embed,
 };
 export default defaultExport;
