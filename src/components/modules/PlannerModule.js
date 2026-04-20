@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 
 /**
@@ -37,6 +37,8 @@ export default function PlannerModule() {
   const [analyzingMeeting, setAnalyzingMeeting] = useState(null);
   const [meetingAnalyses, setMeetingAnalyses] = useState({});
   const [creatingTasks, setCreatingTasks] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Creation Modals
   const [showAddEvent, setShowAddEvent] = useState(false);
@@ -790,6 +792,33 @@ export default function PlannerModule() {
 
 
   // ─── Meetings Tab ──────────────────────────────────────
+  const handleAudioUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAudio(true);
+    try {
+      const formData = new FormData();
+      formData.append("audioFile", file);
+      const res = await fetch("/api/meet/transcripts", {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+
+      if (data.summary) {
+        alert("Audio processed successfully! Summary: " + data.summary);
+      } else {
+        alert("Audio processed, but no summary returned.");
+      }
+    } catch (err) {
+      console.error("Audio upload failed", err);
+      alert("Audio upload failed.");
+    } finally {
+      setUploadingAudio(false);
+      if (e.target) e.target.value = null;
+    }
+  };
+
   const analyzeMeeting = async (meeting) => {
     if (meetingAnalyses[meeting.id] || analyzingMeeting === meeting.id) return;
 
@@ -841,6 +870,23 @@ export default function PlannerModule() {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         <h3 className="h4" style={{ marginBottom: "8px" }}>Recent Meetings</h3>
+
+        <div style={{ marginBottom: "16px" }}>
+          <input
+            type="file"
+            accept="audio/*"
+            style={{ display: "none" }}
+            ref={fileInputRef}
+            onChange={handleAudioUpload}
+          />
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingAudio}
+          >
+            {uploadingAudio ? "Uploading & Analyzing..." : "Upload Meeting Audio"}
+          </button>
+        </div>
 
         {meetings.length === 0 ? (
            <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "24px" }}>No recent meetings with transcripts found.</p>
