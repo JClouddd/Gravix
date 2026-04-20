@@ -1,21 +1,28 @@
-import { describe, it, expect, vi } from 'vitest';
-import { POST } from '../route.js';
-
 vi.mock('@/lib/firebaseAdmin', () => ({
   adminDb: {
     batch: vi.fn().mockReturnValue({
       set: vi.fn(),
-      commit: vi.fn().mockImplementation(() => new Promise(resolve => setTimeout(resolve, 5)))
+      commit: vi.fn().mockResolvedValue({})
     }),
     collection: vi.fn().mockReturnValue({
-      add: vi.fn().mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ id: 'mock-doc-id' }), 5))),
-      doc: vi.fn().mockReturnValue({ id: 'mock-doc-id' })
+      add: vi.fn().mockResolvedValue({ id: 'mock-doc-id' }),
+      doc: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
+      get: vi.fn().mockResolvedValue({ empty: false, docs: [{ id: 'client_1', data: () => ({ email: 'test@example.com' }) }] })
     }),
     doc: vi.fn().mockReturnValue({
-      get: vi.fn().mockResolvedValue({ exists: false })
+      get: vi.fn().mockResolvedValue({ exists: false }),
+      set: vi.fn().mockResolvedValue({})
     })
   }
 }));
+vi.mock('@/lib/geminiClient', () => ({
+  generate: vi.fn().mockResolvedValue('{"category": "inquiry"}')
+}));
+import { vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { POST } from '../route.js';
+
 
 describe('email-pipeline POST', () => {
   it('processes emails and measures time taken', async () => {

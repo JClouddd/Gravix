@@ -1,3 +1,11 @@
+import { vi } from 'vitest';
+vi.mock('@/lib/firebaseAdmin', () => ({
+  adminDb: {
+    collection: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    get: vi.fn().mockResolvedValue({ empty: true, docs: [] })
+  }
+}));
 import { describe, it, expect } from 'vitest';
 import { GET } from '../route';
 
