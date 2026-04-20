@@ -26,6 +26,14 @@ env:
   - variable: JULES_API_KEY
     secret: JULES_API_KEY
 
+  # Telegram
+  - variable: TELEGRAM_DEVOPS_BOT_TOKEN
+    secret: TELEGRAM_DEVOPS_BOT_TOKEN
+  - variable: TELEGRAM_ASSISTANT_BOT_TOKEN
+    secret: TELEGRAM_ASSISTANT_BOT_TOKEN
+  - variable: TELEGRAM_CHAT_ID
+    secret: TELEGRAM_CHAT_ID
+
   # GitHub (for CI status monitoring)
   - variable: GITHUB_TOKEN
     secret: GITHUB_TOKEN
