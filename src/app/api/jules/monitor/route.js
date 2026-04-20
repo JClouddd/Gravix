@@ -3,6 +3,7 @@ import {
   getSession,
   approvePlan,
   sendMessage,
+  cancelSession,
   listActivities,
   triggerTask,
 } from "@/lib/julesClient";
@@ -74,6 +75,13 @@ export async function GET() {
     ALL_STATES.forEach((s) => (results.summary[s] = 0));
     results.summary.UNKNOWN = 0;
 
+    // Build a set of completed task titles (without retry prefix) for orphan detection
+    const completedTitles = new Set(
+      sessions
+        .filter((s) => s.state === "COMPLETED")
+        .map((s) => (s.title || "").replace(/^\[Retry\s*\d*\]\s*/i, "").trim().toLowerCase())
+    );
+
     for (const session of sessions) {
       const state = session.state || "UNKNOWN";
       const id = session.id || session.name?.split("/").pop();
@@ -85,6 +93,28 @@ export async function GET() {
       } else {
         results.summary.UNKNOWN++;
         results.unhandledStates.push({ state, title, id });
+      }
+
+      // Orphan detection: if this is a retry and the original task already completed, cancel it
+      const isRetry = /^\[Retry/i.test(title);
+      const originalTitle = title.replace(/^\[Retry\s*\d*\]\s*/i, "").trim().toLowerCase();
+      if (isRetry && state !== "COMPLETED" && state !== "CANCELLED" && completedTitles.has(originalTitle)) {
+        try {
+          await cancelSession(id);
+          results.actions.push({
+            session: id, title,
+            action: "ORPHAN_CANCELLED",
+            detail: `Original task already completed — cancelled orphaned retry`,
+          });
+          await logToFirestore(id, title, "orphan_cancelled", "Original task completed, retry is redundant");
+          continue; // Skip further processing
+        } catch (cancelErr) {
+          results.actions.push({
+            session: id, title,
+            action: "ORPHAN_CANCEL_FAILED",
+            detail: `Tried to cancel orphan but failed: ${cancelErr.message}`,
+          });
+        }
       }
 
       // Take action based on state
@@ -283,6 +313,13 @@ export async function POST(request) {
         action = "FORCE_RETRIED";
         detail = `New session created: ${newSession.sessionId}`;
         extra = { newSessionId: newSession.sessionId };
+        break;
+      }
+
+      case "cancel": {
+        await cancelSession(sessionId);
+        action = "FORCE_CANCELLED";
+        detail = "Session cancelled via POST";
         break;
       }
 

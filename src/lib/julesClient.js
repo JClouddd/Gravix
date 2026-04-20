@@ -103,6 +103,11 @@ export async function sendMessage(sessionId, message) {
   });
 }
 
+/* ── Cancel / Delete Session ──────────────────────────────────── */
+export async function cancelSession(sessionId) {
+  return julesRequest(`/sessions/${sessionId}`, "DELETE");
+}
+
 /* ── List Activities (monitor session progress) ───────────────── */
 export async function listActivities(sessionId) {
   return julesRequest(`/sessions/${sessionId}/activities`);
@@ -153,6 +158,7 @@ const defaultExport = {
   listSessions,
   approvePlan,
   sendMessage,
+  cancelSession,
   listActivities,
   sendActivity,
   triggerTask,
