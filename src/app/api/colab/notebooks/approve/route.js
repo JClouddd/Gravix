@@ -43,6 +43,7 @@ export async function GET(request) {
       // FULL raw content — not summarized, not truncated
       rawContent: data.rawContent,
       rawContentLength: data.rawContentLength,
+      analysis: data.analysis,
       createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
     });
   } catch (err) {

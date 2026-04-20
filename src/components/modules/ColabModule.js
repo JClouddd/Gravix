@@ -28,6 +28,17 @@ export default function ColabModule() {
   const [reviewContent, setReviewContent] = useState(null);
   const [reviewLoading, setReviewLoading] = useState(false);
 
+  // Notebook Section Tabs & Multi-select
+  const [selectedPendingNotebooks, setSelectedPendingNotebooks] = useState([]);
+  const [activeReviewTab, setActiveReviewTab] = useState("Overview");
+
+  // Supplementary Input Form State
+  const [isSupplementaryFormExpanded, setIsSupplementaryFormExpanded] = useState(false);
+  const [suppRepoUrl, setSuppRepoUrl] = useState("");
+  const [suppDocUrl, setSuppDocUrl] = useState("");
+  const [suppPrompt, setSuppPrompt] = useState("");
+  const [suppNotes, setSuppNotes] = useState("");
+
   const fetchNotebooks = useCallback(async () => {
     try {
       const response = await fetch("/api/colab/execute");
@@ -45,7 +56,7 @@ export default function ColabModule() {
     }
   }, []);
 
-  useEffect(() => { fetchNotebooks(); }, [fetchNotebooks]);
+  useEffect(() => { Promise.resolve().then(() => fetchNotebooks()); }, [fetchNotebooks]);
 
   const handleRunClick = (notebook) => {
     setSelectedNotebook(notebook);
@@ -139,6 +150,54 @@ export default function ColabModule() {
     }
   };
 
+
+  const handleTogglePendingSelect = (id) => {
+    setSelectedPendingNotebooks(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleBatchApprove = async () => {
+    for (const id of selectedPendingNotebooks) {
+      await handleApproveReject(id, "approve");
+    }
+    setSelectedPendingNotebooks([]);
+  };
+
+  const handleBatchReject = async () => {
+    for (const id of selectedPendingNotebooks) {
+      await handleApproveReject(id, "reject");
+    }
+    setSelectedPendingNotebooks([]);
+  };
+
+  const handleBatchSendToJules = async () => {
+    // In a real implementation this would call POST /api/jules/tasks
+    // Constructing a prompt based on the selected notebooks
+    const selectedNbs = pendingNotebooks.filter(nb => selectedPendingNotebooks.includes(nb.id));
+    for (const nb of selectedNbs) {
+      try {
+        await fetch("/api/jules/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: `Review and integrate the notebook analysis for: ${nb.name}. ${nb.description}`,
+            title: `Integrate ${nb.name}`
+          })
+        });
+      } catch (e) {
+        console.error("Failed to send to Jules", e);
+      }
+    }
+    // We could potentially mark them as sent or archived here
+    setSelectedPendingNotebooks([]);
+  };
+
+  const handleBatchArchive = () => {
+    // Just clear selection for now, or implement archive logic
+    setSelectedPendingNotebooks([]);
+  };
+
   const handleApproveReject = async (notebookId, action) => {
     try {
       await fetch("/api/colab/notebooks/approve", {
@@ -169,14 +228,128 @@ export default function ColabModule() {
         </div>
       </div>
 
-      {/* ── Pending Notebooks Review ──────────────────────────── */}
+
+      {/* ── Supplementary Input Form ───────────────────────────── */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+          onClick={() => setIsSupplementaryFormExpanded(!isSupplementaryFormExpanded)}
+        >
+          <h3 className="h5" style={{ margin: 0 }}>➕ Supplementary Context</h3>
+          <span style={{ transform: isSupplementaryFormExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+            ▼
+          </span>
+        </div>
+
+        {isSupplementaryFormExpanded && (
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label className="caption" style={{ display: "block", marginBottom: 4 }}>Add Repo URL</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={suppRepoUrl}
+                  onChange={(e) => setSuppRepoUrl(e.target.value)}
+                  placeholder="https://github.com/..."
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="caption" style={{ display: "block", marginBottom: 4 }}>Add Doc URL</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={suppDocUrl}
+                  onChange={(e) => setSuppDocUrl(e.target.value)}
+                  placeholder="https://docs..."
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="caption" style={{ display: "block", marginBottom: 4 }}>Add Prompt/Instructions</label>
+              <textarea
+                className="input"
+                value={suppPrompt}
+                onChange={(e) => setSuppPrompt(e.target.value)}
+                placeholder="Specific instructions for analysis..."
+                rows={3}
+                style={{ resize: "vertical" }}
+              />
+            </div>
+
+            <div>
+              <label className="caption" style={{ display: "block", marginBottom: 4 }}>Notes</label>
+              <textarea
+                className="input"
+                value={suppNotes}
+                onChange={(e) => setSuppNotes(e.target.value)}
+                placeholder="Additional notes..."
+                rows={2}
+                style={{ resize: "vertical" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  // In a real app, this would post to an ingestion API
+                  console.log("Submit supplementary context", { suppRepoUrl, suppDocUrl, suppPrompt, suppNotes });
+                  // Reset form or show success toast
+                }}
+              >
+                Submit Context
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+{/* ── Pending Notebooks Review ──────────────────────────── */}
       {pendingNotebooks.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <h3 className="h4" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
             📋 Pending Review
             <span className="badge badge-warning">{pendingNotebooks.length}</span>
           </h3>
+
+          {selectedPendingNotebooks.length > 0 && (
+            <div style={{
+              position: "sticky",
+              top: 16,
+              zIndex: 10,
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--card-border)",
+              borderRadius: "var(--radius-md)",
+              padding: "12px 16px",
+              marginBottom: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+            }}>
+              <div className="h5" style={{ margin: 0 }}>
+                {selectedPendingNotebooks.length} selected
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-primary btn-sm" onClick={handleBatchSendToJules}>
+                  🤖 Send to Jules
+                </button>
+                <button className="btn btn-sm" style={{ background: "var(--success-subtle, rgba(34,197,94,0.1))", color: "var(--success)" }} onClick={handleBatchApprove}>
+                  ✅ Approve All
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={handleBatchArchive}>
+                  Archive
+                </button>
+                <button className="btn btn-sm" style={{ background: "var(--error-subtle, rgba(239,68,68,0.1))", color: "var(--error)" }} onClick={handleBatchReject}>
+                  ❌ Deny
+                </button>
+              </div>
+            </div>
+          )}
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
             {pendingNotebooks.map((nb) => {
               const TYPE_COLORS = {
                 tool_analysis: { bg: "#4285f422", color: "#4285f4", label: "🔧 Tool Analysis" },
@@ -190,7 +363,17 @@ export default function ColabModule() {
               const mergeCandidate = nb.mergeCandidate;
 
               return (
-              <div key={nb.id} className="card" style={{ borderLeft: `3px solid ${typeInfo.color}` }}>
+
+              <div key={nb.id} className="card" style={{ borderLeft: `3px solid ${typeInfo.color}`, position: "relative", paddingLeft: 40 }}>
+                <div style={{ position: "absolute", left: 12, top: 16 }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedPendingNotebooks.includes(nb.id)}
+                    onChange={() => handleTogglePendingSelect(nb.id)}
+                    style={{ cursor: "pointer", width: 16, height: 16 }}
+                  />
+                </div>
+
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div>
                     <div className="h5">{nb.name}</div>
@@ -263,38 +446,235 @@ export default function ColabModule() {
                           }
                         }}
                       >
-                        🔀 Merge into "{mergeCandidate.name}"
+                        🔀 Merge into &quot;{mergeCandidate.name}&quot;
                       </button>
                     )}
                   </div>
                 )}
 
+
                 {/* ── Full Content Review ── */}
                 {reviewingNotebook === nb.id && (
-                  <div style={{ marginTop: 12, padding: 16, background: "var(--bg-secondary)", borderRadius: "var(--radius-md)", border: "1px solid var(--card-border)", maxHeight: 500, overflowY: "auto" }}>
+                  <div style={{ marginTop: 12, padding: 16, background: "var(--bg-secondary)", borderRadius: "var(--radius-md)", border: "1px solid var(--card-border)" }}>
                     {reviewLoading ? (
                       <div className="body-sm">Loading content...</div>
                     ) : reviewContent?.error ? (
                       <div className="badge badge-error">{reviewContent.error}</div>
                     ) : (
                       <div>
-                        <div className="body-sm" style={{ marginBottom: 8 }}>
-                          <strong>Analysis Prompt:</strong>
-                          <pre style={{ whiteSpace: "pre-wrap", margin: "4px 0", padding: 8, background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", fontSize: 12 }}>
-                            {reviewContent?.analysisPrompt}
-                          </pre>
+                        {/* Tabs Navigation */}
+                        <div style={{
+                          display: "flex",
+                          gap: 4,
+                          marginBottom: 16,
+                          borderBottom: "1px solid var(--card-border)",
+                          paddingBottom: 0,
+                          overflowX: "auto"
+                        }}>
+                          {["Overview", "Research", "Visuals", "Build Plan", "Validation", "Raw"].map((tab) => (
+                            <button
+                              key={tab}
+                              onClick={() => setActiveReviewTab(tab)}
+                              style={{
+                                padding: "6px 12px",
+                                fontSize: 13,
+                                fontWeight: activeReviewTab === tab ? 600 : 400,
+                                color: activeReviewTab === tab ? "#fff" : "var(--text-secondary)",
+
+                                transition: "all var(--duration-fast) var(--ease-out)",
+                                background: activeReviewTab === tab ? "var(--accent)" : "var(--bg-tertiary)", borderRadius: "var(--radius-full)", border: "1px solid var(--card-border)",
+                                cursor: "pointer",
+                                whiteSpace: "nowrap"
+                              }}
+                            >
+                              {tab}
+                            </button>
+                          ))}
                         </div>
-                        <div className="body-sm" style={{ marginBottom: 8 }}>
-                          <strong>Raw Content ({(reviewContent?.rawContentLength || 0).toLocaleString()} chars):</strong>
+
+                        {/* Tab Content */}
+                        <div style={{ maxHeight: 500, overflowY: "auto", paddingRight: 8 }}>
+                          {activeReviewTab === "Overview" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                              <div className="h5">{reviewContent?.name}</div>
+
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                                <span className="body-sm" style={{ color: "var(--text-secondary)" }}>Source:</span>
+                                <span className="badge" style={{ background: "var(--bg-tertiary)" }}>{reviewContent?.sourceTitle}</span>
+
+                                <span className="body-sm" style={{ color: "var(--text-secondary)", marginLeft: 8 }}>Type:</span>
+                                <span className="badge badge-info">{reviewContent?.sourceType || "document"}</span>
+
+                                {reviewContent?.analysis?.confidence_score && (
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8 }}>
+                                    <div style={{
+                                      width: 8, height: 8, borderRadius: "50%",
+                                      background: reviewContent.analysis.confidence_score > 0.8 ? "var(--success)" :
+                                                  reviewContent.analysis.confidence_score > 0.5 ? "var(--warning)" : "var(--error)"
+                                    }} />
+                                    <span className="caption">Confidence</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {reviewContent?.classification?.tags && (
+                                <div>
+                                  <span className="body-sm" style={{ display: "block", marginBottom: 4, fontWeight: 600 }}>Domain Tags:</span>
+                                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                    {reviewContent.classification.tags.map(tag => (
+                                      <span key={tag} className="badge" style={{ background: "var(--bg-tertiary)", fontSize: 11 }}>{tag}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="body-sm">
+                                <strong>Description:</strong> {reviewContent?.description}
+                              </div>
+                            </div>
+                          )}
+
+                          {activeReviewTab === "Research" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                              {reviewContent?.analysis?.tools_and_software?.length > 0 && (
+                                <div>
+                                  <h4 className="h5" style={{ marginBottom: 8 }}>🔧 Tool Profiles</h4>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                    {reviewContent.analysis.tools_and_software.map((tool, i) => (
+                                      <div key={i} style={{ padding: 12, background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", border: "1px solid var(--card-border)" }}>
+                                        <strong>{tool.name}</strong>
+                                        <p className="body-sm" style={{ margin: "4px 0 0 0", color: "var(--text-secondary)" }}>{tool.description}</p>
+                                        {tool.url && <a href={tool.url} target="_blank" rel="noreferrer" className="caption" style={{ color: "var(--accent)" }}>{tool.url}</a>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {reviewContent?.analysis?.integrations_and_apis?.length > 0 && (
+                                <div>
+                                  <h4 className="h5" style={{ marginBottom: 8 }}>🔌 API References</h4>
+                                  <ul className="body-sm" style={{ paddingLeft: 20, margin: 0, color: "var(--text-secondary)" }}>
+                                    {reviewContent.analysis.integrations_and_apis.map((api, i) => (
+                                      <li key={i}>{api.name || api}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {reviewContent?.analysis?.code_patterns_and_config?.length > 0 && (
+                                <div>
+                                  <h4 className="h5" style={{ marginBottom: 8 }}>💵 Pricing / Config</h4>
+                                  <ul className="body-sm" style={{ paddingLeft: 20, margin: 0, color: "var(--text-secondary)" }}>
+                                    {reviewContent.analysis.code_patterns_and_config.map((pattern, i) => (
+                                      <li key={i}>{pattern.description || pattern}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {(!reviewContent?.analysis?.tools_and_software?.length && !reviewContent?.analysis?.integrations_and_apis?.length && !reviewContent?.analysis?.code_patterns_and_config?.length) && (
+                                <div className="body-sm" style={{ color: "var(--text-tertiary)" }}>No research data available.</div>
+                              )}
+                            </div>
+                          )}
+
+                          {activeReviewTab === "Visuals" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                              <h4 className="h5" style={{ marginBottom: 4 }}>🖼 Visual References</h4>
+                              {reviewContent?.analysis?.visual_elements?.length > 0 ? (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                  {reviewContent.analysis.visual_elements.map((vis, i) => (
+                                    <div key={i} style={{ display: "flex", gap: 12, padding: 12, background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", border: "1px solid var(--card-border)" }}>
+                                      {vis.timestamp && (
+                                        <span className="badge badge-info" style={{ fontFamily: "monospace", alignSelf: "flex-start" }}>{vis.timestamp}</span>
+                                      )}
+                                      <div>
+                                        <strong>{vis.type || "Visual"}</strong>
+                                        <p className="body-sm" style={{ margin: "4px 0 0 0", color: "var(--text-secondary)" }}>{vis.description}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="body-sm" style={{ color: "var(--text-tertiary)" }}>No visual references found.</div>
+                              )}
+                            </div>
+                          )}
+
+                          {activeReviewTab === "Build Plan" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                              {reviewContent?.analysis?.actionable_items?.length > 0 && (
+                                <div>
+                                  <h4 className="h5" style={{ marginBottom: 8 }}>✅ Actionable Items</h4>
+                                  <ul className="body-sm" style={{ paddingLeft: 20, margin: 0, color: "var(--text-primary)" }}>
+                                    {reviewContent.analysis.actionable_items.map((item, i) => (
+                                      <li key={i} style={{ marginBottom: 6 }}>{item.task || item}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {reviewContent?.analysis?.beta_preview_features?.length > 0 && (
+                                <div>
+                                  <h4 className="h5" style={{ marginBottom: 8 }}>⚠️ Prerequisites & Beta Features</h4>
+                                  <ul className="body-sm" style={{ paddingLeft: 20, margin: 0, color: "var(--text-secondary)" }}>
+                                    {reviewContent.analysis.beta_preview_features.map((item, i) => (
+                                      <li key={i}>{item.feature || item}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {(!reviewContent?.analysis?.actionable_items?.length && !reviewContent?.analysis?.beta_preview_features?.length) && (
+                                <div className="body-sm" style={{ color: "var(--text-tertiary)" }}>No build plan items found.</div>
+                              )}
+                            </div>
+                          )}
+
+                          {activeReviewTab === "Validation" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                              <h4 className="h5" style={{ marginBottom: 4 }}>📈 Validation Info</h4>
+
+                              {reviewContent?.analysis?.youtube_metadata?.publishedAt && (
+                                <div className="body-sm">
+                                  <strong>Published At:</strong> {new Date(reviewContent.analysis.youtube_metadata.publishedAt).toLocaleDateString()}
+                                </div>
+                              )}
+
+                              <div className="body-sm">
+                                <strong>Recency Status:</strong> {reviewContent?.analysis?.recency_status || "Unknown"}
+                              </div>
+
+                              <div className="body-sm">
+                                <strong>Version Info:</strong> {reviewContent?.analysis?.version_info || "Not specified"}
+                              </div>
+                            </div>
+                          )}
+
+                          {activeReviewTab === "Raw" && (
+                            <div>
+                              <div className="body-sm" style={{ marginBottom: 8 }}>
+                                <strong>Analysis Prompt:</strong>
+                                <pre style={{ whiteSpace: "pre-wrap", margin: "4px 0", padding: 8, background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", fontSize: 12 }}>
+                                  {reviewContent?.analysisPrompt || "No prompt provided"}
+                                </pre>
+                              </div>
+                              <div className="body-sm" style={{ marginBottom: 8 }}>
+                                <strong>Raw Content ({(reviewContent?.rawContentLength || 0).toLocaleString()} chars):</strong>
+                              </div>
+                              <pre style={{ whiteSpace: "pre-wrap", margin: 0, padding: 12, background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", fontSize: 12, lineHeight: 1.5 }}>
+                                {reviewContent?.rawContent || "No raw content"}
+                              </pre>
+                            </div>
+                          )}
                         </div>
-                        <pre style={{ whiteSpace: "pre-wrap", margin: 0, padding: 12, background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", fontSize: 12, lineHeight: 1.5, maxHeight: 350, overflowY: "auto" }}>
-                          {reviewContent?.rawContent}
-                        </pre>
                       </div>
                     )}
                   </div>
                 )}
-              </div>
+
+</div>
               );
             })}
           </div>
