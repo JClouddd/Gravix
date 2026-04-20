@@ -89,6 +89,10 @@ jobs:
           fi
 
 
+      - name: Checkout code
+        uses: actions/checkout@v4
+        if: steps.verify.outputs.jules == 'true'
+
       - name: Check file overlap with other Jules PRs
         id: overlap
         if: steps.verify.outputs.jules == 'true'
