@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { POST } from '../route.js';
 
+vi.mock('@/lib/automationEngine', () => ({
+  triggerPipeline: vi.fn().mockResolvedValue([{ action: 'linkToClient', result: 'linked' }])
+}));
+vi.mock('@/lib/errorLogger', () => ({
+  logRouteError: vi.fn()
+}));
 vi.mock('@/lib/firebaseAdmin', () => ({
   adminDb: {
     batch: vi.fn().mockReturnValue({
