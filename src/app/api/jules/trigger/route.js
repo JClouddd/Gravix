@@ -63,6 +63,8 @@ export async function POST(request) {
       autoApprove = true,
       acceptanceCriteria = "",
       forceNoQueue = false,
+      _pipelineId = null,
+      _waveNumber = null,
     } = body;
 
     if (!prompt) {
@@ -192,6 +194,8 @@ export async function POST(request) {
           title: title || prompt.slice(0, 60),
           fileLocks: effectiveLocks,
           files,
+          pipelineId: _pipelineId || null,
+          waveNumber: _waveNumber ?? null,
           createdAt: new Date().toISOString(),
         });
       } catch (lockErr) {
