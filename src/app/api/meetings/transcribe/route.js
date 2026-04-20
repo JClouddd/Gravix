@@ -1,0 +1,93 @@
+import { adminDb } from "@/lib/firebaseAdmin";
+import { logRouteError } from "@/lib/errorLogger";
+import { structuredGenerate } from "@/lib/geminiClient";
+
+export async function GET(request) {
+  try {
+    const snapshot = await adminDb
+      .collection("meeting_transcripts")
+      .orderBy("createdAt", "desc")
+      .get();
+
+    const transcripts = [];
+    snapshot.forEach((doc) => {
+      transcripts.push({ id: doc.id, ...doc.data() });
+    });
+
+    return Response.json({ success: true, transcripts });
+  } catch (error) {
+    logRouteError("runtime", "/api/meetings/transcribe error", error, "/api/meetings/transcribe");
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(request) {
+  try {
+    const formData = await request.formData();
+    const audioFile = formData.get("audio");
+
+    if (!audioFile) {
+      return Response.json({ error: "No audio file provided" }, { status: 400 });
+    }
+
+    const buffer = Buffer.from(await audioFile.arrayBuffer());
+    const base64Audio = buffer.toString("base64");
+
+
+    const prompt = `
+      Analyze the provided meeting audio and extract the following in structured JSON format:
+      - transcript: A full transcript of the meeting.
+      - summary: A concise summary of the meeting.
+    `;
+
+    const responseSchema = {
+      type: "object",
+      properties: {
+        transcript: { type: "string" },
+        summary: { type: "string" },
+      },
+      required: ["transcript", "summary"],
+    };
+
+    const result = await structuredGenerate({
+      prompt,
+      schema: responseSchema,
+      complexity: "pro", // Audio files typically need the pro model
+      mediaParts: [
+        {
+          inlineData: {
+            data: base64Audio,
+            mimeType: audioFile.type || "audio/mpeg",
+          },
+        },
+      ],
+    });
+
+    const responseText = result.text;
+    let analysis;
+    try {
+      analysis = JSON.parse(responseText);
+    } catch (e) {
+      console.error("Failed to parse Gemini output as JSON", responseText);
+      throw new Error("Failed to parse analysis");
+    }
+
+    const transcriptData = {
+      id: Date.now().toString(),
+      title: audioFile.name || "Untitled Meeting",
+      transcript: analysis.transcript,
+      summary: analysis.summary,
+      audioFileName: audioFile.name,
+      duration: "0:00", // placeholder
+      createdAt: new Date().toISOString()
+    };
+
+    await adminDb.collection("meeting_transcripts").doc(transcriptData.id).set(transcriptData);
+
+    return Response.json({ success: true, ...transcriptData });
+  } catch (error) {
+    console.error("[/api/meetings/transcribe POST] Error:", error);
+    logRouteError("runtime", "/api/meetings/transcribe error", error, "/api/meetings/transcribe");
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+}

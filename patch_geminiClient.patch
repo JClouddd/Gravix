@@ -1,0 +1,56 @@
+--- src/lib/geminiClient.js
++++ src/lib/geminiClient.js
+@@ -118,6 +118,7 @@
+  * @param {number} [options.maxTokens=8192] - Maximum number of output tokens.
+  * @param {number|null} [options.temperature=null] - Optional temperature for generation (0.0 to 2.0).
+  * @param {Array<{role: string, content: string}>} [options.history=[]] - Optional conversation history.
++ * @param {Array<Object>} [options.mediaParts=[]] - Optional media parts (e.g., inlineData for audio/images).
+  * @returns {Promise<{
+  *   text: string,
+  *   model: string,
+@@ -140,6 +141,7 @@
+   maxTokens = 8192,
+   temperature = null,
+   history = [],
++  mediaParts = [],
+ }) {
+   const apiKey = process.env.GEMINI_API_KEY;
+   if (!apiKey) {
+@@ -213,8 +215,14 @@
+   }
+
+   // Add current prompt
++  const currentParts = [{ text: prompt }];
++  if (mediaParts && mediaParts.length > 0) {
++    for (const part of mediaParts) {
++      currentParts.push(part);
++    }
++  }
+   contents.push({
+     role: "user",
+-    parts: [{ text: prompt }],
++    parts: currentParts,
+   });
+
+@@ -434,6 +442,7 @@
+  * @param {Object} options.schema - The JSON schema the output must adhere to.
+  * @param {string} [options.systemPrompt=""] - Optional system instructions.
+  * @param {("auto"|"low"|"flash"|"high"|"pro"|"deep"|"research")} [options.complexity="auto"] - Determines which model to use.
++ * @param {Array<Object>} [options.mediaParts=[]] - Optional media parts (e.g., inlineData for audio/images).
+  * @returns {Promise<{
+  *   text: string,
+  *   model: string,
+@@ -460,11 +469,13 @@
+   schema,
+   systemPrompt = "",
+   complexity = "auto",
++  mediaParts = [],
+ }) {
+   return generate({
+     prompt,
+     systemPrompt,
+     complexity,
+     jsonSchema: schema,
++    mediaParts,
+   });
+ }

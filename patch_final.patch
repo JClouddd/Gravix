@@ -1,0 +1,116 @@
+--- src/components/modules/PlannerModule.js
++++ src/components/modules/PlannerModule.js
+@@ -32,6 +32,10 @@
+   const [taskSort, setTaskSort] = useState("date");
+   const [editingTask, setEditingTask] = useState(null);
+
++  // Meetings State
++  const [transcripts, setTranscripts] = useState([]);
++  const [isUploading, setIsUploading] = useState(false);
++
+   // Creation Modals
+   const [showAddEvent, setShowAddEvent] = useState(false);
+   const [showAddTask, setShowAddTask] = useState(false);
+@@ -47,11 +51,12 @@
+
+   const fetchData = useCallback(async () => {
+     try {
+-      const [calRes, tasksRes] = await Promise.all([
++      const [calRes, tasksRes, transcriptsRes] = await Promise.all([
+         fetch("/api/calendar/events").then(res => res.json()),
+-        fetch("/api/tasks/list").then(res => res.json())
++        fetch("/api/tasks/list").then(res => res.json()),
++        fetch("/api/meetings/transcribe").then(res => res.json())
+       ]);
+
+-      const connected = calRes.connected && tasksRes.connected;
+-      setIsConnected(connected);
++      const connected = calRes.connected !== false;
++      setIsConnected(calRes.connected !== false);
+
+       if (connected) {
+         // Set up calendars
+@@ -74,6 +79,10 @@
+           };
+         });
+         setCalendarEvents(mappedEvents);
++
++        if (transcriptsRes && transcriptsRes.success) {
++          setTranscripts(transcriptsRes.transcripts || []);
++        }
+
+         // Map Tasks
+@@ -330,6 +339,48 @@
+     );
+   };
+
++  // ─── Meetings Tab ──────────────────────────────────────
++  const renderMeetings = () => {
++    const handleUpload = async (e) => {
++      const file = e.target.files[0];
++      if (!file) return;
++      setIsUploading(true);
++      try {
++        const formData = new FormData();
++        formData.append("audio", file);
++        const res = await fetch("/api/meetings/transcribe", { method: "POST", body: formData });
++        const data = await res.json();
++        if (data.success) {
++          setTranscripts(prev => [data, ...prev]);
++        }
++      } catch (err) {
++        console.error("Upload error", err);
++      } finally {
++        setIsUploading(false);
++      }
++    };
++
++    return (
++      <div className="card" style={{ minHeight: "700px", padding: "24px" }}>
++        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
++          <h3 className="h4">Meeting Transcripts</h3>
++          <label className="btn btn-primary" style={{ cursor: "pointer" }}>
++            {isUploading ? "Uploading & Transcribing..." : "Upload Audio"}
++            <input type="file" accept="audio/*" onChange={handleUpload} style={{ display: "none" }} disabled={isUploading} />
++          </label>
++        </div>
++        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
++          {transcripts.map(t => (
++            <div key={t.id} style={{ padding: "16px", border: "1px solid var(--card-border)", borderRadius: "var(--radius-md)" }}>
++              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
++                <strong>{t.title}</strong>
++                <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>{new Date(t.createdAt).toLocaleDateString()} • {t.duration}</span>
++              </div>
++              <p style={{ fontSize: "14px", color: "var(--text-secondary)", margin: 0 }}>{t.summary}</p>
++            </div>
++          ))}
++          {transcripts.length === 0 && !isUploading && <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "24px" }}>No transcripts found.</p>}
++        </div>
++      </div>
++    );
++  };
+
+   // ─── Not Connected State ───────────────────────────────
+   if (!isLoading && !isConnected) {
+@@ -391,6 +442,13 @@
+         >
+           Schedule
+         </button>
++        <button
++          className={`btn ${activeTab === "meetings" ? "btn-secondary" : "btn-ghost"} btn-sm`}
++          onClick={() => setActiveTab("meetings")}
++          style={{ background: activeTab === "meetings" ? "var(--bg-hover)" : "transparent" }}
++        >
++          Meetings
++        </button>
+       </div>
+
+       {isLoading ? (
+@@ -402,6 +460,7 @@
+           {activeTab === "calendar" && renderCalendar()}
+           {activeTab === "tasks" && renderTasks()}
+           {activeTab === "schedule" && renderSchedule()}
++          {activeTab === "meetings" && renderMeetings()}
+         </>
+       )}
+     </div>

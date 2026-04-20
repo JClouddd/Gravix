@@ -1,0 +1,66 @@
+--- src/app/api/meetings/transcribe/route.js
++++ src/app/api/meetings/transcribe/route.js
+@@ -1,6 +1,6 @@
+ import { adminDb } from "@/lib/firebaseAdmin";
+ import { logRouteError } from "@/lib/errorLogger";
+-import { GoogleGenerativeAI } from "@google/generative-ai";
++import { structuredGenerate } from "@/lib/geminiClient";
+
+ export async function GET(request) {
+   try {
+@@ -30,13 +30,6 @@
+     const buffer = Buffer.from(await audioFile.arrayBuffer());
+     const base64Audio = buffer.toString("base64");
+
+-    const apiKey = process.env.GEMINI_API_KEY;
+-    if (!apiKey) {
+-      throw new Error("GEMINI_API_KEY is not set");
+-    }
+-
+-    const genAI = new GoogleGenerativeAI(apiKey);
+-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+
+     const prompt = `
+       Analyze the provided meeting audio and extract the following in structured JSON format:
+@@ -53,23 +46,16 @@
+       required: ["transcript", "summary"],
+     };
+
+-    const result = await model.generateContent({
+-      contents: [
+-        {
+-          role: "user",
+-          parts: [
+-            { text: prompt },
+-            {
+-              inlineData: {
+-                data: base64Audio,
+-                mimeType: audioFile.type || "audio/mpeg",
+-              },
+-            },
+-          ],
+-        },
+-      ],
+-      generationConfig: {
+-        responseMimeType: "application/json",
+-        responseSchema: responseSchema,
+-      },
++    const result = await structuredGenerate({
++      prompt,
++      schema: responseSchema,
++      complexity: "pro", // Audio files typically need the pro model
++      mediaParts: [
++        {
++          inlineData: {
++            data: base64Audio,
++            mimeType: audioFile.type || "audio/mpeg",
++          },
++        },
++      ],
+     });
+
+-    const responseText = result.response.text();
++    const responseText = result.text;
+     let analysis;
+     try {
+       analysis = JSON.parse(responseText);

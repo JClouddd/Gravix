@@ -1,0 +1,11 @@
+--- src/app/api/meetings/transcribe/route.js
++++ src/app/api/meetings/transcribe/route.js
+@@ -62,7 +62,7 @@
+       ],
+     });
+
+-    const responseText = result.response.text();
++    const responseText = result.text;
+     let analysis;
+     try {
+       analysis = JSON.parse(responseText);
