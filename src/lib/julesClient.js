@@ -97,9 +97,9 @@ export async function approvePlan(sessionId) {
 
 /* ── Send Message (for user feedback / unblocking) ────────────── */
 export async function sendMessage(sessionId, message) {
-  // Correct endpoint: :sendMessage (NOT /activities which is GET-only)
+  // Correct endpoint: :sendMessage with { prompt } field (NOT "message")
   return julesRequest(`/sessions/${sessionId}:sendMessage`, "POST", {
-    message,
+    prompt: message,
   });
 }
 
