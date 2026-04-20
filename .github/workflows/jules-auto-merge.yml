@@ -95,11 +95,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # The GitHub Actions checkout action doesn't fetch the repo by default for some events.
+          # But since we use GitHub CLI (gh) here, we just need to ensure the repository info is available via API calls.
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
 
-          # Get files changed in this PR
-          MY_FILES=$(gh pr diff $PR_NUMBER --name-only | sort)
+          # Get files changed in this PR using GitHub CLI, which doesn't need a local checkout if configured correctly.
+          MY_FILES=$(gh api repos/$REPO/pulls/$PR_NUMBER/files --jq '.[].filename' | sort)
           echo "Files in this PR:"
           echo "$MY_FILES"
 
@@ -109,7 +111,7 @@ jobs:
 
           OVERLAP_FOUND=false
           for OTHER in $OTHER_PRS; do
-            OTHER_FILES=$(gh pr diff $OTHER --name-only 2>/dev/null | sort || echo "")
+            OTHER_FILES=$(gh api repos/$REPO/pulls/$OTHER/files --jq '.[].filename' 2>/dev/null | sort || echo "")
             if [ -z "$OTHER_FILES" ]; then continue; fi
 
             OVERLAP=$(comm -12 <(echo "$MY_FILES") <(echo "$OTHER_FILES"))
