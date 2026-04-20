@@ -105,17 +105,47 @@ export async function GET() {
 
           case "AWAITING_USER_FEEDBACK":
           case "WAITING_FOR_USER_FEEDBACK": {
-            // Send project context to unblock Jules
-            await sendMessage(
-              id,
-              `Here is the project context to help you proceed:\n\n${PROJECT_CONTEXT}\n\nPlease continue with implementation. If you have a specific question, ask it clearly and I will answer.`
-            );
+            // Check if we already responded to this session (avoid spam)
+            const alreadyAnswered = await checkAlreadyAnswered(id);
+            if (alreadyAnswered) {
+              results.actions.push({
+                session: id, title,
+                action: "FEEDBACK_ALREADY_SENT",
+                detail: "Already sent context to this session — skipping to avoid spam loop",
+              });
+              break;
+            }
+
+            // Fetch latest activities to see what Jules is actually asking
+            let julesQuestion = "";
+            try {
+              const activities = await listActivities(id);
+              const actList = activities.activities || [];
+              // Find the last agent message (Jules' question)
+              const lastAgentMsg = [...actList]
+                .reverse()
+                .find((a) => a.agentMessage || a.message?.role === "agent");
+              if (lastAgentMsg) {
+                julesQuestion = lastAgentMsg.agentMessage?.message
+                  || lastAgentMsg.message?.content
+                  || JSON.stringify(lastAgentMsg).slice(0, 500);
+              }
+            } catch {
+              // If activities fail, send generic context
+            }
+
+            // Build a smart response based on what Jules is asking
+            const smartResponse = buildSmartResponse(title, julesQuestion);
+
+            await sendMessage(id, smartResponse);
             results.actions.push({
               session: id, title,
-              action: "CONTEXT_SENT",
-              detail: "Sent project context via sendMessage to unblock Jules",
+              action: "SMART_CONTEXT_SENT",
+              detail: julesQuestion
+                ? `Answered Jules' question. Q: ${julesQuestion.slice(0, 100)}...`
+                : "Sent project context (no specific question detected)",
             });
-            await logToFirestore(id, title, "context_sent", "Auto-sent project context");
+            await logToFirestore(id, title, "context_sent", smartResponse.slice(0, 300));
             break;
           }
 
@@ -320,4 +350,103 @@ async function getRetryCount(sessionId) {
   } catch {
     return 0;
   }
+}
+
+async function checkAlreadyAnswered(sessionId) {
+  try {
+    const db = adminDb();
+    const snaps = await db
+      .collection("jules_monitor_log")
+      .where("sessionId", "==", sessionId)
+      .where("action", "==", "context_sent")
+      .limit(1)
+      .get();
+    return !snaps.empty;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Build an intelligent response based on what Jules is asking.
+ * Reads the task title and Jules' question to provide codebase-specific answers
+ * instead of just dumping the full PROJECT_CONTEXT.
+ */
+function buildSmartResponse(title, julesQuestion) {
+  const question = (julesQuestion || "").toLowerCase();
+  const taskTitle = (title || "").toLowerCase();
+  let specificGuidance = "";
+
+  // Pattern: "I don't see X file" / "Where is X" / "Should I create X"
+  if (question.includes("don't see") || question.includes("not found") || question.includes("should i create") || question.includes("does not exist")) {
+    specificGuidance = `If you cannot find the file mentioned in the task, CREATE IT. This is a greenfield task — new files are expected. Follow these conventions:
+- Components: src/components/modules/{ModuleName}.js (with 'use client' directive)
+- Sub-components: src/components/modules/{feature}/{ComponentName}.js
+- API routes: src/app/api/{feature}/route.js (named exports: GET, POST, etc.)
+- Shared libs: src/lib/{name}.js
+
+Do NOT ask for clarification about missing files — create them.`;
+  }
+
+  // Pattern: "Which component" / "Which file" / "Where should I"
+  if (question.includes("which component") || question.includes("which file") || question.includes("would you like me to")) {
+    specificGuidance = `Use your best judgment. Here's the project structure:
+
+EXISTING MODULES:
+- src/components/modules/KnowledgeModule.js — Brain vault, Scholar chat, Drive
+  - Sub-tabs: src/components/modules/knowledge/{Tab}.js
+- src/components/modules/AgentsModule.js — AI agent management
+- src/components/modules/ColabModule.js — Notebook management
+- src/components/modules/EmailModule.js — Gmail integration
+- src/components/modules/CalendarModule.js — Calendar
+- src/components/modules/ClientsModule.js — Contacts
+- src/components/modules/FinanceModule.js — Finance
+
+EXISTING API ROUTES:
+- src/app/api/gemini/chat/route.js — Gemini chat endpoint
+- src/app/api/knowledge/* — Knowledge engine
+- src/app/api/jules/* — Jules pipeline
+- src/app/api/drive/* — Google Drive
+- src/app/api/contacts/* — Contacts
+- src/app/api/agents/* — Agent management
+
+If the task mentions a "widget" or standalone component, create a new file.
+If it mentions modifying existing functionality, update the relevant module above.
+Prefer creating new files over modifying existing ones to avoid merge conflicts.`;
+  }
+
+  // Pattern: GeminiWidget specifically
+  if (taskTitle.includes("gemini") && (taskTitle.includes("widget") || taskTitle.includes("chat"))) {
+    specificGuidance += `\n\nSPECIFIC TO THIS TASK:
+- There is NO existing GeminiWidget.js — CREATE one at src/components/modules/knowledge/GeminiWidget.js
+- The chat backend is at src/app/api/gemini/chat/route.js (already exists)
+- The existing Scholar chat is at src/components/modules/knowledge/ScholarChatTab.js
+  (uses /api/knowledge/review — do NOT modify this)
+- For model toggle: use gemini-2.5-flash and gemini-2.5-pro as options
+- For cost display: show estimated token count and model price per 1M tokens
+- Wire the new GeminiWidget to /api/gemini/chat endpoint`;
+  }
+
+  // Pattern: "endpoint" / "API" questions
+  if (question.includes("endpoint") || question.includes("/api/")) {
+    specificGuidance += `\n\nAPI ENDPOINT GUIDANCE:
+- Use the endpoint specified in the task title/description
+- If no endpoint exists, create one at src/app/api/{feature}/route.js
+- All API routes must use Response.json() for responses
+- All catch blocks must call logRouteError() from @/lib/errorLogger`;
+  }
+
+  // Default: if no specific guidance matched, use general direction
+  if (!specificGuidance) {
+    specificGuidance = `Please proceed with your best judgment. Create any files that don't exist. Use the project structure above for guidance. If you're unsure between two approaches, pick the one that requires fewer changes to existing files.`;
+  }
+
+  return `AUTOMATED RESPONSE — Project Context & Guidance
+
+${PROJECT_CONTEXT}
+
+TASK-SPECIFIC GUIDANCE:
+${specificGuidance}
+
+IMPORTANT: Do NOT ask for further clarification. Make decisions autonomously and proceed with implementation. Create any files that don't exist. Submit your changes when done.`;
 }
