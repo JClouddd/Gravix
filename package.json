@@ -10,6 +10,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@e2b/code-interpreter": "^2.4.0",
     "@google-cloud/discoveryengine": "^2.6.0",
     "@google/generative-ai": "^0.24.1",
     "firebase": "^12.12.0",
