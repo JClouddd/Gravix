@@ -16,7 +16,8 @@ export async function POST(request) {
     const text = message.text;
 
     // Strict validation against configured TELEGRAM_CHAT_ID
-    if (String(chatId) !== String(process.env.TELEGRAM_CHAT_ID)) {
+    const expectedChatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
+    if (String(chatId) !== expectedChatId) {
       console.warn(`[Telegram Webhook] Unauthorized chatId: ${chatId}. Ignoring.`);
       return Response.json({ success: true });
     }

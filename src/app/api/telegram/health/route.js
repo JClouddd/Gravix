@@ -11,11 +11,12 @@ export async function POST(request) {
     }
 
     const chatId = String(message.chat.id);
-    const expectedChatId = String(process.env.TELEGRAM_CHAT_ID);
+    const expectedChatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
 
     if (chatId !== expectedChatId) {
       return Response.json({ success: true, message: 'Unauthorized chat ID' });
     }
+
 
     if (message.text.includes('/status')) {
       const pipelinesRef = adminDb.collection('jules_pipelines');
