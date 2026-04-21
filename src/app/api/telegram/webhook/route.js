@@ -28,15 +28,76 @@ export async function POST(request) {
     // 2. Append User Message to History
     await appendHistory(chatId, 'user', text);
 
+    const tools = [
+      {
+        name: "getJulesStatus",
+        description: "Check the status of running, queued, or recently failed Jules autonomous CI/CD pipelines.",
+        parameters: { type: "object", properties: {} }
+      },
+      {
+        name: "getSystemErrors",
+        description: "Check if there are any active runtime or pipeline errors in the Gravix backend.",
+        parameters: { type: "object", properties: {} }
+      }
+    ];
+
+    const systemPrompt = "You are Gravix Assistant, the deeply intelligent technical copilot for the Gravix Agentic OS. Use your tools natively to check internal data to answer user requests. Keep responses concise.";
+
     // 3. Generate AI Response
-    const aiResponse = await geminiClient.generate({
+    let aiResponse = await geminiClient.generate({
       prompt: text,
       history: history,
-      systemPrompt: "You are a helpful and intelligent Telegram assistant for the Gravix system.",
+      tools: tools,
+      systemPrompt: systemPrompt
     });
 
+    let finalAiText = "";
+
+    if (aiResponse.functionCalls && aiResponse.functionCalls.length > 0) {
+      const call = aiResponse.functionCalls[0];
+      let functionResult = {};
+
+      const { adminDb } = await import('@/lib/firebaseAdmin');
+
+      if (call.name === "getJulesStatus") {
+        const pipelines = await adminDb.collection("jules_pipelines").orderBy("createdAt", "desc").limit(5).get();
+        functionResult = { 
+          pipelines: pipelines.docs.map(d => ({ id: d.id, status: d.data().status })) 
+        };
+      } else if (call.name === "getSystemErrors") {
+        const errs = await adminDb.collection("system_errors").orderBy("timestamp", "desc").limit(5).get();
+        functionResult = { 
+          errors: errs.docs.map(d => d.data().message) 
+        };
+      } else {
+        functionResult = { error: "Unknown tool" };
+      }
+
+      const functionResponseParts = [
+        { functionResponse: { name: call.name, response: functionResult } }
+      ];
+
+      const extendedHistory = [
+        ...history,
+        { role: "user", parts: [{ text }] },
+        { role: "model", parts: [{ functionCall: call }] },
+        { role: "function", parts: functionResponseParts }
+      ];
+
+      const followupResponse = await geminiClient.generate({
+        prompt: "",
+        history: extendedHistory,
+        tools: tools,
+        systemPrompt: systemPrompt
+      });
+
+      finalAiText = followupResponse.text;
+    } else {
+      finalAiText = aiResponse.text;
+    }
+
     // 4. Append AI Response to History
-    await appendHistory(chatId, 'model', aiResponse.text);
+    await appendHistory(chatId, 'model', finalAiText);
 
     // 5. Send Response back to Telegram via API
     const botToken = process.env.TELEGRAM_ASSISTANT_BOT_TOKEN || process.env.TELEGRAM_DEVOPS_BOT_TOKEN; // Fallback if needed

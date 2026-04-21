@@ -147,6 +147,7 @@ export async function generate({
   maxTokens = 8192,
   temperature = null,
   history = [],
+  tools = [], // Accept custom function declarations
 }) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -185,9 +186,12 @@ export async function generate({
   }
 
   // Build tools
-  const tools = [];
+  const mergedTools = [];
   if (grounded) {
-    tools.push({ googleSearchRetrieval: {} });
+    mergedTools.push({ googleSearchRetrieval: {} });
+  }
+  if (tools && tools.length > 0) {
+    mergedTools.push({ functionDeclarations: tools });
   }
 
   // Initialize model
@@ -195,7 +199,7 @@ export async function generate({
     model: modelName,
     generationConfig,
     ...(systemPrompt && { systemInstruction: systemPrompt }),
-    ...(tools.length > 0 && { tools }),
+    ...(mergedTools.length > 0 && { tools: mergedTools }),
   };
 
   const model = genAI.getGenerativeModel(modelConfig);
@@ -205,17 +209,25 @@ export async function generate({
 
   // Add history
   for (const msg of history) {
-    contents.push({
-      role: msg.role,
-      parts: [{ text: msg.content }],
-    });
+    // If history has function responses, we need to map them properly
+    // but for now we assume they are text history or pre-formatted parts
+    if (msg.parts) {
+      contents.push({ role: msg.role, parts: msg.parts });
+    } else {
+      contents.push({
+        role: msg.role,
+        parts: [{ text: msg.content }],
+      });
+    }
   }
 
-  // Add current prompt
-  contents.push({
-    role: "user",
-    parts: [{ text: prompt }],
-  });
+  // Add current prompt (if prompt string provided)
+  if (prompt) {
+    contents.push({
+      role: "user",
+      parts: [{ text: prompt }],
+    });
+  }
 
   // Execute with retry
   const startTime = Date.now();
@@ -226,7 +238,14 @@ export async function generate({
 
   const duration = Date.now() - startTime;
   const response = result.response;
-  const text = response.text();
+  
+  const functionCalls = response.functionCalls();
+  let text = "";
+  try {
+    text = response.text() || "";
+  } catch {
+    // text() throws if the response only contains function calls
+  }
 
   // Extract token usage
   const usage = response.usageMetadata || {};
@@ -242,6 +261,7 @@ export async function generate({
 
   return {
     text,
+    functionCalls: functionCalls || [],
     model: modelName,
     modelTier,
     tokens: {
