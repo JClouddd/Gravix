@@ -22,6 +22,7 @@ const MODULES = [
   { id: "finance",   label: "Finance",   icon: "💰", color: "var(--success)" },
   { id: "colab",     label: "Colab",     icon: "📊", color: "var(--agent-analyst)" },
   { id: "settings",  label: "Settings",  icon: "⚙️",  color: "var(--text-secondary)" },
+  { id: "telemetry", label: "Telemetry", icon: "📡", color: "var(--accent)" },
 ];
 
 /* ── Lazy Module Loading ─────────────────────────────────────── */
@@ -35,6 +36,7 @@ const moduleComponents = {
   finance:   lazy(() => import("@/components/modules/FinanceModule")),
   colab:     lazy(() => import("@/components/modules/ColabModule")),
   settings:  lazy(() => import("@/components/modules/SettingsModule")),
+  telemetry: lazy(() => import("@/components/modules/AgentTelemetry")),
 };
 
 /* ── AppShell Component ──────────────────────────────────────── */
@@ -122,33 +124,41 @@ export default function AppShell() {
   const activeConfig = MODULES.find((m) => m.id === activeModule);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell bg-gradient-premium">
       <PipelineToasts />
       <CommandPalette setActiveModule={handleModuleChange} />
 
       {/* ── Sidebar ──────────────────────────────────────── */}
-      <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+      <aside className={`sidebar card-glass ${collapsed ? "collapsed" : ""}`} style={{ borderRadius: 0, borderTop: 'none', borderBottom: 'none', borderLeft: 'none' }}>
         {!isMobile && (
           <div className="sidebar-header">
-            <div className="sidebar-logo">G</div>
-            <span className="sidebar-title">Gravix</span>
+            <div className="sidebar-logo text-gradient" style={{ background: 'linear-gradient(to right, #00d4ff, var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>G</div>
+            <span className="sidebar-title text-gradient" style={{ fontWeight: 800 }}>Gravix</span>
           </div>
         )}
 
         <nav className="sidebar-nav" role="navigation" aria-label="Main navigation">
-          {MODULES.map((mod) => (
-            <button
-              key={mod.id}
-              id={`nav-${mod.id}`}
-              className={`nav-item ${activeModule === mod.id ? "active" : ""}`}
-              onClick={() => handleModuleChange(mod.id)}
-              title={mod.label}
-              aria-current={activeModule === mod.id ? "page" : undefined}
-            >
-              <span className="nav-icon">{mod.icon}</span>
-              {!isMobile && <span className="nav-label">{mod.label}</span>}
-            </button>
-          ))}
+          {MODULES.map((mod) => {
+            const isActive = activeModule === mod.id;
+            return (
+              <button
+                key={mod.id}
+                id={`nav-${mod.id}`}
+                className={`nav-item ${isActive ? "active" : ""}`}
+                onClick={() => handleModuleChange(mod.id)}
+                title={mod.label}
+                aria-current={isActive ? "page" : undefined}
+                style={isActive ? {
+                  background: `color-mix(in srgb, ${mod.color} 15%, transparent)`,
+                  color: mod.color,
+                  boxShadow: `inset 3px 0 0 ${mod.color}`
+                } : {}}
+              >
+                <span className="nav-icon" style={isActive ? { textShadow: `0 0 10px ${mod.color}` } : {}}>{mod.icon}</span>
+                {!isMobile && <span className="nav-label" style={isActive ? { fontWeight: 600 } : {}}>{mod.label}</span>}
+              </button>
+            );
+          })}
         </nav>
 
         {!isMobile && (
@@ -176,14 +186,19 @@ export default function AppShell() {
         <QuickActions activeModule={activeModule} setActiveModule={handleModuleChange} />
 
         {/* ── Top Bar (Mobile / Theme Toggle) ──────────────── */}
-        <header style={{
+        <header className="card-glass" style={{
           display: "flex",
           justifyContent: "flex-end",
           alignItems: "center",
           gap: "12px",
           padding: "12px 20px",
-          borderBottom: "1px solid var(--card-border)",
-          background: "var(--bg-primary)"
+          borderRadius: 0,
+          borderTop: 'none',
+          borderLeft: 'none',
+          borderRight: 'none',
+          position: 'sticky',
+          top: 0,
+          zIndex: 'var(--z-header)'
         }}>
           <NotificationCenter />
           <button
