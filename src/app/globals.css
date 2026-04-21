@@ -8,9 +8,9 @@
 /* ── Color Tokens ─────────────────────────────────────────────── */
 :root {
   /* Base */
-  --bg-primary: hsl(225, 15%, 7%);
-  --bg-secondary: hsl(225, 14%, 10%);
-  --bg-tertiary: hsl(225, 13%, 14%);
+  --bg-primary: hsl(0, 0%, 2%); /* Deeper black */
+  --bg-secondary: hsla(225, 10%, 6%, 0.85); /* Dark transparent */
+  --bg-tertiary: hsl(225, 15%, 10%);
   --bg-elevated: hsl(225, 12%, 17%);
   --bg-hover: hsl(225, 12%, 20%);
 
@@ -46,9 +46,9 @@
   --agent-builder: hsl(45, 90%, 52%);
 
   /* Glass */
-  --glass-bg: hsla(225, 15%, 12%, 0.65);
-  --glass-border: hsla(220, 20%, 94%, 0.08);
-  --glass-border-hover: hsla(220, 20%, 94%, 0.15);
+  --glass-bg: hsla(220, 10%, 15%, 0.4);
+  --glass-border: hsla(220, 40%, 100%, 0.12);
+  --glass-border-hover: hsla(220, 60%, 100%, 0.25);
   --glass-blur: 20px;
 
   /* Surfaces */
@@ -360,16 +360,31 @@ input, textarea, select {
 
 .card-glass {
   background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   padding: 24px;
-  transition: all var(--duration-normal) var(--ease-out);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  transition: all var(--duration-normal) var(--ease-spring);
 }
 
 .card-glass:hover {
   border-color: var(--glass-border-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* Premium Gradient Utilities */
+.bg-gradient-premium {
+  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+}
+
+.text-gradient {
+  background: linear-gradient(to right, #00d4ff, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* ── Buttons ──────────────────────────────────────────────────── */
