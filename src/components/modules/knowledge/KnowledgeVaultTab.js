@@ -111,26 +111,42 @@ export default function KnowledgeVaultTab({ status, setActiveTab }) {
             <div>
               <h4 className="h4" style={{ marginBottom: 12 }}>Sources</h4>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {searchResults.results.map((result, idx) => (
+                {searchResults.results.map((result, idx) => {
+                  const doc = result.document || {};
+                  const derived = doc.derivedStructData || {};
+                  const struct = doc.structData || {};
+                  const title = derived.title || struct.title || doc.name || "Untitled Document";
+                  const link = derived.link || struct.link || "";
+
+                  let snippet = "No snippet available.";
+                  if (derived.snippets && derived.snippets.length > 0) {
+                    snippet = derived.snippets[0].snippet;
+                  } else if (derived.extractive_answers && derived.extractive_answers.length > 0) {
+                    snippet = derived.extractive_answers[0].content;
+                  } else if (struct.snippet) {
+                    snippet = struct.snippet;
+                  }
+
+                  return (
                   <div key={idx} className="card" style={{ padding: 16 }}>
                     <a
-                      href={result.uri || "#"}
+                      href={link || "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ color: "var(--text-primary)", textDecoration: "none" }}
                     >
-                      <h4 style={{ color: "var(--accent-hover)", marginBottom: 4 }}>{result.title}</h4>
+                      <h4 style={{ color: "var(--accent-hover)", marginBottom: 4 }}>{title}</h4>
                     </a>
                     <p className="body-sm" style={{ color: "var(--text-secondary)" }}>
-                      {result.snippet.replace(/<b>/g, "").replace(/<\/b>/g, "")}
+                      {typeof snippet === "string" ? snippet.replace(/<b>/g, "").replace(/<\/b>/g, "") : snippet}
                     </p>
-                    {result.uri && (
+                    {link && (
                       <div className="caption" style={{ color: "var(--text-tertiary)", marginTop: 8, wordBreak: "break-all" }}>
-                        🔗 {result.uri}
+                        🔗 {link}
                       </div>
                     )}
                   </div>
-                ))}
+                )})}
               </div>
             </div>
           ) : (
