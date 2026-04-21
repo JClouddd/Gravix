@@ -10,6 +10,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@google-cloud/discoveryengine": "^2.6.0",
     "@google/generative-ai": "^0.24.1",
     "firebase": "^12.12.0",
     "firebase-admin": "^12.7.0",

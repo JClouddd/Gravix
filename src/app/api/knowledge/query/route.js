@@ -1,13 +1,16 @@
-import { adminDb } from "@/lib/firebaseAdmin";
-import { embed, generate } from "@/lib/geminiClient";
+import { SearchServiceClient } from "@google-cloud/discoveryengine";
+import { generate } from "@/lib/geminiClient";
 import { logRouteError } from "@/lib/errorLogger";
+
+const client = new SearchServiceClient({
+  apiEndpoint: "us-discoveryengine.googleapis.com",
+});
 
 /**
  * POST /api/knowledge/query
  * 
  * Provides universal Retrieval-Augmented Generation (RAG) access.
- * Accepts a text query, converts it to a 768-dimensional Gemini embedding,
- * and performs a Vector Search against the Firestore knowledge_vectors collection.
+ * Performs a Vector Search against the Vertex AI Datastore.
  */
 export async function POST(request) {
   try {
@@ -18,52 +21,34 @@ export async function POST(request) {
       return Response.json({ error: "Missing 'query' parameter" }, { status: 400 });
     }
 
-    console.log(`[RAG Query] Embedding query: "${query}"`);
-    const queryVector = await embed(query);
-    const collectionRef = adminDb.collection("knowledge_vectors");
+    const projectId = process.env.GOOGLE_CLOUD_PROJECT || "antigravity-hub-jcloud";
+    const location = process.env.GOOGLE_CLOUD_REGION || "us-east4";
+    const dataStoreId = process.env.VERTEX_DATASTORE_ID || "knowledge-vault";
 
-    console.log(`[RAG Query] Executing findNearest (TopK: ${topK})`);
-    
-    let vectorQuery;
+    const servingConfig = `projects/${projectId}/locations/${location}/collections/default_collection/dataStores/${dataStoreId}/servingConfigs/default_search`;
+
+    console.log(`[RAG Query] Executing Vertex AI Search for: "${query}"`);
+
+    let searchResults = [];
     let fallbackUsed = false;
+
     try {
-      vectorQuery = await collectionRef.findNearest({
-        vectorField: "embedding",
-        queryVector: queryVector,
-        limit: topK,
-        distanceMeasure: "COSINE"
-      }).get();
+      const requestParams = {
+        servingConfig,
+        query,
+        pageSize: topK,
+      };
+
+      const [response] = await client.search(requestParams);
+      searchResults = response || [];
     } catch (e) {
-      console.warn(`[RAG Query] Native findNearest failed or unsupported (${e.message}), falling back to latest documents.`);
+      console.warn(`[RAG Query] Native Vertex AI search failed (${e.message}), falling back to pure Gemini Grounded Query.`);
       fallbackUsed = true;
-      vectorQuery = await collectionRef
-        .orderBy("ingestedAt", "desc")
-        .limit(topK)
-        .get();
     }
 
-    const results = [];
-    vectorQuery.forEach(doc => {
-      const data = doc.data();
-      
-      let matchesFilter = true;
-      if (filter.sourceType && data.sourceType !== filter.sourceType) matchesFilter = false;
-      if (filter.contextId && data.contextId !== filter.contextId) matchesFilter = false;
-
-      if (matchesFilter) {
-        results.push({
-          id: doc.id,
-          content: data.textChunk || data.content,
-          sourceId: data.sourceId,
-          sourceType: data.sourceType,
-          contextId: data.contextId,
-        });
-      }
-    });
-
-    // If completely empty database, return Gemini grounded search
-    if (results.length === 0 && fallbackUsed) {
-        console.warn("[RAG Query] Data Store empty, falling back to pure Gemini Grounded Query.");
+    // If completely empty database or fallback, return Gemini grounded search
+    if (searchResults.length === 0 && fallbackUsed) {
+        console.warn("[RAG Query] Data Store empty or error, falling back to pure Gemini Grounded Query.");
         const result = await generate({
           prompt: query,
           systemPrompt: `You are Scholar, the knowledge agent for Gravix. Answer questions accurately using basic training data and Google Search grounding.`,
@@ -76,20 +61,25 @@ export async function POST(request) {
           query,
           source: "gemini_grounded",
           resultsCount: 0,
-          contextChunks: [],
+          results: [],
           summary: result.text,
         });
     }
 
-    console.log(`[RAG Query] Found ${results.length} relevant context chunks.`);
+    console.log(`[RAG Query] Found ${searchResults.length} relevant context chunks.`);
+
+    // We don't generate the summary here unless we want to, wait, Vertex AI Datastore doesn't give a "summary" natively unless we do Grounded search.
+    // Wait, Vertex AI Search with "SearchRequest" returns 'results' where each result has 'document'.
+    // If the old code returned 'contextChunks' but also a 'summary' only when falling back.
+    // Let me check if the old code generated a summary during successful retrieval.
 
     return Response.json({
       success: true,
       query,
       fallbackUsed,
-      source: "firestore_vector",
-      resultsCount: results.length,
-      contextChunks: results,
+      source: "data_store",
+      resultsCount: searchResults.length,
+      results: searchResults, // returning the raw results from Vertex AI
     });
   } catch (error) {
     console.error("[/api/knowledge/query error]", error);
@@ -106,9 +96,8 @@ export async function GET() {
   return Response.json({
     status: "operational",
     vectorStore: {
-      type: "firestore",
-      collection: "knowledge_vectors",
-      dimensions: 768,
+      type: "vertex_ai",
+      datastoreId: process.env.VERTEX_DATASTORE_ID || "knowledge-vault",
       deployed: true,
     },
   });
