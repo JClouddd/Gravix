@@ -22,6 +22,7 @@ const MODULES = [
   { id: "finance",   label: "Finance",   icon: "💰", color: "var(--success)" },
   { id: "colab",     label: "Colab",     icon: "📊", color: "var(--agent-analyst)" },
   { id: "settings",  label: "Settings",  icon: "⚙️",  color: "var(--text-secondary)" },
+  { id: "telemetry", label: "Telemetry", icon: "📡", color: "var(--accent)" },
 ];
 
 /* ── Lazy Module Loading ─────────────────────────────────────── */
@@ -35,6 +36,7 @@ const moduleComponents = {
   finance:   lazy(() => import("@/components/modules/FinanceModule")),
   colab:     lazy(() => import("@/components/modules/ColabModule")),
   settings:  lazy(() => import("@/components/modules/SettingsModule")),
+  telemetry: lazy(() => import("@/components/modules/AgentTelemetry")),
 };
 
 /* ── AppShell Component ──────────────────────────────────────── */
