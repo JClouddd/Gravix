@@ -18,6 +18,7 @@ export default function IngestionTab({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [videoCostConfirmed, setVideoCostConfirmed] = useState(false);
   const [videoMeta, setVideoMeta] = useState(null);
+  const [contextId, setContextId] = useState("");
 
   // Auto-detect YouTube URLs
   const isYouTubeUrl = useMemo(() => {
@@ -71,6 +72,7 @@ export default function IngestionTab({
               type: "file",
               fileName: file.name,
               source: "manual",
+              contextId: contextId.trim() || undefined,
             }),
           });
 
@@ -108,7 +110,7 @@ export default function IngestionTab({
       setIngesting(false);
       setUploadProgress(0);
     }
-  }, [setStagedEntries]);
+  }, [setStagedEntries, contextId]);
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
@@ -140,12 +142,13 @@ export default function IngestionTab({
       // All content goes through the unified ingest route
       // It auto-detects YouTube URLs and routes accordingly
       const payload = ingestionType === "url"
-        ? { content: ingestionInput, type: "url", title: ingestionTitle, source: "manual" }
+        ? { content: ingestionInput, type: "url", title: ingestionTitle, source: "manual", contextId: contextId.trim() || undefined }
         : {
             content: ingestionInput,
             type: ingestionType,
             title: ingestionTitle,
             source: "manual",
+            contextId: contextId.trim() || undefined,
           };
 
       const res = await fetch("/api/knowledge/ingest", {
@@ -176,7 +179,7 @@ export default function IngestionTab({
       setUploadProgress(0);
     }
     setIngesting(false);
-  }, [ingestionInput, ingestionType, ingestionTitle, videoCostConfirmed, setStagedEntries]);
+  }, [ingestionInput, ingestionType, ingestionTitle, videoCostConfirmed, setStagedEntries, contextId]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -207,6 +210,18 @@ export default function IngestionTab({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Context Bundles */}
+      <div className="card">
+        <h3 className="h4" style={{ marginBottom: 16 }}>Context Bundles</h3>
+        <input
+          type="text"
+          className="input"
+          placeholder="Project ID or Topic Bundle ID (Optional)"
+          value={contextId}
+          onChange={(e) => setContextId(e.target.value)}
+        />
       </div>
 
       {/* Drag and Drop Zone */}
