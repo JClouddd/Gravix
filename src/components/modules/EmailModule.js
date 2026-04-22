@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
+import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 
 /**
  * Email Module — Gmail inbox with AI classification
@@ -37,7 +40,6 @@ export default function EmailModule() {
   const [classifications, setClassifications] = useState({});
   const [isClassifying, setIsClassifying] = useState(false);
   const [summaryData, setSummaryData] = useState({});
-  const [isSummarizing, setIsSummarizing] = useState(false);
 
   // Task Creation State
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -52,7 +54,6 @@ export default function EmailModule() {
   const [composeBody, setComposeBody] = useState(""); // For manual mode body
   const [composeContext, setComposeContext] = useState(""); // For AI Prompt
   const [composeTone, setComposeTone] = useState("professional");
-  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [draftText, setDraftText] = useState("");
 
@@ -290,6 +291,59 @@ export default function EmailModule() {
     return () => { isMounted = false; };
   }, []);
 
+
+
+  const isFirstLoad = useRef(true);
+
+  // Reactive Webhook Listener for real-time inbox updates
+  useEffect(() => {
+    if (!isConnected) return;
+
+    let isInitialWebhook = true;
+    let isInitialClientEmail = true;
+
+    // Listen to workspace_webhooks for new emails arriving without polling
+    const q = query(collection(db, "workspace_webhooks"), orderBy("timestamp", "desc"), limit(1));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (isInitialWebhook) {
+        isInitialWebhook = false;
+        return;
+      }
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const data = change.doc.data();
+          if (data.type === "email") {
+            console.log("New email webhook received, refreshing inbox...");
+            fetchInbox();
+          }
+        }
+      });
+    }, (err) => {
+      console.error("Email Webhook listener error:", err);
+    });
+
+    // Also listen to client_emails as another indicator
+    const clientEmailQ = query(collection(db, "client_emails"), orderBy("timestamp", "desc"), limit(1));
+    const unsubClientEmail = onSnapshot(clientEmailQ, (snapshot) => {
+      if (isInitialClientEmail) {
+        isInitialClientEmail = false;
+        return;
+      }
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+           console.log("New client email webhook received, refreshing inbox...");
+           fetchInbox();
+        }
+      });
+    });
+
+    return () => {
+      unsubscribe();
+      unsubClientEmail();
+    };
+  }, [isConnected]);
+
+
   // Infinite scroll observer
   useEffect(() => {
     if (!loadMoreRef.current || !nextPageToken) return;
@@ -324,18 +378,26 @@ export default function EmailModule() {
 
   const handleSummarizeThread = async () => {
     if (!selectedEmail) return;
-    setIsSummarizing(true);
-    try {
-      const res = await fetch("/api/email/summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Use threadId if available, otherwise fallback to array of emailIds
-        body: JSON.stringify({
-          threadId: selectedEmail.threadId,
-          emailIds: !selectedEmail.threadId ? [selectedEmail.id] : undefined
-        })
-      });
 
+    window.dispatchEvent(new CustomEvent("add-toast", {
+      detail: {
+        type: "info",
+        icon: "⏳",
+        title: "Queued to Background",
+        message: "Summarizing thread in background..."
+      }
+    }));
+
+    fetch("/api/email/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Use threadId if available, otherwise fallback to array of emailIds
+      body: JSON.stringify({
+        threadId: selectedEmail.threadId,
+        emailIds: !selectedEmail.threadId ? [selectedEmail.id] : undefined
+      })
+    })
+    .then(async (res) => {
       if (res.ok) {
         const data = await res.json();
         setSummaryData(prev => ({
@@ -343,14 +405,13 @@ export default function EmailModule() {
           [selectedEmail.id]: data
         }));
       } else {
-         alert("Failed to summarize email.");
+         window.dispatchEvent(new CustomEvent("add-toast", { detail: { type: "error", icon: "❌", title: "Error", message: "Failed to summarize email." } }));
       }
-    } catch (err) {
+    })
+    .catch((err) => {
       console.error(err);
-      alert("Error summarizing email.");
-    } finally {
-      setIsSummarizing(false);
-    }
+      window.dispatchEvent(new CustomEvent("add-toast", { detail: { type: "error", icon: "❌", title: "Error", message: "Error summarizing email." } }));
+    });
   };
 
   const handleCreateTask = async () => {
@@ -389,29 +450,36 @@ export default function EmailModule() {
   };
 
   const handleGenerateDraft = async () => {
-    setIsGeneratingDraft(true);
-    try {
-      const res = await fetch("/api/email/compose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          aiDraft: true,
-          prompt: `${composeContext} Tone: ${composeTone}`,
-        }),
-      });
+    window.dispatchEvent(new CustomEvent("add-toast", {
+      detail: {
+        type: "info",
+        icon: "⏳",
+        title: "Queued to Background",
+        message: "Generating draft in background..."
+      }
+    }));
+
+    fetch("/api/email/compose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        aiDraft: true,
+        prompt: `${composeContext} Tone: ${composeTone}`,
+      }),
+    })
+    .then(async (res) => {
       const data = await res.json();
       if (res.ok && data.draft) {
         setComposeSubject(data.subject || "Draft");
         setDraftText(data.body);
       } else {
-        alert(data.error || "Failed to generate draft");
+        window.dispatchEvent(new CustomEvent("add-toast", { detail: { type: "error", icon: "❌", title: "Error", message: data.error || "Failed to generate draft" } }));
       }
-    } catch (err) {
+    })
+    .catch((err) => {
       console.error(err);
-      alert("Error generating draft.");
-    } finally {
-      setIsGeneratingDraft(false);
-    }
+      window.dispatchEvent(new CustomEvent("add-toast", { detail: { type: "error", icon: "❌", title: "Error", message: "Error generating draft." } }));
+    });
   };
 
   const handleSendEmail = async (bodyContent) => {
@@ -767,8 +835,8 @@ export default function EmailModule() {
                 ← Back to Inbox
               </button>
               <div style={{ display: "flex", gap: 8 }}>
-                 <button className="btn btn-secondary btn-sm" onClick={handleSummarizeThread} disabled={isSummarizing}>
-                    {isSummarizing ? "Summarizing..." : "✨ Summarize Thread"}
+                 <button className="btn btn-secondary btn-sm" onClick={handleSummarizeThread}>
+                    ✨ Summarize Thread
                  </button>
                  <button className="btn btn-primary btn-sm" onClick={() => setShowTaskForm(!showTaskForm)}>
                     ✅ Create Task
@@ -984,8 +1052,8 @@ export default function EmailModule() {
                   </select>
                 </div>
                 <div>
-                  <button className="btn btn-primary" onClick={handleGenerateDraft} disabled={isGeneratingDraft || !composeContext.trim()}>
-                    {isGeneratingDraft ? "✨ Generating..." : "✨ Generate Draft"}
+                  <button className="btn btn-primary" onClick={handleGenerateDraft} disabled={!composeContext.trim()}>
+                    ✨ Generate Draft
                   </button>
                 </div>
 
