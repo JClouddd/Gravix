@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
+import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 
 /**
  * Email Module — Gmail inbox with AI classification
@@ -289,6 +292,59 @@ export default function EmailModule() {
     loadData();
     return () => { isMounted = false; };
   }, []);
+
+
+
+  const isFirstLoad = useRef(true);
+
+  // Reactive Webhook Listener for real-time inbox updates
+  useEffect(() => {
+    if (!isConnected) return;
+
+    let isInitialWebhook = true;
+    let isInitialClientEmail = true;
+
+    // Listen to workspace_webhooks for new emails arriving without polling
+    const q = query(collection(db, "workspace_webhooks"), orderBy("timestamp", "desc"), limit(1));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (isInitialWebhook) {
+        isInitialWebhook = false;
+        return;
+      }
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const data = change.doc.data();
+          if (data.type === "email") {
+            console.log("New email webhook received, refreshing inbox...");
+            fetchInbox();
+          }
+        }
+      });
+    }, (err) => {
+      console.error("Email Webhook listener error:", err);
+    });
+
+    // Also listen to client_emails as another indicator
+    const clientEmailQ = query(collection(db, "client_emails"), orderBy("timestamp", "desc"), limit(1));
+    const unsubClientEmail = onSnapshot(clientEmailQ, (snapshot) => {
+      if (isInitialClientEmail) {
+        isInitialClientEmail = false;
+        return;
+      }
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+           console.log("New client email webhook received, refreshing inbox...");
+           fetchInbox();
+        }
+      });
+    });
+
+    return () => {
+      unsubscribe();
+      unsubClientEmail();
+    };
+  }, [isConnected]);
+
 
   // Infinite scroll observer
   useEffect(() => {
