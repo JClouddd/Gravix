@@ -37,7 +37,6 @@ export default function EmailModule() {
   const [classifications, setClassifications] = useState({});
   const [isClassifying, setIsClassifying] = useState(false);
   const [summaryData, setSummaryData] = useState({});
-  const [isSummarizing, setIsSummarizing] = useState(false);
 
   // Task Creation State
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -52,7 +51,6 @@ export default function EmailModule() {
   const [composeBody, setComposeBody] = useState(""); // For manual mode body
   const [composeContext, setComposeContext] = useState(""); // For AI Prompt
   const [composeTone, setComposeTone] = useState("professional");
-  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [draftText, setDraftText] = useState("");
 
@@ -324,18 +322,26 @@ export default function EmailModule() {
 
   const handleSummarizeThread = async () => {
     if (!selectedEmail) return;
-    setIsSummarizing(true);
-    try {
-      const res = await fetch("/api/email/summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Use threadId if available, otherwise fallback to array of emailIds
-        body: JSON.stringify({
-          threadId: selectedEmail.threadId,
-          emailIds: !selectedEmail.threadId ? [selectedEmail.id] : undefined
-        })
-      });
 
+    window.dispatchEvent(new CustomEvent("add-toast", {
+      detail: {
+        type: "info",
+        icon: "⏳",
+        title: "Queued to Background",
+        message: "Summarizing thread in background..."
+      }
+    }));
+
+    fetch("/api/email/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Use threadId if available, otherwise fallback to array of emailIds
+      body: JSON.stringify({
+        threadId: selectedEmail.threadId,
+        emailIds: !selectedEmail.threadId ? [selectedEmail.id] : undefined
+      })
+    })
+    .then(async (res) => {
       if (res.ok) {
         const data = await res.json();
         setSummaryData(prev => ({
@@ -343,14 +349,13 @@ export default function EmailModule() {
           [selectedEmail.id]: data
         }));
       } else {
-         alert("Failed to summarize email.");
+         window.dispatchEvent(new CustomEvent("add-toast", { detail: { type: "error", icon: "❌", title: "Error", message: "Failed to summarize email." } }));
       }
-    } catch (err) {
+    })
+    .catch((err) => {
       console.error(err);
-      alert("Error summarizing email.");
-    } finally {
-      setIsSummarizing(false);
-    }
+      window.dispatchEvent(new CustomEvent("add-toast", { detail: { type: "error", icon: "❌", title: "Error", message: "Error summarizing email." } }));
+    });
   };
 
   const handleCreateTask = async () => {
@@ -389,29 +394,36 @@ export default function EmailModule() {
   };
 
   const handleGenerateDraft = async () => {
-    setIsGeneratingDraft(true);
-    try {
-      const res = await fetch("/api/email/compose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          aiDraft: true,
-          prompt: `${composeContext} Tone: ${composeTone}`,
-        }),
-      });
+    window.dispatchEvent(new CustomEvent("add-toast", {
+      detail: {
+        type: "info",
+        icon: "⏳",
+        title: "Queued to Background",
+        message: "Generating draft in background..."
+      }
+    }));
+
+    fetch("/api/email/compose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        aiDraft: true,
+        prompt: `${composeContext} Tone: ${composeTone}`,
+      }),
+    })
+    .then(async (res) => {
       const data = await res.json();
       if (res.ok && data.draft) {
         setComposeSubject(data.subject || "Draft");
         setDraftText(data.body);
       } else {
-        alert(data.error || "Failed to generate draft");
+        window.dispatchEvent(new CustomEvent("add-toast", { detail: { type: "error", icon: "❌", title: "Error", message: data.error || "Failed to generate draft" } }));
       }
-    } catch (err) {
+    })
+    .catch((err) => {
       console.error(err);
-      alert("Error generating draft.");
-    } finally {
-      setIsGeneratingDraft(false);
-    }
+      window.dispatchEvent(new CustomEvent("add-toast", { detail: { type: "error", icon: "❌", title: "Error", message: "Error generating draft." } }));
+    });
   };
 
   const handleSendEmail = async (bodyContent) => {
@@ -767,8 +779,8 @@ export default function EmailModule() {
                 ← Back to Inbox
               </button>
               <div style={{ display: "flex", gap: 8 }}>
-                 <button className="btn btn-secondary btn-sm" onClick={handleSummarizeThread} disabled={isSummarizing}>
-                    {isSummarizing ? "Summarizing..." : "✨ Summarize Thread"}
+                 <button className="btn btn-secondary btn-sm" onClick={handleSummarizeThread}>
+                    ✨ Summarize Thread
                  </button>
                  <button className="btn btn-primary btn-sm" onClick={() => setShowTaskForm(!showTaskForm)}>
                     ✅ Create Task
@@ -984,8 +996,8 @@ export default function EmailModule() {
                   </select>
                 </div>
                 <div>
-                  <button className="btn btn-primary" onClick={handleGenerateDraft} disabled={isGeneratingDraft || !composeContext.trim()}>
-                    {isGeneratingDraft ? "✨ Generating..." : "✨ Generate Draft"}
+                  <button className="btn btn-primary" onClick={handleGenerateDraft} disabled={!composeContext.trim()}>
+                    ✨ Generate Draft
                   </button>
                 </div>
 

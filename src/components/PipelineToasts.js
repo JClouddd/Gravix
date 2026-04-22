@@ -225,9 +225,17 @@ export default function PipelineToasts() {
     const initialTimeout = setTimeout(poll, 5000);
     const interval = setInterval(poll, POLL_INTERVAL);
 
+    const handleCustomToast = (e) => {
+      if (e.detail) {
+        addToast(e.detail);
+      }
+    };
+    window.addEventListener("add-toast", handleCustomToast);
+
     return () => {
       clearTimeout(initialTimeout);
       clearInterval(interval);
+      window.removeEventListener("add-toast", handleCustomToast);
     };
   }, [addToast]);
 
