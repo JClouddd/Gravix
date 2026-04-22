@@ -159,6 +159,13 @@ jobs:
           while [ $RETRY -lt $MAX_RETRIES ]; do
             if gh pr merge "$PR_URL" --squash; then
               echo "✅ PR merged successfully"
+              PR_NUMBER=${{ github.event.pull_request.number }}
+              REPO=${{ github.repository }}
+              PR_TITLE=$(gh api repos/$REPO/pulls/$PR_NUMBER --jq '.title')
+              curl -s -X POST "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app/api/telegram/health" \
+                -H "Authorization: Bearer ${{ secrets.GITHUB_WEBHOOK_SECRET }}" \
+                -H "Content-Type: application/json" \
+                -d "{\"source\": \"GITHUB_JULES\", \"status\": \"SUCCESS\", \"title\": \"$PR_TITLE\", \"detail\": \"Jules PR successfully merged to main via Git-Native pipeline. Firebase App Hosting build initiated.\"}"
               exit 0
             fi
 
@@ -175,5 +182,12 @@ jobs:
             sleep 10
           done
 
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+          PR_TITLE=$(gh api repos/$REPO/pulls/$PR_NUMBER --jq '.title')
           echo "❌ Failed to merge after $MAX_RETRIES attempts"
+          curl -s -X POST "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app/api/telegram/health" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_WEBHOOK_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"source\": \"GITHUB_JULES\", \"status\": \"FAILED\", \"title\": \"$PR_TITLE\", \"detail\": \"Merge conflict or branch lock prevented Jules from completing this phase.\"}"
           exit 1
