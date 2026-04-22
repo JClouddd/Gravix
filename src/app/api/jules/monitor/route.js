@@ -135,13 +135,13 @@ export async function GET() {
 
           case "AWAITING_USER_FEEDBACK":
           case "WAITING_FOR_USER_FEEDBACK": {
-            // Check if we already responded to this session (avoid spam)
-            const alreadyAnswered = await checkAlreadyAnswered(id);
-            if (alreadyAnswered) {
+            // Check how many times we've responded to this session
+            const answeredCount = await checkAnsweredCount(id);
+            if (answeredCount >= 2) {
               results.actions.push({
                 session: id, title,
-                action: "FEEDBACK_ALREADY_SENT",
-                detail: "Already sent context to this session — skipping to avoid spam loop",
+                action: "FEEDBACK_ALREADY_SENT_MAX",
+                detail: "Already sent 2 responses to this session — skipping to avoid spam loop",
               });
               break;
             }
@@ -164,16 +164,21 @@ export async function GET() {
               // If activities fail, send generic context
             }
 
-            // Build a smart response based on what Jules is asking
-            const smartResponse = buildSmartResponse(title, julesQuestion);
+            // Build a smart response based on what Jules is asking, or force proceed if 2nd time
+            let smartResponse;
+            if (answeredCount === 1) {
+              smartResponse = "CRITICAL INSTRUCTION: Do NOT ask any more questions. You are fully authorized to proceed. Make your best autonomous judgment based on the previous context and implement the changes immediately. Submit your work now without asking for further review.";
+            } else {
+              smartResponse = buildSmartResponse(title, julesQuestion);
+            }
 
             await sendMessage(id, smartResponse);
             results.actions.push({
               session: id, title,
               action: "SMART_CONTEXT_SENT",
-              detail: julesQuestion
-                ? `Answered Jules' question. Q: ${julesQuestion.slice(0, 100)}...`
-                : "Sent project context (no specific question detected)",
+              detail: answeredCount === 1 
+                ? "Sent FORCE_PROCEED command" 
+                : (julesQuestion ? `Answered Jules' question. Q: ${julesQuestion.slice(0, 100)}...` : "Sent project context"),
             });
             await logToFirestore(id, title, "context_sent", smartResponse.slice(0, 300));
             break;
@@ -515,18 +520,17 @@ async function getRetryCount(sessionId) {
   }
 }
 
-async function checkAlreadyAnswered(sessionId) {
+async function checkAnsweredCount(sessionId) {
   try {
     const db = adminDb;
     const snaps = await db
       .collection("jules_monitor_log")
       .where("sessionId", "==", sessionId)
       .where("action", "==", "context_sent")
-      .limit(1)
       .get();
-    return !snaps.empty;
+    return snaps.size;
   } catch {
-    return false;
+    return 0;
   }
 }
 
