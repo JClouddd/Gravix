@@ -29,6 +29,8 @@ const SCOPES = [
   "https://www.googleapis.com/auth/contacts",
   "https://www.googleapis.com/auth/drive.file",
   "https://www.googleapis.com/auth/drive.meet.readonly",
+  "https://www.googleapis.com/auth/youtube.upload",
+  "https://www.googleapis.com/auth/youtube.force-ssl",
 ].join(" ");
 
 /**
@@ -310,6 +312,10 @@ export async function getMeetTranscript(accessToken, conferenceRecordId) {
   return googleApiRequest(accessToken, `https://meet.googleapis.com/v2/${transcriptId}/entries?pageSize=100`);
 }
 
+export function uploadToYouTube(accessToken, videoData) {
+  throw new Error("Not Implemented");
+}
+
 const defaultExport = {
   getAuthUrl,
   exchangeCode,
@@ -333,6 +339,7 @@ const defaultExport = {
   listDriveFiles,
   listMeetConferences,
   getMeetTranscript,
+  uploadToYouTube,
   SCOPES,
 };
 export default defaultExport;
