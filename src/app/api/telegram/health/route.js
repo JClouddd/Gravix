@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Native-First Bidirectional Telegram Health Webhook
  * 
@@ -16,8 +18,15 @@ export async function POST(req) {
     const adminChatId = process.env.TELEGRAM_CHAT_ID;
 
     if (!telegramToken || !adminChatId) {
-      console.error("[Telegram Health] Missing Bot Token or Chat ID in environment.");
-      return NextResponse.json({ error: "Missing Telegram config." }, { status: 500 });
+      console.error("[Telegram Health] Missing Bot Token or Chat ID in environment.", {
+        hasDevOpsToken: !!telegramToken,
+        hasChatId: !!adminChatId
+      });
+      return NextResponse.json({ 
+        error: "Missing Telegram config.", 
+        hasDevOpsToken: !!telegramToken,
+        hasChatId: !!adminChatId
+      }, { status: 500 });
     }
 
     const body = await req.json();
