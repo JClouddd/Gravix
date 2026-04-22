@@ -54,13 +54,33 @@ export async function POST(request) {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://gravix--antigravity-hub-jcloud.us-east4.hosted.app';
     const orchestratorUrl = `${baseUrl}/api/agents/route`;
 
-    await fetch(orchestratorUrl, {
+    const orchestratorRes = await fetch(orchestratorUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        message: message.text,
+        execute: true
+      }),
     });
+
+    if (orchestratorRes.ok) {
+      const data = await orchestratorRes.json();
+      const replyText = data.response?.text || "Orchestrator successfully processed the request silently.";
+      
+      const botToken = process.env.TELEGRAM_ASSISTANT_BOT_TOKEN || process.env.TELEGRAM_DEVOPS_BOT_TOKEN;
+      if (botToken) {
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: replyText
+          })
+        });
+      }
+    }
 
     // Always return 200 OK so Telegram doesn't retry
     return Response.json({ success: true });
