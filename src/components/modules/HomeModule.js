@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
+import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 
 /**
  * Home / Dashboard Module
@@ -99,12 +102,78 @@ export default function HomeModule({ setActiveModule }) {
 
     fetchHealth();
     fetchActivityFeed();
-    const interval = setInterval(() => {
-      fetchHealth();
-      fetchActivityFeed();
-    }, 60000);
-    return () => clearInterval(interval);
   }, []);
+
+useEffect(() => {
+    // Listen for live workspace webhooks (emails/events)
+    const q = query(collection(db, "workspace_webhooks"), orderBy("timestamp", "desc"), limit(5));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Find new docs
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const data = change.doc.data();
+
+          // Construct feed item based on the webhook payload
+          const newItem = {
+            type: "workspace",
+            icon: data.type === "email" ? "✉️" : "📅",
+            title: data.type === "email" ? `New Email: ${data.subject || "No Subject"}` : `New Event: ${data.summary || "No Summary"}`,
+            description: data.snippet || data.description || "Received via Workspace Webhook",
+            timestamp: data.timestamp || new Date().toISOString()
+          };
+
+          // Prepend to activity feed
+          setActivityFeed((prevFeed) => {
+            // Check if already in feed to prevent duplicates
+            const exists = prevFeed.some(item =>
+              item.title === newItem.title && item.timestamp === newItem.timestamp
+            );
+            if (!exists) {
+              const newFeed = [newItem, ...prevFeed];
+              // Keep only max 15 items
+              return newFeed.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 15);
+            }
+            return prevFeed;
+          });
+        }
+      });
+    }, (err) => {
+      console.error("Webhook listener error:", err);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // Listen for new client emails
+    const emailQ = query(collection(db, "client_emails"), orderBy("timestamp", "desc"), limit(5));
+    const unsubEmail = onSnapshot(emailQ, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const data = change.doc.data();
+          const newItem = {
+            type: "email",
+            icon: "✉️",
+            title: `Email: ${data.subject || "No Subject"}`,
+            description: data.snippet || "New incoming email",
+            timestamp: data.timestamp || new Date().toISOString()
+          };
+          setActivityFeed(prev => {
+            if (!prev.some(item => item.title === newItem.title && item.timestamp === newItem.timestamp)) {
+              return [newItem, ...prev].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 15);
+            }
+            return prev;
+          });
+        }
+      });
+    }, (err) => console.error(err));
+
+    return () => {
+      unsubEmail();
+    };
+  }, []);
+
+
 
   if (loading) {
     return (
