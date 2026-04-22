@@ -27,7 +27,7 @@ export async function GET(request) {
     }
 
     // Exchange the code for tokens
-    const origin = new URL(request.url).origin;
+    const origin = process.env.NEXT_PUBLIC_BASE_URL || "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app";
     const redirectUri = `${origin}/api/auth/callback`;
     const tokens = await exchangeCode(code, redirectUri);
 

@@ -8,7 +8,7 @@ import { logRouteError } from "@/lib/errorLogger";
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const origin = searchParams.get("origin") || request.headers.get("origin") || "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app";
+    const origin = process.env.NEXT_PUBLIC_BASE_URL || "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app";
     const redirectUri = `${origin}/api/auth/callback`;
 
     const authUrl = getAuthUrl(redirectUri);
