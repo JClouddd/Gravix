@@ -119,8 +119,11 @@ export default function ColabModule() {
             executionTime: result.executionTime,
             parameters: result.parameters || formattedParams,
             message: "Execution finished.",
+
             results: result.results,
             chartUrls: result.chartUrls,
+            executableCode: result.executableCode,
+
           },
           ...prev,
         ]);
@@ -562,13 +565,26 @@ export default function ColabModule() {
                     Execution Time: {(exec.executionTime / 1000).toFixed(2)}s
                   </p>
                 )}
-                {exec.results && (
-                  <div style={{ marginTop: 12, padding: 12, background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", border: "1px solid var(--card-border)", overflowX: "auto" }}>
-                    <pre className="body-sm" style={{ margin: 0 }}>
-                      {typeof exec.results === "object" ? JSON.stringify(exec.results, null, 2) : exec.results}
+
+
+                {exec.executableCode && (
+                  <div style={{ marginTop: 12, padding: 12, background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)", border: "1px solid var(--card-border)", overflowX: "auto" }}>
+                    <p className="body-sm" style={{ fontWeight: 600, marginBottom: 8, color: "var(--text-secondary)" }}>Executed Code:</p>
+                    <pre className="body-sm" style={{ margin: 0, fontFamily: "monospace", color: "var(--text-primary)" }}>
+                      {exec.executableCode}
                     </pre>
                   </div>
                 )}
+                {exec.results && (
+                  <div style={{ marginTop: 12, padding: 12, background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", border: "1px solid var(--card-border)", overflowX: "auto" }}>
+                    <p className="body-sm" style={{ fontWeight: 600, marginBottom: 8, color: "var(--text-secondary)" }}>Output:</p>
+                    <div className="body-sm" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                      {typeof exec.results === "object" ? JSON.stringify(exec.results, null, 2) : exec.results}
+                    </div>
+                  </div>
+                )}
+
+
                 {exec.chartUrls && exec.chartUrls.length > 0 && (
                   <div style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap" }}>
                     {exec.chartUrls.map((url, i) => (

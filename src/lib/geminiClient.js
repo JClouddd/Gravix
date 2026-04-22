@@ -142,6 +142,7 @@ export async function generate({
   systemPrompt = "",
   complexity = "auto",
   grounded = false,
+  codeExecution = false,
   jsonSchema = null,
   thinkingLevel = null,
   maxTokens = 8192,
@@ -189,6 +190,9 @@ export async function generate({
   const mergedTools = [];
   if (grounded) {
     mergedTools.push({ googleSearchRetrieval: {} });
+  }
+  if (codeExecution) {
+    mergedTools.push({ codeExecution: {} });
   }
   if (tools && tools.length > 0) {
     mergedTools.push({ functionDeclarations: tools });
@@ -259,10 +263,26 @@ export async function generate({
   // Extract grounding metadata if available
   const groundingMetadata = response.candidates?.[0]?.groundingMetadata || null;
 
+
+
+
+  const candidate = response.candidates?.[0] || {};
+  let executableCode = null;
+  let codeExecutionResult = null;
+  if (candidate.content && candidate.content.parts) {
+      executableCode = candidate.content.parts.find(p => p.executableCode)?.executableCode || null;
+      codeExecutionResult = candidate.content.parts.find(p => p.codeExecutionResult)?.codeExecutionResult || null;
+  }
+
+
+
   return {
     text,
     functionCalls: functionCalls || [],
+    executableCode,
+    codeExecutionResult,
     model: modelName,
+
     modelTier,
     tokens: {
       input: inputTokens,
