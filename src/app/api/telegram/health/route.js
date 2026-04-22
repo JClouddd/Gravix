@@ -12,7 +12,7 @@ export async function POST(req) {
   try {
     const authHeader = req.headers.get('authorization');
     const systemToken = process.env.SYSTEM_CRON_SECRET || process.env.GITHUB_WEBHOOK_SECRET;
-    const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+    const telegramToken = process.env.TELEGRAM_DEVOPS_BOT_TOKEN;
     const adminChatId = process.env.TELEGRAM_CHAT_ID;
 
     if (!telegramToken || !adminChatId) {
