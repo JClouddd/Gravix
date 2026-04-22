@@ -44,3 +44,4 @@ dev_server.log
 # Service account keys - NEVER commit
 gravix-sa-key.json
 gravix-sa-key.b64
+gravix-agent-engine/node_modules
