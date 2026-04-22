@@ -9,7 +9,7 @@ export default function AgentTelemetry() {
   const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
   useEffect(() => {
-    const eventSource = new EventSource("/api/telemetry/sse");
+    const eventSource = new EventSource(process.env.NEXT_PUBLIC_VERTEX_TELEMETRY_ENDPOINT || "/api/telemetry/sse");
 
     eventSource.onopen = () => {
       setConnectionStatus("Connected");
@@ -23,9 +23,9 @@ export default function AgentTelemetry() {
           setNodes((prev) => {
             if (prev.some(n => n.id === data.id)) return prev;
             return [...prev, {
-              id: data.id,
-              agent: data.agent,
-              status: data.status,
+              id: data.id || data.nodeId,
+              agent: data.agent || data.model,
+              status: data.status || data.state,
               timestamp: data.timestamp
             }];
           });

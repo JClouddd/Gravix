@@ -245,10 +245,10 @@ export default function AgentsModule() {
   const handleRosterChat = async () => {
     if (!rosterChatInput.trim()) return;
     setRosterChatStatus("routing");
-    setRosterChatResult(null);
+    setRosterChatResult({ response: "" });
 
     try {
-      const res = await fetch("/api/agents/route", {
+      const res = await fetch(process.env.NEXT_PUBLIC_VERTEX_AGENT_ENDPOINT || "/api/agents/route", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -258,8 +258,46 @@ export default function AgentsModule() {
         })
       });
       if (res.ok) {
-        const data = await res.json();
-        setRosterChatResult(data);
+        if (res.body) {
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let done = false;
+          let textResult = "";
+          let buffer = "";
+
+          while (!done) {
+            const { value, done: readerDone } = await reader.read();
+            done = readerDone;
+            if (value) {
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || "";
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+
+                let payload = trimmed;
+                if (trimmed.startsWith('data: ')) {
+                  payload = trimmed.substring(6);
+                }
+
+                if (payload === '[DONE]') continue;
+
+                try {
+                  const parsed = JSON.parse(payload);
+                  textResult += parsed.text || parsed.response || "";
+                } catch {
+                  // ignore
+                }
+              }
+              setRosterChatResult(prev => ({ ...prev, response: textResult }));
+            }
+          }
+        } else {
+          const data = await res.json();
+          setRosterChatResult(data);
+        }
         setRosterChatInput("");
       } else {
         setRosterChatResult({ error: "Failed to route request." });
@@ -588,23 +626,11 @@ export default function AgentsModule() {
                     <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, color: "var(--text-secondary)" }}>
                       <span>Result</span>
                       <span>→</span>
-                      <span style={{ color: "var(--accent)" }}>Conductor</span>
-                      {rosterChatResult.routing?.agent && (
-                        <>
-                          <span>→</span>
-                          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{rosterChatResult.routing.agent}</span>
-                        </>
-                      )}
+                      <span style={{ color: "var(--accent)" }}>Vertex AI Agent</span>
                     </div>
-                    {rosterChatResult.response?.text ? (
-                       <p className="body-sm" style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}>
-                         {rosterChatResult.response.text}
-                       </p>
-                    ) : (
-                       <p className="body-sm" style={{ marginBottom: 8 }}>
-                         {rosterChatResult.message || JSON.stringify(rosterChatResult)}
-                       </p>
-                    )}
+                    <p className="body-sm" style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}>
+                      {typeof rosterChatResult.response === "string" ? rosterChatResult.response : rosterChatResult.response?.text || rosterChatResult.message || JSON.stringify(rosterChatResult)}
+                    </p>
                   </>
                 )}
               </div>
