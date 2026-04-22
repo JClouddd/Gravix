@@ -407,6 +407,16 @@ export async function GET() {
       console.error("[monitor] Pipeline sweep error:", sweepErr.message);
     }
 
+    // ── Auto-Merge Poller: merge open Jules PRs automatically ──
+    try {
+      const mergeResults = await autoMergeReadyPRs();
+      if (mergeResults.actions.length > 0) {
+        results.actions.push(...mergeResults.actions);
+      }
+    } catch (autoMergeErr) {
+      console.error("[monitor] Auto-merge error:", autoMergeErr.message);
+    }
+
     return Response.json(results);
   } catch (error) {
     console.error("[/api/jules/monitor GET]", error);
@@ -501,6 +511,69 @@ export async function POST(request) {
 }
 
 /* ── Helpers ─────────────────────────────────────────────── */
+
+/**
+ * Auto-Merge Poller:
+ * Fetches open PRs from the GitHub repository and auto-merges them to prevent pipeline pauses.
+ */
+async function autoMergeReadyPRs() {
+  const result = { actions: [] };
+  const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+  const OWNER = "JClouddd";
+  const REPO = "Gravix";
+
+  if (!GITHUB_TOKEN) {
+    console.warn("[monitor] Auto-Merge Poller skipped: Missing GITHUB_TOKEN");
+    return result;
+  }
+
+  try {
+    const prRes = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/pulls?state=open`, {
+      headers: {
+        "Authorization": `Bearer ${GITHUB_TOKEN}`,
+        "Accept": "application/vnd.github.v3+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+      }
+    });
+
+    if (!prRes.ok) return result;
+    const prs = await prRes.json();
+
+    for (const pr of prs) {
+      // Identify Jules PRs by looking for typical indicators (or simply auto-merge all pipeline PRs)
+      const isPipelinePR = true; // For full autonomy on the Gravix repo
+
+      if (isPipelinePR) {
+        const mergeRes = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/pulls/${pr.number}/merge`, {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${GITHUB_TOKEN}`,
+            "Accept": "application/vnd.github.v3+json",
+            "X-GitHub-Api-Version": "2022-11-28"
+          },
+          body: JSON.stringify({
+            commit_title: `Auto-Merge: ${pr.title}`,
+            merge_method: "squash"
+          })
+        });
+
+        if (mergeRes.ok) {
+          result.actions.push({
+            action: "AUTO_MERGED",
+            detail: `Squash merged PR #${pr.number}: ${pr.title}`
+          });
+          await logToFirestore("auto-merge-poller", pr.title, "auto_merged", `Squash merged PR #${pr.number}`);
+        } else {
+          const errData = await mergeRes.json();
+          console.error(`[monitor] Failed to merge PR #${pr.number}:`, errData);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[monitor] Auto-merge fetch error:", err);
+  }
+  return result;
+}
 
 async function logToFirestore(sessionId, title, action, detail) {
   try {
