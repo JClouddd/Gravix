@@ -1,7 +1,7 @@
 /**
  * Error Logger Utility
- * Central nervous system for error persistence across all Gravix integrations.
- * Writes to Firestore `system_errors` collection via the ingest API.
+ * Central nervous system for error logging across all Gravix integrations.
+ * Streams directly to GCP Cloud Error Reporting natively.
  */
 
 import { sendDevOpsAlert } from "@/lib/telegramClient";
@@ -15,7 +15,7 @@ const ERROR_SOURCES = [
 ];
 
 /**
- * Log an error to the centralized system_errors collection.
+ * Log an error to GCP Cloud Error Reporting natively.
  * Fire-and-forget — never throws, never blocks the calling route.
  *
  * @param {string} source - One of the ERROR_SOURCES
@@ -26,23 +26,27 @@ const ERROR_SOURCES = [
  */
 export async function logError(source, severity, title, message, context = {}) {
   try {
-    // Import adminDb lazily to avoid circular deps
-    const { adminDb } = await import("@/lib/firebaseAdmin");
-
-    await adminDb.collection("system_errors").add({
-      source: ERROR_SOURCES.includes(source) ? source : "runtime",
-      severity: ["error", "warning", "info"].includes(severity) ? severity : "error",
-      title: String(title).slice(0, 200),
-      message: String(message).slice(0, 2000),
+    const errorPayload = {
+      "@type": "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
+      message: `${title}: ${message}\n${context.stack || ''}`,
       context: {
-        ...context,
-        timestamp: new Date().toISOString(),
+        reportLocation: context.route ? { filePath: context.route } : undefined,
+        httpRequest: context.route ? { url: context.route } : undefined,
+        ...context
       },
-      status: "open",
-      createdAt: new Date().toISOString(),
-      resolvedAt: null,
-      diagnosis: null,
-    });
+      source: ERROR_SOURCES.includes(source) ? source : "runtime",
+      timestamp: new Date().toISOString(),
+    };
+
+    const payloadString = JSON.stringify(errorPayload);
+
+    if (severity === "info") {
+      console.info(payloadString);
+    } else if (severity === "warning") {
+      console.warn(payloadString);
+    } else {
+      console.error(payloadString);
+    }
   } catch (err) {
     // Last resort — log to console, never crash the caller
     console.error("[ErrorLogger] Failed to persist error:", err.message);
@@ -69,7 +73,7 @@ export async function logRouteError(source, title, error, route) {
 
   return logError(source, "error", title, errorMessage, {
     route,
-    stack: error?.stack?.split("\n").slice(0, 5).join("\n"),
+    stack: error?.stack,
   });
 }
 
