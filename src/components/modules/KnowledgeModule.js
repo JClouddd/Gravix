@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 import ModuleSettingsPanel, { GearButton } from "@/components/shared/ModuleSettingsPanel";
 import KnowledgeVaultTab from "./knowledge/KnowledgeVaultTab";
@@ -21,8 +21,88 @@ export default function KnowledgeModule() {
   const [loading, setLoading] = useState(true);
   const [stagedEntries, setStagedEntries] = useState([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const KNOWLEDGE_SETTINGS_SCHEMA = [];
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+
+    setUploadProgress(10);
+    try {
+      const fileName = `${Date.now()}_${file.name}`;
+
+      const signedUrlRes = await fetch("/api/knowledge/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName, fileType: file.type })
+      });
+
+      if (!signedUrlRes.ok) {
+        throw new Error("Failed to get signed URL");
+      }
+
+      const { url, gcsUri } = await signedUrlRes.json();
+
+      setUploadProgress(40);
+
+      const uploadRes = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error("Failed to upload to GCS");
+      }
+
+      setUploadProgress(70);
+
+      const res = await fetch("/api/knowledge/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: gcsUri,
+          type: "file",
+          fileName: file.name,
+          source: "manual",
+        }),
+      });
+
+      setUploadProgress(90);
+      const data = await res.json();
+      setUploadProgress(100);
+
+      if (res.ok && data.success) {
+        setStagedEntries((prev) => [data.entry || data, ...prev]);
+        setActiveTab("Ingestion");
+        setTimeout(() => setUploadProgress(0), 1500);
+      } else {
+        setUploadProgress(0);
+        console.error("Ingestion failed:", data.error);
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      setUploadProgress(0);
+    }
+  }, []);
 
   // Fetch knowledge status
   useEffect(() => {
@@ -46,7 +126,45 @@ export default function KnowledgeModule() {
   }
 
   return (
-    <div>
+    <div
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      style={{ position: "relative", minHeight: "100%" }}
+    >
+      {isDragging && (
+        <div style={{
+          position: "absolute",
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "4px dashed var(--accent)",
+          borderRadius: "var(--radius-lg)"
+        }}>
+          <h2 style={{ color: "white" }}>Drop files to upload directly to GCS</h2>
+        </div>
+      )}
+
+      {uploadProgress > 0 && (
+        <div className="card" style={{ padding: "16px", marginBottom: "16px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+            <span className="caption">Uploading & Processing...</span>
+            <span className="caption">{uploadProgress}%</span>
+          </div>
+          <div style={{ width: "100%", height: 6, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
+            <div style={{
+              height: "100%",
+              width: `${uploadProgress}%`,
+              background: "var(--accent)",
+              transition: "width 0.3s ease-out"
+            }} />
+          </div>
+        </div>
+      )}
+
       <div className="module-header">
         <div className="module-header-left">
           <div className="module-icon" style={{ background: "hsla(170, 70%, 45%, 0.12)" }}>🧠</div>
