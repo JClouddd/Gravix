@@ -45,7 +45,8 @@ export async function POST(req) {
       // Handle the /status command
       if (text.startsWith('/status')) {
         // Fetch live Jules status from the local monitor route natively
-        const julesUrl = `${req.headers.get('x-forwarded-proto') || 'https'}://${req.headers.get('host')}/api/jules/monitor`;
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://gravix--antigravity-hub-jcloud.us-east4.hosted.app';
+        const julesUrl = `${baseUrl}/api/jules/monitor`;
         let statusMessage = "🤖 *Jules Telemetry Report*\n\n";
         
         try {
