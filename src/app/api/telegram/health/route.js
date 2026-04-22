@@ -15,7 +15,7 @@ export async function POST(req) {
     const authHeader = req.headers.get('authorization');
     const systemToken = process.env.SYSTEM_CRON_SECRET || process.env.GITHUB_WEBHOOK_SECRET;
     const telegramToken = process.env.TELEGRAM_DEVOPS_BOT_TOKEN;
-    const adminChatId = process.env.TELEGRAM_CHAT_ID;
+    const adminChatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
 
     if (!telegramToken || !adminChatId) {
       console.error("[Telegram Health] Missing Bot Token or Chat ID in environment.", {
