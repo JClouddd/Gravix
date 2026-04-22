@@ -1,21 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST } from '@/app/api/telegram/webhook/route';
-import { getHistory, appendHistory } from '@/lib/firestoreChatHistory';
-import geminiClient from '@/lib/geminiClient';
 import { logRouteError } from '@/lib/errorLogger';
 
 // Mock dependencies
-vi.mock('@/lib/firestoreChatHistory', () => ({
-  getHistory: vi.fn(),
-  appendHistory: vi.fn(),
-}));
-
-vi.mock('@/lib/geminiClient', () => ({
-  default: {
-    generate: vi.fn(),
-  },
-}));
-
 vi.mock('@/lib/errorLogger', () => ({
   logRouteError: vi.fn(),
 }));
@@ -27,27 +14,27 @@ describe('Telegram Webhook Route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.TELEGRAM_CHAT_ID = '123456789';
-    process.env.TELEGRAM_ASSISTANT_BOT_TOKEN = 'test-bot-token';
+    process.env.TELEGRAM_DEVOPS_BOT_TOKEN = 'test-devops-token';
+    process.env.NEXT_PUBLIC_BASE_URL = 'http://localhost:3000';
   });
 
-  const createRequest = (body) => {
+  const createRequest = (body, url = 'http://localhost:3000/api/telegram/webhook') => {
     return {
       json: async () => body,
+      url,
     };
   };
 
-  it('should return 200 OK without processing if message is missing', async () => {
+  it('should return 200 OK without processing if message and Jules CI payload are missing', async () => {
     const req = createRequest({ update_id: 123 });
     const response = await POST(req);
     const data = await response.json();
 
     expect(data.success).toBe(true);
-    expect(getHistory).not.toHaveBeenCalled();
-    expect(geminiClient.generate).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('should return 200 OK without processing if chat_id does not match', async () => {
+  it('should return 200 OK without processing if standard message chat_id does not match', async () => {
     const req = createRequest({
       message: {
         chat: { id: '999999999' },
@@ -59,27 +46,17 @@ describe('Telegram Webhook Route', () => {
     const data = await response.json();
 
     expect(data.success).toBe(true);
-    expect(getHistory).not.toHaveBeenCalled();
-    expect(geminiClient.generate).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('should process the message, call Gemini, and send a response back', async () => {
+  it('should process Jules CI failed alerts and send Telegram message with retry button', async () => {
     const req = createRequest({
-      message: {
-        chat: { id: '123456789' },
-        text: 'Hello bot',
-      },
+      sessionId: 'session-123',
+      status: 'failed',
+      title: 'Fix issue 42'
     });
 
-    const mockHistory = [{ role: 'user', content: 'Hi' }];
-    getHistory.mockResolvedValue(mockHistory);
-
-    geminiClient.generate.mockResolvedValue({
-      text: 'Hello human',
-    });
-
-    fetch.mockResolvedValue({
+    fetch.mockResolvedValueOnce({
       ok: true,
     });
 
@@ -88,23 +65,44 @@ describe('Telegram Webhook Route', () => {
 
     expect(data.success).toBe(true);
 
-    expect(getHistory).toHaveBeenCalledWith('123456789');
-
-    expect(appendHistory).toHaveBeenCalledWith('123456789', 'user', 'Hello bot');
-
-    expect(geminiClient.generate).toHaveBeenCalledWith(expect.objectContaining({
-      prompt: 'Hello bot',
-      history: mockHistory,
-    }));
-
-    expect(appendHistory).toHaveBeenCalledWith('123456789', 'model', 'Hello human');
-
-    expect(fetch).toHaveBeenCalledWith('https://api.telegram.org/bottest-bot-token/sendMessage', expect.objectContaining({
+    expect(fetch).toHaveBeenCalledWith('https://api.telegram.org/bottest-devops-token/sendMessage', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({
         chat_id: '123456789',
-        text: 'Hello human',
+        text: '🔴 Jules Task Failed: Fix issue 42',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Retry', callback_data: JSON.stringify({ action: 'retry', sessionId: 'session-123' }) }]
+          ]
+        }
       })
+    }));
+  });
+
+  it('should proxy standard messages to the Orchestrator via fetch', async () => {
+    const payload = {
+      message: {
+        chat: { id: '123456789' },
+        text: 'Hello bot',
+      },
+    };
+    const req = createRequest(payload);
+
+    fetch.mockResolvedValueOnce({
+      ok: true,
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(data.success).toBe(true);
+
+    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/api/agents/route', expect.objectContaining({
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
     }));
   });
 
@@ -117,7 +115,7 @@ describe('Telegram Webhook Route', () => {
     });
 
     const error = new Error('Test error');
-    getHistory.mockRejectedValue(error);
+    fetch.mockRejectedValueOnce(error);
 
     const response = await POST(req);
     const data = await response.json();
