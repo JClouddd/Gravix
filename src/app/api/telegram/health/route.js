@@ -1,64 +1,129 @@
-import { adminDb } from '@/lib/firebaseAdmin';
-import { logRouteError } from '@/lib/errorLogger';
+import { NextResponse } from 'next/server';
 
-export async function POST(request) {
+export const dynamic = 'force-dynamic';
+
+/**
+ * Native-First Bidirectional Telegram Health Webhook
+ * 
+ * Handles:
+ * 1. Automated pushes from GitHub Actions & EventArc (Authorization header required)
+ * 2. Inbound messages from the user via Telegram Bot Webhook (Chat ID verification required)
+ */
+
+export async function POST(req) {
   try {
-    const payload = await request.json();
-    const message = payload.message || payload.edited_message;
+    const authHeader = req.headers.get('authorization');
+    const systemToken = process.env.SYSTEM_CRON_SECRET || process.env.GITHUB_WEBHOOK_SECRET;
+    const telegramToken = process.env.TELEGRAM_DEVOPS_BOT_TOKEN;
+    const adminChatId = process.env.TELEGRAM_CHAT_ID;
 
-    if (!message || !message.chat || !message.text) {
-      return Response.json({ success: true, message: 'Ignored' });
+    if (!telegramToken || !adminChatId) {
+      console.error("[Telegram Health] Missing Bot Token or Chat ID in environment.", {
+        hasDevOpsToken: !!telegramToken,
+        hasChatId: !!adminChatId
+      });
+      return NextResponse.json({ 
+        error: "Missing Telegram config.", 
+        hasDevOpsToken: !!telegramToken,
+        hasChatId: !!adminChatId
+      }, { status: 500 });
     }
 
-    const chatId = String(message.chat.id);
-    const expectedChatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
+    const body = await req.json();
 
-    if (chatId !== expectedChatId) {
-      return Response.json({ success: true, message: 'Unauthorized chat ID' });
-    }
-
-
-    if (message.text.includes('/status')) {
-      const pipelinesRef = adminDb.collection('jules_pipelines');
-      const snapshot = await pipelinesRef.where('status', 'in', ['running', 'merging']).get();
-
-      let replyText = '';
-
-      if (snapshot.empty) {
-        replyText = '🟢 No active CI/CD pipelines currently running.';
-      } else {
-        replyText = '*Active Pipelines:*\n\n';
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          replyText += `*Pipeline:* \`${doc.id}\`\n`;
-          replyText += `*Status:* ${data.status}\n`;
-          if (data.currentWave !== undefined && data.totalWaves !== undefined) {
-            replyText += `*Wave:* ${data.currentWave} / ${data.totalWaves}\n`;
-          }
-          if (data.taskStatus) {
-            replyText += `*Task Status:* ${data.taskStatus}\n`;
-          }
-          replyText += '\n';
-        });
+    // ==========================================
+    // 1. INBOUND TELEGRAM MESSAGE (Bidirectional)
+    // ==========================================
+    if (body.message && body.message.chat) {
+      // Security: Only respond to our designated admin chat ID
+      if (body.message.chat.id.toString() !== adminChatId) {
+        return NextResponse.json({ error: "Unauthorized Chat ID." }, { status: 403 });
       }
 
-      const telegramUrl = `https://api.telegram.org/bot${process.env.TELEGRAM_DEVOPS_BOT_TOKEN}/sendMessage`;
-      await fetch(telegramUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_id: message.chat.id,
-          text: replyText,
-          parse_mode: 'Markdown',
-        }),
-      });
+      const text = body.message.text || "";
+
+      // Handle the /status command
+      if (text.startsWith('/status')) {
+        // Fetch live Jules status from the local monitor route natively
+        const julesUrl = `${req.headers.get('x-forwarded-proto') || 'https'}://${req.headers.get('host')}/api/jules/monitor`;
+        let statusMessage = "🤖 *Jules Telemetry Report*\n\n";
+        
+        try {
+          const res = await fetch(julesUrl);
+          const data = await res.json();
+          
+          if (data && data.summary) {
+            statusMessage += `*Active Tasks:* ${data.summary.IN_PROGRESS || 0}\n`;
+            statusMessage += `*Queued:* ${data.summary.QUEUED || 0}\n`;
+            statusMessage += `*Completed:* ${data.summary.COMPLETED || 0}\n`;
+            statusMessage += `*Failed:* ${data.summary.FAILED || 0}\n`;
+          } else {
+            statusMessage += "Status data unavailable.\n";
+          }
+        } catch (e) {
+          statusMessage += "❌ Error fetching Jules telemetry: " + e.message;
+        }
+
+        // Send the response back to Telegram
+        await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: adminChatId,
+            text: statusMessage,
+            parse_mode: 'Markdown'
+          })
+        });
+
+        return NextResponse.json({ success: true });
+      }
+
+      // Ignore other messages
+      return NextResponse.json({ success: true, message: "Ignored." });
     }
 
-    return Response.json({ success: true });
+    // ==========================================
+    // 2. AUTOMATED PUSH (GitHub / EventArc)
+    // ==========================================
+    if (!authHeader || authHeader !== `Bearer ${systemToken}`) {
+      return NextResponse.json({ error: "Unauthorized native webhook caller." }, { status: 401 });
+    }
+    
+    const source = body.source || 'UNKNOWN';
+    const status = body.status || 'INFO';
+    const title = body.title || 'Pipeline Update';
+    const detail = body.detail || '';
+
+    const statusIcon = status === 'SUCCESS' ? '✅' : status === 'FAILED' ? '❌' : status === 'RETRYING' ? '♻️' : '⏳';
+    const sourceIcon = source === 'GITHUB_JULES' ? '🐙' : source === 'FIREBASE_HOSTING' ? '🔥' : '🤖';
+
+    const message = `
+${statusIcon} *${sourceIcon} ${title}*
+*Status:* ${status}
+*Details:* ${detail}
+
+_Native Orchestrator Alert_
+    `.trim();
+
+    const telegramRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: adminChatId,
+        text: message,
+        parse_mode: 'Markdown'
+      })
+    });
+
+    if (!telegramRes.ok) {
+      console.error("[Telegram Health] Failed to push to Telegram");
+      return NextResponse.json({ error: "Telegram push failed" }, { status: 502 });
+    }
+
+    return NextResponse.json({ success: true, message: "Native telemetry alert broadcasted." });
+
   } catch (error) {
-    await logRouteError('runtime', 'Telegram health webhook error', error, '/api/telegram/health');
-    return Response.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("[Telegram Health] Error processing webhook:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
