@@ -40,6 +40,7 @@ describe('geminiClient - generate', () => {
     const mockResponse = {
       response: {
         text: () => 'Hello there!',
+        functionCalls: () => [],
         usageMetadata: {
           promptTokenCount: 10,
           candidatesTokenCount: 5,

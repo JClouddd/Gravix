@@ -1,5 +1,4 @@
 import { chat } from "@/lib/geminiClient";
-import { logUsage } from "@/lib/costTracker";
 import { logRouteError } from "@/lib/errorLogger";
 
 /**
@@ -33,20 +32,6 @@ export async function POST(request) {
     });
 
     // Log usage to Firestore
-    try {
-      await logUsage({
-        route: "/api/gemini/chat",
-        model: result.model,
-        modelTier: result.modelTier,
-        inputTokens: result.tokens.input,
-        outputTokens: result.tokens.output,
-        totalTokens: result.tokens.total,
-        cost: result.cost.totalCost,
-      });
-    } catch (err) {
-      logRouteError("gemini", "/api/gemini/chat error", err, "/api/gemini/chat");
-      console.warn("[costTracker] Failed to log:", err.message);
-    }
 
     return Response.json({
       response: result.text,

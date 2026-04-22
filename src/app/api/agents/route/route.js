@@ -1,5 +1,4 @@
 import { structuredGenerate, generate } from "@/lib/geminiClient";
-import { logUsage } from "@/lib/costTracker";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { getAgentContext } from "@/lib/knowledgeEngine";
 import { logRouteError } from "@/lib/errorLogger";
@@ -73,26 +72,7 @@ async function logRoutingDecision(message, agent) {
   }
 }
 
-/**
- * Logs the API usage cost for routing.
- */
-async function logRoutingCost(routingResult) {
-  try {
-    await logUsage({
-      route: "/api/agents/route",
-      model: routingResult.model,
-      modelTier: routingResult.modelTier,
-      inputTokens: routingResult.tokens.input,
-      outputTokens: routingResult.tokens.output,
-      totalTokens: routingResult.tokens.total,
-      cost: routingResult.cost.totalCost,
-      agent: "conductor",
-    });
-  } catch (err) {
-    logRouteError("agent", "/api/agents/route error", err, "/api/agents/route");
-      console.warn("[costTracker] Failed to log:", err.message);
-  }
-}
+
 
 /**
  * Fetches recent conversation history for a specific agent to provide context.
@@ -245,26 +225,7 @@ async function executeTools(agent, message, origin, agentResponse) {
   }
 }
 
-/**
- * Logs the API usage cost for agent execution.
- */
-async function logAgentCost(agent, agentResult) {
-  try {
-    await logUsage({
-      route: `/api/agents/${agent}`,
-      model: agentResult.model,
-      modelTier: agentResult.modelTier,
-      inputTokens: agentResult.tokens.input,
-      outputTokens: agentResult.tokens.output,
-      totalTokens: agentResult.tokens.total,
-      cost: agentResult.cost.totalCost,
-      agent: agent,
-    });
-  } catch (err) {
-    logRouteError("agent", "/api/agents/route error", err, "/api/agents/route");
-      console.warn("[costTracker] Failed to log:", err.message);
-  }
-}
+
 
 /**
  * Generates a summary and saves the interaction to Firestore for memory.
@@ -358,7 +319,6 @@ export async function POST(request) {
     const { decision, routingResult } = await getRoutingDecision(message, context);
 
     await logRoutingDecision(message, decision.agent);
-    await logRoutingCost(routingResult);
 
     let agentResponse = null;
     if (execute && decision.confidence >= 0.6) {

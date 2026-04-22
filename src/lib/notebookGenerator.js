@@ -1,7 +1,6 @@
 import { generate } from "@/lib/geminiClient";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
-import { logUsage } from "@/lib/costTracker";
 
 /**
  * notebookGenerator.js — Auto-generates Colab notebook configs from ingested content.
@@ -201,14 +200,6 @@ export async function generateNotebook(stagingEntry) {
   });
 
   // Log cost
-  await logUsage({
-    route: "/lib/notebookGenerator",
-    model: "gemini-2.5-flash",
-    agent: "analyst",
-    inputTokens: result.inputTokens || 0,
-    outputTokens: result.outputTokens || 0,
-    cost: result.cost || 0,
-  });
 
   let parsed;
   try {

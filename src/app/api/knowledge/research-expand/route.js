@@ -1,5 +1,4 @@
 import { generate } from "@/lib/geminiClient";
-import { logUsage } from "@/lib/costTracker";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { logRouteError } from "@/lib/errorLogger";
 
@@ -159,15 +158,6 @@ export async function POST(request) {
     );
 
     // Log usage
-    await logUsage({
-      route: "/api/knowledge/research-expand",
-      model: "gemini-2.5-flash",
-      agent: "scholar",
-      inputTokens: totalTokens,
-      outputTokens: Math.round(totalTokens * 0.1),
-      totalTokens: Math.round(totalTokens * 1.1),
-      cost: researchCost,
-    });
 
     return Response.json({
       success: true,

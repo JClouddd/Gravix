@@ -1,5 +1,4 @@
 import { generate, structuredGenerate } from "@/lib/geminiClient";
-import { logUsage } from "@/lib/costTracker";
 import registry from "@/../agents/registry.json";
 import { logRouteError } from "@/lib/errorLogger";
 
@@ -214,21 +213,6 @@ async function executeAgent(agent, message) {
   });
 
   // Log the usage
-  try {
-    await logUsage({
-      route: `/api/agents/${agent.id}`,
-      model: result.model,
-      modelTier: result.modelTier,
-      inputTokens: result.tokens.input,
-      outputTokens: result.tokens.output,
-      totalTokens: result.tokens.total,
-      cost: result.cost.totalCost,
-      agent: agent.id,
-    });
-  } catch (err) {
-    logRouteError("agent", "/api/agents/roster error", err, "/api/agents/roster");
-      console.warn("[costTracker] Failed to log usage:", err.message);
-  }
 
   return {
     agent: agent.id,

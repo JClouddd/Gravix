@@ -1,6 +1,5 @@
 import { sendGmail, refreshAccessToken } from "@/lib/googleAuth";
 import { generate } from "@/lib/geminiClient";
-import { logUsage } from "@/lib/costTracker";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { logRouteError } from "@/lib/errorLogger";
 
@@ -22,21 +21,6 @@ export async function POST(request) {
         complexity: "flash",
       });
 
-      try {
-        await logUsage({
-          route: "/api/email/compose",
-          model: result.model,
-          modelTier: result.modelTier,
-          inputTokens: result.tokens.input,
-          outputTokens: result.tokens.output,
-          totalTokens: result.tokens.total,
-          cost: result.cost.totalCost,
-          agent: "courier",
-        });
-      } catch (err) {
-        logRouteError("gmail", "/api/email/compose error", err, "/api/email/compose");
-      console.warn("[costTracker] Failed:", err.message);
-      }
 
       let draft;
       try {

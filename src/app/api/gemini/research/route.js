@@ -1,5 +1,4 @@
 import { deepResearch } from "@/lib/geminiClient";
-import { logUsage } from "@/lib/costTracker";
 import { logRouteError } from "@/lib/errorLogger";
 
 /**
@@ -34,20 +33,6 @@ export async function POST(request) {
     });
 
     // Log usage
-    try {
-      await logUsage({
-        route: "/api/gemini/research",
-        model: result.model,
-        modelTier: result.modelTier,
-        inputTokens: result.tokens.input,
-        outputTokens: result.tokens.output,
-        totalTokens: result.tokens.total,
-        cost: result.cost.totalCost,
-      });
-    } catch (err) {
-      logRouteError("gemini", "/api/gemini/research error", err, "/api/gemini/research");
-      console.warn("[costTracker] Failed to log:", err.message);
-    }
 
     return Response.json({
       response: result.text,

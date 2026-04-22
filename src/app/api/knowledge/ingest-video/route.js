@@ -1,7 +1,6 @@
 import { adminDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
 import { generate } from "@/lib/geminiClient";
-import { logUsage } from "@/lib/costTracker";
 import { classifyContent, createStagingEntry } from "@/lib/knowledgeEngine";
 import { logRouteError } from "@/lib/errorLogger";
 
@@ -359,14 +358,6 @@ export async function POST(request) {
     const totalCost = inputCost + outputCost;
 
     // Log usage
-    await logUsage({
-      route: "/api/knowledge/ingest-video",
-      model: "gemini-2.5-flash-lite",
-      agent: "scholar",
-      inputTokens: promptTokens,
-      outputTokens: outputTokens,
-      cost: totalCost,
-    });
 
     // Build full content for storage
     const fullContent = JSON.stringify(analysis, null, 2);
