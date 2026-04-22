@@ -99,7 +99,8 @@ export default function SettingsModule() {
     healthAlerts: true,
     agentProposals: true,
     meetingSummaries: true,
-    costThreshold: 72
+    costThreshold: 72,
+    eventArc: false
   });
 
   useEffect(() => {
@@ -317,6 +318,14 @@ export default function SettingsModule() {
                 <div className="caption">Notify after meetings are processed</div>
               </div>
               <input type="checkbox" checked={notificationPrefs.meetingSummaries} onChange={() => handlePrefToggle('meetingSummaries')} />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">EventArc Webhooks</div>
+                <div className="caption">Receive automated pushes from GCP EventArc</div>
+              </div>
+              <input type="checkbox" checked={!!notificationPrefs.eventArc} onChange={() => handlePrefToggle('eventArc')} />
             </div>
           </div>
         </div>
