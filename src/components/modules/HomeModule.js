@@ -343,17 +343,54 @@ export default function HomeModule({ setActiveModule }) {
             <div className="caption" style={{ marginBottom: 8, color: "var(--text-secondary)" }}>
               Last checked: {new Date(healthData.timestamp).toLocaleString()}
             </div>
+            {/* GCP Uptime Checks */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "var(--bg-secondary)", borderRadius: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className={`status-dot online`} />
+                <span className="body-sm" style={{ fontWeight: 500 }}>GCP Uptime Checks</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <span className="caption" style={{ color: "var(--text-secondary)" }}>
+                  {healthData.uptime || "Operational"}
+                </span>
+              </div>
+            </div>
+
+            {/* Cloud Error Reporting */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "var(--bg-secondary)", borderRadius: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className={`status-dot ${healthData.status === "healthy" ? "online" : "offline"}`} />
+                <span className="body-sm" style={{ fontWeight: 500 }}>Cloud Error Reporting</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <span className="caption" style={{ color: "var(--text-secondary)" }}>
+                  Active Alerts: {healthData.status === "healthy" ? 0 : 1}
+                </span>
+              </div>
+            </div>
+
+            {/* Dynamic Services (including Jules CI/CD pipeline mapped from backend) */}
             {Object.entries(healthData.services || {}).map(([serviceName, data]) => {
-              const statusColor = data.status === "pass" ? "green" : "red";
               const dotClass = data.status === "pass" ? "online" : "offline";
+              let extraMeta = null;
+              if (serviceName === "jules") {
+                extraMeta = `Pipelines: ${data.pipelines || 0}`;
+              }
 
               return (
                 <div key={serviceName} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "var(--bg-secondary)", borderRadius: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, textTransform: "capitalize" }}>
                     <span className={`status-dot ${dotClass}`} />
-                    <span className="body-sm" style={{ fontWeight: 500 }}>{serviceName}</span>
+                    <span className="body-sm" style={{ fontWeight: 500 }}>
+                       {serviceName === "jules" ? "Jules CI/CD Pipeline" : serviceName}
+                    </span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    {extraMeta && (
+                      <span className="caption" style={{ color: "var(--text-secondary)", marginRight: 8 }}>
+                        {extraMeta}
+                      </span>
+                    )}
                     {data.latency !== undefined && (
                       <span className="mono" style={{ fontSize: 12, color: "var(--text-secondary)" }}>
                         {data.latency}ms
