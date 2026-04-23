@@ -4,12 +4,20 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    // ── Handle Jules CI Failed Status Alerts ──
-    if (body.sessionId && body.status === 'failed') {
+    // ── Handle Jules CI Status Alerts (Failed or Completed) ──
+    if (body.sessionId && (body.status === 'failed' || body.status === 'completed')) {
       const devopsToken = process.env.TELEGRAM_DEVOPS_BOT_TOKEN;
       const expectedChatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
 
       if (devopsToken && expectedChatId) {
+        let text = '';
+        if (body.status === 'failed') {
+          text = `🔴 Jules Task Failed: ${body.title || body.sessionId}`;
+        } else if (body.status === 'completed') {
+          const timeStats = body.timeStats ? `\n⏱️ Time Taken: ${body.timeStats.taken}\n📊 Comparison: ${body.timeStats.comparison}` : '';
+          text = `✅ Jules Task Auto-Merged & Deployed\n\n📝 Task: ${body.title || body.sessionId}${timeStats}`;
+        }
+
         const tgUrl = `https://api.telegram.org/bot${devopsToken}/sendMessage`;
         await fetch(tgUrl, {
           method: 'POST',
@@ -18,8 +26,8 @@ export async function POST(request) {
           },
           body: JSON.stringify({
             chat_id: expectedChatId,
-            text: `🔴 Jules Task Failed: ${body.title || body.sessionId}`,
-            reply_markup: {
+            text: text,
+            reply_markup: body.status === 'failed' ? {
               inline_keyboard: [
                 [
                   {
@@ -28,7 +36,7 @@ export async function POST(request) {
                   }
                 ]
               ]
-            }
+            } : undefined
           }),
         });
       }

@@ -35,6 +35,39 @@ jobs:
 
             echo "✅ Jules PR #$PR_NUMBER merged: $PR_TITLE"
 
+            # ── Calculate Time and Send Telegram Webhook ──
+            PR_CREATED="${{ github.event.pull_request.created_at }}"
+            PR_MERGED="${{ github.event.pull_request.merged_at }}"
+            
+            CREATED_SEC=$(date -d "$PR_CREATED" +%s)
+            MERGED_SEC=$(date -d "$PR_MERGED" +%s)
+            ELAPSED=$((MERGED_SEC - CREATED_SEC))
+            MINS=$((ELAPSED / 60))
+            SECS=$((ELAPSED % 60))
+            
+            AVG_SEC=270 # 4m 30s baseline
+            if [ $ELAPSED -lt $AVG_SEC ]; then
+              DIFF=$((AVG_SEC - ELAPSED))
+              PERCENT=$((DIFF * 100 / AVG_SEC))
+              COMP_STR="${PERCENT}% faster than average task time (4m 30s)"
+            else
+              DIFF=$((ELAPSED - AVG_SEC))
+              PERCENT=$((DIFF * 100 / AVG_SEC))
+              COMP_STR="${PERCENT}% slower than average task time (4m 30s)"
+            fi
+
+            curl -s -X POST "https://gravix--antigravity-hub-jcloud.us-east4.hosted.app/api/telegram/webhook" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"status\": \"completed\",
+                \"sessionId\": \"PR-$PR_NUMBER\",
+                \"title\": \"$PR_TITLE\",
+                \"timeStats\": {
+                  \"taken\": \"${MINS}m ${SECS}s\",
+                  \"comparison\": \"$COMP_STR\"
+                }
+              }"
+
             # Find and close the linked issue
             # Jules PRs typically reference issues with "Fixes #XX" or "Closes #XX"
             PR_BODY="${{ github.event.pull_request.body }}"
