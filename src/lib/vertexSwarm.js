@@ -25,6 +25,20 @@ export class VertexSwarm {
   }
 
   /**
+   * Initializes the Orchestrator with state passing capability.
+   * @param {string} orchestratorId - The ID of the Reasoning Engine orchestrator.
+   * @returns {Object} An object with a query method.
+   */
+  initOrchestrator(orchestratorId) {
+    return {
+      query: async (input, state) => {
+        const payload = { input, state };
+        return this.queryEngine(orchestratorId, payload);
+      }
+    };
+  }
+
+  /**
    * Queries the GCP Vertex AI Reasoning Engine REST API natively.
    * @param {string} reasoningEngineId - The ID of the Reasoning Engine.
    * @param {Object} input - The input payload for the query.
