@@ -2,23 +2,91 @@ import { classifyContent, processUrl, createStagingEntry } from "@/lib/knowledge
 import { adminDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
 import { logRouteError } from "@/lib/errorLogger";
+import { DocumentServiceClient } from "@google-cloud/discoveryengine";
+
+const documentClient = new DocumentServiceClient({
+  apiEndpoint: "us-discoveryengine.googleapis.com",
+});
 
 /**
  * POST /api/knowledge/ingest
  * Submit content for ingestion — processes, classifies, and stages for review.
- * Supports: text, url, youtube, file
+ * Supports: text, url, youtube, file, urls
  * Auto-detects YouTube URLs when type is "url"
  */
 export async function POST(request) {
   try {
     const body = await request.json();
-    let { content, type = "text", title = "", source = "manual", fileName = "" } = body;
+    let { content, type = "text", title = "", source = "manual", fileName = "", urls = [] } = body;
 
-    if (!content) {
+    if (!content && (!urls || urls.length === 0)) {
       return Response.json(
-        { error: "content is required (text, URL, or file content)" },
+        { error: "content or urls array is required" },
         { status: 400 }
       );
+    }
+
+    // ── Batch URLs Ingestion & Indexing ──
+    if (type === "urls" && Array.isArray(urls) && urls.length > 0) {
+      try {
+        const projectId = process.env.GOOGLE_CLOUD_PROJECT || "antigravity-hub-jcloud";
+        const location = process.env.GOOGLE_CLOUD_REGION || "us-east4";
+        const dataStoreId = process.env.VERTEX_DATASTORE_ID || "knowledge-vault";
+        const parent = `projects/${projectId}/locations/${location}/collections/default_collection/dataStores/${dataStoreId}/branches/default_branch`;
+
+        const documents = [];
+
+        for (const url of urls) {
+          try {
+             const urlObj = new URL("/api/knowledge/ingest-url", request.url);
+             const urlRes = await fetch(urlObj.toString(), {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({ url, type: "webpage" }),
+             });
+
+             if (urlRes.ok) {
+               const data = await urlRes.json();
+               const scrapedContent = data.entry?.content || data.summary || url;
+               const scrapedTitle = data.title || url;
+
+               const docId = Buffer.from(url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 63);
+               documents.push({
+                 id: docId,
+                 jsonData: JSON.stringify({
+                   title: scrapedTitle,
+                   content: scrapedContent,
+                   url: url
+                 })
+               });
+             }
+          } catch (err) {
+             console.warn(`[knowledge/ingest] Failed to scrape ${url}`, err);
+          }
+        }
+
+        if (documents.length > 0) {
+          const importRequest = {
+            parent,
+            inlineSource: {
+              documents,
+            },
+          };
+
+          const [operation] = await documentClient.importDocuments(importRequest);
+
+          return Response.json({
+            success: true,
+            message: `Batch ingestion started for ${documents.length} URLs.`,
+            operationName: operation.name,
+          });
+        } else {
+          return Response.json({ error: "Failed to scrape any of the provided URLs." }, { status: 400 });
+        }
+      } catch (err) {
+        logRouteError("discovery", "/api/knowledge/ingest batch error", err, "/api/knowledge/ingest");
+        return Response.json({ error: "Batch URL ingestion failed: " + err.message }, { status: 500 });
+      }
     }
 
     // Auto-detect YouTube URLs

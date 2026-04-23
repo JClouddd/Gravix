@@ -37,7 +37,7 @@ describe('POST /api/knowledge/ingest', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('content is required (text, URL, or file content)');
+    expect(data.error).toBe('content or urls array is required');
   });
 
   it('processes text content and returns staging entry', async () => {
