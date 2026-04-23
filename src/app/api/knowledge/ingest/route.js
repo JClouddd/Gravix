@@ -2,6 +2,13 @@ import { classifyContent, processUrl, createStagingEntry } from "@/lib/knowledge
 import { adminDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
 import { logRouteError } from "@/lib/errorLogger";
+import { DocumentServiceClient } from "@google-cloud/discoveryengine";
+import * as cheerio from "cheerio";
+import crypto from "crypto";
+
+const discoveryClient = new DocumentServiceClient({
+  apiEndpoint: "us-discoveryengine.googleapis.com",
+});
 
 /**
  * POST /api/knowledge/ingest
@@ -13,6 +20,47 @@ export async function POST(request) {
   try {
     const body = await request.json();
     let { content, type = "text", title = "", source = "manual", fileName = "" } = body;
+
+    if (Array.isArray(content)) {
+      const projectId = process.env.GOOGLE_CLOUD_PROJECT || "antigravity-hub-jcloud";
+      const location = process.env.GOOGLE_CLOUD_REGION || "us-east4";
+      const dataStoreId = process.env.VERTEX_DATASTORE_ID || "knowledge-vault";
+      const parent = `projects/${projectId}/locations/${location}/collections/default_collection/dataStores/${dataStoreId}/branches/0`;
+
+      const documents = [];
+
+      for (const url of content) {
+        try {
+          const res = await fetch(url);
+          const html = await res.text();
+          const $ = cheerio.load(html);
+          const textContent = $('body').text().replace(/\s+/g, ' ').trim();
+
+          const id = crypto.createHash("md5").update(url).digest("hex");
+
+          documents.push({
+            id,
+            jsonData: JSON.stringify({ url, content: textContent })
+          });
+        } catch (err) {
+          console.error(`Failed to scrape ${url}:`, err);
+        }
+      }
+
+      if (documents.length > 0) {
+        try {
+          await discoveryClient.importDocuments({
+            parent,
+            inlineSource: { documents }
+          });
+          return Response.json({ success: true, imported: documents.length });
+        } catch (err) {
+          logRouteError("discovery", "Discovery Engine import error", err, "/api/knowledge/ingest");
+          return Response.json({ error: "Discovery Engine import failed: " + err.message }, { status: 500 });
+        }
+      }
+      return Response.json({ error: "No documents processed" }, { status: 400 });
+    }
 
     if (!content) {
       return Response.json(
