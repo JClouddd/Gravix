@@ -1,0 +1,25 @@
+FROM node:22-slim
+
+# Install FFmpeg
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files and install dependencies
+# Note: In a real deployment, we'd only install production dependencies,
+# and maybe specific ones for the worker.
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy necessary worker source files
+COPY src/lib/workers/ ./src/lib/workers/
+COPY src/lib/errorLogger.js ./src/lib/errorLogger.js
+COPY src/lib/firebaseAdmin.js ./src/lib/firebaseAdmin.js
+
+# Note: The above COPY commands are minimal scaffolding.
+# Depending on how the worker is invoked (e.g., a standalone Node script listening to a queue),
+# you'll need an entrypoint script.
+
+# Default command (placeholder)
+CMD ["node", "-e", "console.log('Worker container started. Provide an entrypoint script to run tasks.'); setInterval(() => {}, 1000);"]
