@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 import ModuleSettingsPanel, { GearButton } from "@/components/shared/ModuleSettingsPanel";
+import { motion, AnimatePresence } from "framer-motion";
 
 const TABS = ["Roster", "Skills", "Workflow", "Tasks", "Proposals", "History"];
 
@@ -822,24 +823,26 @@ export default function AgentsModule() {
 
           <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
             {/* Conductor to Agents */}
-            <line x1="50%" y1="10%" x2="16%" y2="40%" className={`connection-line ${highlightedAgent === 'Scholar' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
-            <line x1="50%" y1="10%" x2="30%" y2="40%" className={`connection-line ${highlightedAgent === 'Courier' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
-            <line x1="50%" y1="10%" x2="44%" y2="40%" className={`connection-line ${highlightedAgent === 'Builder' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
-            <line x1="50%" y1="10%" x2="58%" y2="40%" className={`connection-line ${highlightedAgent === 'Sentinel' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
-            <line x1="50%" y1="10%" x2="72%" y2="40%" className={`connection-line ${highlightedAgent === 'Forge' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
-            <line x1="50%" y1="10%" x2="86%" y2="40%" className={`connection-line ${highlightedAgent === 'Analyst' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
+            <motion.line initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} x1="50%" y1="10%" x2="16%" y2="40%" className={`connection-line ${highlightedAgent === 'Scholar' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
+            <motion.line initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} x1="50%" y1="10%" x2="30%" y2="40%" className={`connection-line ${highlightedAgent === 'Courier' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
+            <motion.line initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} x1="50%" y1="10%" x2="44%" y2="40%" className={`connection-line ${highlightedAgent === 'Builder' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
+            <motion.line initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} x1="50%" y1="10%" x2="58%" y2="40%" className={`connection-line ${highlightedAgent === 'Sentinel' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
+            <motion.line initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} x1="50%" y1="10%" x2="72%" y2="40%" className={`connection-line ${highlightedAgent === 'Forge' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
+            <motion.line initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} x1="50%" y1="10%" x2="86%" y2="40%" className={`connection-line ${highlightedAgent === 'Analyst' || highlightedAgent === 'Conductor' ? 'highlighted' : ''}`} />
 
             {/* Agents to Domains */}
-            <line x1="16%" y1="40%" x2="16%" y2="75%" className={`connection-line ${highlightedAgent === 'Scholar' ? 'highlighted' : ''}`} />
-            <line x1="30%" y1="40%" x2="30%" y2="75%" className={`connection-line ${highlightedAgent === 'Courier' ? 'highlighted' : ''}`} />
-            <line x1="44%" y1="40%" x2="44%" y2="75%" className={`connection-line ${highlightedAgent === 'Builder' ? 'highlighted' : ''}`} />
-            <line x1="58%" y1="40%" x2="58%" y2="75%" className={`connection-line ${highlightedAgent === 'Sentinel' ? 'highlighted' : ''}`} />
-            <line x1="72%" y1="40%" x2="72%" y2="75%" className={`connection-line ${highlightedAgent === 'Forge' ? 'highlighted' : ''}`} />
-            <line x1="86%" y1="40%" x2="86%" y2="75%" className={`connection-line ${highlightedAgent === 'Analyst' ? 'highlighted' : ''}`} />
+            <motion.line initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} x1="16%" y1="40%" x2="16%" y2="75%" className={`connection-line ${highlightedAgent === 'Scholar' ? 'highlighted' : ''}`} />
+            <motion.line initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} x1="30%" y1="40%" x2="30%" y2="75%" className={`connection-line ${highlightedAgent === 'Courier' ? 'highlighted' : ''}`} />
+            <motion.line initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} x1="44%" y1="40%" x2="44%" y2="75%" className={`connection-line ${highlightedAgent === 'Builder' ? 'highlighted' : ''}`} />
+            <motion.line initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} x1="58%" y1="40%" x2="58%" y2="75%" className={`connection-line ${highlightedAgent === 'Sentinel' ? 'highlighted' : ''}`} />
+            <motion.line initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} x1="72%" y1="40%" x2="72%" y2="75%" className={`connection-line ${highlightedAgent === 'Forge' ? 'highlighted' : ''}`} />
+            <motion.line initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} x1="86%" y1="40%" x2="86%" y2="75%" className={`connection-line ${highlightedAgent === 'Analyst' ? 'highlighted' : ''}`} />
           </svg>
 
           {/* Conductor Node */}
-          <div
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             className={`card card-glass node-card ${highlightedAgent === 'Conductor' ? 'highlighted' : ''}`}
             style={{ top: "10%", left: "50%" }}
             onClick={() => setHighlightedAgent(highlightedAgent === 'Conductor' ? null : 'Conductor')}
@@ -850,7 +853,7 @@ export default function AgentsModule() {
               <span className="status-dot online" />
               <span className="caption">Router</span>
             </div>
-          </div>
+          </motion.div>
 
           {/* Agent Nodes */}
           {[
@@ -861,7 +864,9 @@ export default function AgentsModule() {
             { name: "Forge", icon: "☁️", left: "72%", role: "Infra" },
             { name: "Analyst", icon: "📊", left: "86%", role: "Data" },
           ].map(agent => (
-            <div
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               key={agent.name}
               className={`card card-glass node-card ${highlightedAgent === agent.name ? 'highlighted' : ''}`}
               style={{ top: "40%", left: agent.left }}
@@ -873,7 +878,7 @@ export default function AgentsModule() {
                 <span className="status-dot online" />
                 <span className="caption">{agent.role}</span>
               </div>
-            </div>
+            </motion.div>
           ))}
 
           {/* Domain Nodes */}
@@ -885,14 +890,15 @@ export default function AgentsModule() {
             { name: "GCP Infra", icon: "🌐", left: "72%" },
             { name: "Colab", icon: "📓", left: "86%" },
           ].map(domain => (
-            <div
+            <motion.div
+              whileHover={{ scale: 1.05 }}
               key={domain.name}
               className="domain-card"
               style={{ top: "75%", left: domain.left }}
             >
               <div style={{ fontSize: 20, marginBottom: 4 }}>{domain.icon}</div>
               <div className="caption" style={{ color: "var(--text-secondary)" }}>{domain.name}</div>
-            </div>
+            </motion.div>
           ))}
         </div>
       )}
@@ -1018,6 +1024,7 @@ export default function AgentsModule() {
                     </div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <AnimatePresence>
                       {columnTasks.map((t, idx) => {
                         const sessionName = t.id || t.name || t.sessionId || `task-${idx}`;
                         // Extract just the session ID from the full resource name
@@ -1026,7 +1033,12 @@ export default function AgentsModule() {
                           : sessionName;
 
                         return (
-                          <div
+                          <motion.div
+                            layout
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            whileHover={{ scale: 1.02 }}
                             key={shortId}
                             className={`card card-glass ${draggedTask === shortId ? 'dragging' : ''}`}
                             draggable={true}
@@ -1133,9 +1145,10 @@ export default function AgentsModule() {
                                 </button>
                               </div>
                             )}
-                          </div>
+                          </motion.div>
                         );
                       })}
+                      </AnimatePresence>
                     </div>
                   )}
                 </div>
