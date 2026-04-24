@@ -1,0 +1,27 @@
+import { describe, it, expect, vi } from 'vitest';
+import { generateMasterScript } from '@/lib/youtube/masterScript';
+import { generate } from '@/lib/geminiClient';
+
+vi.mock('@/lib/geminiClient', () => ({
+  generate: vi.fn(),
+}));
+
+describe('generateMasterScript', () => {
+  it('should generate a script given a topic and audience', async () => {
+    const mockResponse = {
+      text: JSON.stringify({
+        titles: ['A'],
+        keywords: ['B'],
+        outline: { hook: 'C', intro: 'D', body: ['E'], outro: 'F', cta: 'G' },
+        talkingPoints: ['H'],
+        estimatedLength: 'I'
+      })
+    };
+    generate.mockResolvedValue(mockResponse);
+
+    const result = await generateMasterScript('Topic', 'Audience');
+
+    expect(generate).toHaveBeenCalled();
+    expect(result.titles[0]).toBe('A');
+  });
+});
