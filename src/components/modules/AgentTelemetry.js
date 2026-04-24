@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function AgentTelemetry() {
   const [nodes, setNodes] = useState([]);
@@ -84,8 +85,9 @@ export default function AgentTelemetry() {
           position: "relative",
           zIndex: 1
         }}>
+          <AnimatePresence>
           {nodes.map(node => (
-            <div key={node.id} className="dag-node" style={{
+            <motion.div key={node.id} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.3 }} className="dag-node" style={{
               padding: "15px",
               borderRadius: "8px",
               border: `1px solid ${node.agent === "gemini-2.5-flash" ? "var(--accent)" : "var(--agent-builder)"}`,
@@ -110,8 +112,9 @@ export default function AgentTelemetry() {
               <div style={{ fontSize: "11px", color: "var(--text-tertiary)" }}>
                 Children: {edges.filter(e => e.source === node.id).map(e => e.target).join(", ") || "None"}
               </div>
-            </div>
+            </motion.div>
           ))}
+          </AnimatePresence>
           {nodes.length === 0 && <div style={{ color: "var(--text-secondary)" }}>Waiting for telemetry data...</div>}
         </div>
       </div>
