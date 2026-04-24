@@ -7,6 +7,11 @@ export default function TasksView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // New Task Modal State
+  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [newTask, setNewTask] = useState({ title: '', notes: '', due: '', tags: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
     fetch('/api/management/tasks')
       .then(res => res.json())
@@ -26,11 +31,49 @@ export default function TasksView() {
       });
   }, []);
 
+  const handleCreateTask = async (e) => {
+    e.preventDefault();
+    if (!newTask.title.trim()) return;
+    
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        ...newTask,
+        tags: newTask.tags.split(',').map(t => t.trim()).filter(Boolean)
+      };
+      // For tasks, Google expects RFC 3339 timestamp with Z
+      if (payload.due) {
+        payload.due = new Date(payload.due).toISOString();
+      }
+
+      const res = await fetch('/api/management/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks([data.task, ...tasks]);
+        setShowNewTaskModal(false);
+        setNewTask({ title: '', notes: '', due: '', tags: '' });
+      } else {
+        alert("Error: " + (data.error || "Failed to create task"));
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="w-full h-full p-6 overflow-y-auto">
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-2xl font-semibold text-white">Tasks</h2>
-        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors">
+        <button 
+          onClick={() => setShowNewTaskModal(true)}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors"
+        >
           + New Task
         </button>
       </div>
@@ -91,6 +134,74 @@ export default function TasksView() {
           </div>
         ))}
       </div>
+
+      {/* New Task Modal */}
+      {showNewTaskModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-4">Create New Task</h3>
+            <form onSubmit={handleCreateTask} className="flex flex-col space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Task Title</label>
+                <input 
+                  type="text" 
+                  value={newTask.title} 
+                  onChange={e => setNewTask({...newTask, title: e.target.value})}
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                  placeholder="e.g. Complete quarterly report"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Notes / Description</label>
+                <textarea 
+                  value={newTask.notes} 
+                  onChange={e => setNewTask({...newTask, notes: e.target.value})}
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 min-h-[80px]"
+                  placeholder="Optional details..."
+                />
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Due Date</label>
+                  <input 
+                    type="date" 
+                    value={newTask.due} 
+                    onChange={e => setNewTask({...newTask, due: e.target.value})}
+                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Tags (comma separated)</label>
+                  <input 
+                    type="text" 
+                    value={newTask.tags} 
+                    onChange={e => setNewTask({...newTask, tags: e.target.value})}
+                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                    placeholder="urgent, work"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-white/10">
+                <button 
+                  type="button" 
+                  onClick={() => setShowNewTaskModal(false)}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+                >
+                  {isSubmitting ? 'Creating...' : 'Create Task'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

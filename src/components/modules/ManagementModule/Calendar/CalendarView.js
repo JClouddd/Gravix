@@ -8,6 +8,11 @@ export default function CalendarView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // New Event Modal State
+  const [showNewEventModal, setShowNewEventModal] = useState(false);
+  const [newEvent, setNewEvent] = useState({ summary: '', description: '', start: '', end: '', source: 'tasks' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
     fetch('/api/management/calendar')
       .then(res => res.json())
@@ -27,13 +32,52 @@ export default function CalendarView() {
       });
   }, []);
 
+  const handleCreateEvent = async (e) => {
+    e.preventDefault();
+    if (!newEvent.summary.trim() || !newEvent.start || !newEvent.end) return;
+    
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        ...newEvent,
+        start: new Date(newEvent.start).toISOString(),
+        end: new Date(newEvent.end).toISOString()
+      };
+
+      const res = await fetch('/api/management/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success && data.event) {
+        setEvents([data.event, ...events]);
+        setShowNewEventModal(false);
+        setNewEvent({ summary: '', description: '', start: '', end: '', source: 'tasks' });
+      } else {
+        alert("Error: " + (data.error || "Failed to create event"));
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="w-full h-full flex flex-col p-6 overflow-y-auto">
       {/* Calendar Header / Controls */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
           <h2 className="text-2xl font-semibold text-white">Upcoming Events</h2>
-          <div className="flex space-x-1 p-1 bg-black/50 rounded-lg">
+          <button 
+            onClick={() => setShowNewEventModal(true)}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors text-sm"
+          >
+            + New Event
+          </button>
+        </div>
+        <div className="flex space-x-1 p-1 bg-black/50 rounded-lg">
             {['list', 'day', 'week', 'month'].map((v) => (
               <button
                 key={v}
@@ -93,6 +137,87 @@ export default function CalendarView() {
           </div>
         ))}
       </div>
+
+      {/* New Event Modal */}
+      {showNewEventModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-4">Create New Event</h3>
+            <form onSubmit={handleCreateEvent} className="flex flex-col space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Event Title</label>
+                <input 
+                  type="text" 
+                  value={newEvent.summary} 
+                  onChange={e => setNewEvent({...newEvent, summary: e.target.value})}
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                  placeholder="e.g. Strategy Meeting"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Calendar Source</label>
+                <select 
+                  value={newEvent.source} 
+                  onChange={e => setNewEvent({...newEvent, source: e.target.value})}
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="tasks">Tasks</option>
+                  <option value="projects">Projects</option>
+                  <option value="habits">Habits</option>
+                </select>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Start Time</label>
+                  <input 
+                    type="datetime-local" 
+                    value={newEvent.start} 
+                    onChange={e => setNewEvent({...newEvent, start: e.target.value})}
+                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-400 mb-1">End Time</label>
+                  <input 
+                    type="datetime-local" 
+                    value={newEvent.end} 
+                    onChange={e => setNewEvent({...newEvent, end: e.target.value})}
+                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+                <textarea 
+                  value={newEvent.description} 
+                  onChange={e => setNewEvent({...newEvent, description: e.target.value})}
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 min-h-[80px]"
+                  placeholder="Optional details..."
+                />
+              </div>
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-white/10">
+                <button 
+                  type="button" 
+                  onClick={() => setShowNewEventModal(false)}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+                >
+                  {isSubmitting ? 'Creating...' : 'Create Event'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
