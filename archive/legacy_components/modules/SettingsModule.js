@@ -1,0 +1,572 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { requestPermission } from "@/lib/notifications";
+import HelpTooltip from "@/components/HelpTooltip";
+
+/**
+ * Settings Module
+ * PWA install, notification prefs, agent mode defaults, API key mgmt
+ */
+const INTEGRATIONS = [
+  { name: "Gemini API", status: "connected", dot: "online" },
+  { name: "Firebase Auth", status: "connected", dot: "online" },
+  { name: "Cloud Firestore", status: "connected", dot: "online" },
+  { name: "Vertex AI Data Store", status: "connected", dot: "online", meta: "ID: gravix-knowledge" },
+  { name: "Scholar Search Engine", status: "connected", dot: "online", meta: "ID: gravix-scholar" },
+  { name: "Cloud Storage", status: "connected", dot: "online", meta: "bucket: gs://gravix-knowledge-docs" },
+  { name: "Jules", status: "connected", dot: "online", meta: "repo: JClouddd/Gravix" },
+  { name: "Dialogflow CX", status: "connected", dot: "online", meta: "7 agents deployed" },
+  { name: "Gmail API", status: "not connected", dot: "busy", needsOAuth: true },
+  { name: "Google Calendar", status: "not connected", dot: "busy", needsOAuth: true },
+  { name: "Google Tasks", status: "not connected", dot: "busy", needsOAuth: true },
+  { name: "Colab Enterprise", status: "not connected", dot: "offline", comingSoon: true },
+];
+
+export default function SettingsModule() {
+  // Profile State
+  const [profile, setProfile] = useState({ name: "Jane Doe", email: "jane.doe@example.com" });
+
+  // PWA Install State
+  const [installed, setInstalled] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  useEffect(() => {
+    // Check if app is running as PWA
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setInstalled(isStandalone);
+
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    window.addEventListener('appinstalled', () => {
+      setInstalled(true);
+      setDeferredPrompt(null);
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
+
+  // Integrations State
+  const [integrations, setIntegrations] = useState({
+    gmail: true,
+    calendar: false,
+    tasks: true,
+    firebase: true,
+    vertexAi: false,
+    jules: true
+  });
+
+  // Security State
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [sessionTimeout, setSessionTimeout] = useState("30");
+  const [twoFactor, setTwoFactor] = useState(false);
+
+  // Appearance State
+  const [theme, setTheme] = useState("dark");
+  const [accentColor, setAccentColor] = useState("#3b82f6");
+  const [fontSize, setFontSize] = useState(14);
+
+  // Notifications State
+  const [pushEnabled, setPushEnabled] = useState(
+    typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted"
+  );
+  const [fcmTokenStatus, setFcmTokenStatus] = useState(
+    typeof window !== "undefined" && "Notification" in window
+      ? (Notification.permission === "granted" ? "connected" : "not connected")
+      : "unsupported"
+  );
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    costAlerts: true,
+    healthAlerts: true,
+    agentProposals: true,
+    meetingSummaries: true,
+    costThreshold: 72,
+    eventArc: false
+  });
+
+  useEffect(() => {
+    // Load notification prefs
+    const fetchPrefs = async () => {
+      try {
+        const docRef = doc(db, "settings", "notification_prefs");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setNotificationPrefs(prev => ({ ...prev, ...docSnap.data() }));
+        }
+      } catch (err) {
+        console.error("Failed to load notification prefs:", err);
+      }
+    };
+    fetchPrefs();
+  }, []);
+
+  const saveNotificationPrefs = async (newPrefs) => {
+    try {
+      await setDoc(doc(db, "settings", "notification_prefs"), newPrefs, { merge: true });
+    } catch (err) {
+      console.error("Failed to save notification prefs:", err);
+    }
+  };
+
+  const handlePrefToggle = (key) => {
+    const newPrefs = { ...notificationPrefs, [key]: !notificationPrefs[key] };
+    setNotificationPrefs(newPrefs);
+    saveNotificationPrefs(newPrefs);
+  };
+
+  const handleThresholdChange = (e) => {
+    const newPrefs = { ...notificationPrefs, costThreshold: Number(e.target.value) };
+    setNotificationPrefs(newPrefs);
+    // Debounce this in a real app, but directly saving for now
+    saveNotificationPrefs(newPrefs);
+  };
+
+  const handlePushToggle = async (e) => {
+    const isChecked = e.target.checked;
+    if (isChecked) {
+      setFcmTokenStatus("connecting...");
+      const token = await requestPermission();
+      if (token) {
+        setPushEnabled(true);
+        setFcmTokenStatus("connected");
+      } else {
+        setPushEnabled(false);
+        setFcmTokenStatus("failed or denied");
+      }
+    } else {
+      // Browsers don't let you easily "revoke" permission via code,
+      // but we can turn off the toggle in our UI state.
+      setPushEnabled(false);
+      setFcmTokenStatus("disabled");
+    }
+  };
+
+  const presetColors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+
+  const handleIntegrationToggle = (key) => {
+    setIntegrations(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleDeleteAccount = () => {
+    if (window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+      alert("Account deleted.");
+    }
+  };
+
+  const handleExportData = () => {
+    alert("Data export started.");
+  };
+
+  const integrationDetails = [
+    { id: "gmail", name: "Gmail", desc: "Read and send emails autonomously" },
+    { id: "calendar", name: "Google Calendar", desc: "Manage your events and schedule" },
+    { id: "tasks", name: "Google Tasks", desc: "Organize and track your to-dos" },
+    { id: "firebase", name: "Firebase", desc: "Data sync and remote configuration" },
+    { id: "vertexAi", name: "Vertex AI", desc: "Advanced enterprise LLM routing" },
+    { id: "jules", name: "Jules", desc: "AI assistant core integration" }
+  ];
+
+  return (
+    <div>
+      <div className="module-header">
+        <div className="module-header-left">
+          <div className="module-icon" style={{ background: "var(--bg-tertiary)" }}>⚙️</div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 className="module-title">Settings</h1>
+              <HelpTooltip module="settings" />
+            </div>
+            <p className="module-subtitle">System preferences and configuration</p>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+        {/* Profile */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>Profile</h3>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 20 }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: "50%", background: "var(--accent)",
+              color: "white", display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 24, fontWeight: "bold", flexShrink: 0
+            }}>
+              {profile.name.split(" ").map(n => n[0]).join("").toUpperCase() || "U"}
+            </div>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <label className="caption" style={{ display: "block", marginBottom: 4 }}>Name</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={profile.name}
+                  onChange={e => setProfile({...profile, name: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="caption" style={{ display: "block", marginBottom: 4 }}>Email</label>
+                <input
+                  type="email"
+                  className="input"
+                  value={profile.email}
+                  onChange={e => setProfile({...profile, email: e.target.value})}
+                />
+              </div>
+              <button className="btn btn-primary btn-sm" style={{ alignSelf: "flex-start" }} onClick={async () => {
+                try {
+                  await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile })
+                  });
+                  alert('Profile saved!');
+                } catch (err) {
+                  console.error('Failed to save profile:', err);
+                  alert('Failed to save profile');
+                }
+              }}>Save</button>
+            </div>
+          </div>
+        </div>
+
+        {/* Notifications */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>Notification Preferences</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Push Notifications</div>
+                <div className="caption">Receive alerts from Sentinel and agent updates via FCM</div>
+                <div className="caption" style={{ marginTop: 4 }}>
+                  Status: <span style={{ color: fcmTokenStatus === "connected" ? "var(--success)" : "var(--text-secondary)" }}>{fcmTokenStatus}</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span className="badge badge-warning">Requires PWA</span>
+                <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={pushEnabled}
+                    onChange={handlePushToggle}
+                    disabled={fcmTokenStatus === "unsupported"}
+                    style={{ width: 16, height: 16, accentColor: "var(--primary)" }}
+                  />
+                  <span style={{ marginLeft: 8 }} className="body-sm">{pushEnabled ? "Enabled" : "Disabled"}</span>
+                </label>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Cost Alerts</div>
+                <div className="caption">Notify when spending exceeds threshold</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span className="caption">$</span>
+                  <input
+                    type="number"
+                    className="input"
+                    style={{ width: 60, padding: "4px 8px" }}
+                    value={notificationPrefs.costThreshold}
+                    onChange={handleThresholdChange}
+                  />
+                </div>
+                <input type="checkbox" checked={notificationPrefs.costAlerts} onChange={() => handlePrefToggle('costAlerts')} />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Health Alerts</div>
+                <div className="caption">Notify when services go down</div>
+              </div>
+              <input type="checkbox" checked={notificationPrefs.healthAlerts} onChange={() => handlePrefToggle('healthAlerts')} />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Agent Proposals</div>
+                <div className="caption">Notify when Conductor suggests new agents</div>
+              </div>
+              <input type="checkbox" checked={notificationPrefs.agentProposals} onChange={() => handlePrefToggle('agentProposals')} />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Meeting Summaries</div>
+                <div className="caption">Notify after meetings are processed</div>
+              </div>
+              <input type="checkbox" checked={notificationPrefs.meetingSummaries} onChange={() => handlePrefToggle('meetingSummaries')} />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">EventArc Webhooks</div>
+                <div className="caption">Receive automated pushes from GCP EventArc</div>
+              </div>
+              <input type="checkbox" checked={!!notificationPrefs.eventArc} onChange={() => handlePrefToggle('eventArc')} />
+            </div>
+          </div>
+        </div>
+
+        {/* Agent Defaults */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>Agent Defaults</h3>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div className="body">Default Execution Mode</div>
+              <div className="caption">How agents process tasks by default</div>
+            </div>
+            <select className="input" style={{ width: 160, padding: "6px 10px" }}>
+              <option>Step (confirm each)</option>
+              <option>Batch (confirm set)</option>
+              <option>Autonomous</option>
+            </select>
+          </div>
+        </div>
+
+        {/* PWA */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>Install App</h3>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div className="body">Install Gravix as PWA</div>
+              <div className="caption">Add to home screen for native app experience</div>
+            </div>
+            {installed ? (
+              <span className="badge badge-success" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Installed
+              </span>
+            ) : (
+              <button
+                className="btn btn-primary btn-sm"
+                disabled={!deferredPrompt}
+                onClick={handleInstallClick}
+              >
+                Install
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Integrations */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>Integrations</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {INTEGRATIONS.map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: i !== INTEGRATIONS.length - 1 ? 12 : 0, borderBottom: i !== INTEGRATIONS.length - 1 ? "1px solid var(--card-border)" : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div className={`status-dot ${item.dot}`} />
+                  <div>
+                    <div className="body">{item.name}</div>
+                    <div className="caption" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span>{item.status}</span>
+                      {item.meta && <span style={{ color: "var(--text-tertiary)" }}>• {item.meta}</span>}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {item.comingSoon && <span className="badge badge-info">coming soon</span>}
+                  {item.needsOAuth && (
+                    <>
+                      <span className="badge badge-warning">Requires OAuth</span>
+                      <a href="/api/auth/connect" className="btn btn-secondary btn-sm" style={{ textDecoration: "none" }}>
+                        Connect
+                      </a>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* System Info */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>System Info</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[
+              ["GCP Project", "antigravity-hub-jcloud"],
+              ["Region", "us-central1"],
+              ["Service Account", "gravix-hub@antigravity-hub-jcloud.iam.gserviceaccount.com"],
+              ["Version", "0.1.0"],
+            ].map(([key, val]) => (
+              <div key={key} style={{ display: "flex", justifyContent: "space-between" }}>
+                <span className="body-sm" style={{ color: "var(--text-secondary)" }}>{key}</span>
+                <span className="mono" style={{ color: "var(--text-primary)" }}>{val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Security */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>Security</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <label className="caption" style={{ display: "block", marginBottom: 4 }}>API Key</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type={showApiKey ? "text" : "password"}
+                  className="input"
+                  value="sk-gravix-ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"
+                  readOnly
+                />
+                <button className="btn btn-secondary" onClick={() => setShowApiKey(!showApiKey)}>
+                  {showApiKey ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Session Timeout</div>
+                <div className="caption">Automatically log out after inactivity</div>
+              </div>
+              <select className="input" style={{ width: 120, padding: "6px 10px" }} value={sessionTimeout} onChange={(e) => setSessionTimeout(e.target.value)}>
+                <option value="15">15 mins</option>
+                <option value="30">30 mins</option>
+                <option value="60">1 hour</option>
+                <option value="never">Never</option>
+              </select>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Two-Factor Authentication</div>
+                <div className="caption">Add an extra layer of security</div>
+              </div>
+              <input type="checkbox" checked={twoFactor} onChange={(e) => setTwoFactor(e.target.checked)} />
+            </div>
+          </div>
+        </div>
+
+        {/* Appearance */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>Appearance</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Restart Onboarding Tour</div>
+                <div className="caption">Replay the introductory guide</div>
+              </div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to restart the onboarding tour?")) {
+                    localStorage.removeItem("gravix-onboarding-complete");
+                    window.location.reload();
+                  }
+                }}
+              >
+                Restart Tour
+              </button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Theme</div>
+                <div className="caption">Toggle between dark, light, and system</div>
+              </div>
+              <select className="input" style={{ width: 120, padding: "6px 10px" }} value={theme} onChange={(e) => {
+                const val = e.target.value;
+                setTheme(val);
+                if (val !== "system") {
+                  document.documentElement.setAttribute("data-theme", val);
+                } else {
+                  document.documentElement.removeAttribute("data-theme");
+                }
+              }}>
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+                <option value="system">System</option>
+              </select>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Accent Color</div>
+                <div className="caption">Choose your primary color</div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {presetColors.map(color => (
+                  <div
+                    key={color}
+                    onClick={() => setAccentColor(color)}
+                    style={{
+                      width: 24, height: 24, borderRadius: "50%", background: color, cursor: "pointer",
+                      border: accentColor === color ? "2px solid white" : "2px solid transparent",
+                      boxShadow: accentColor === color ? "0 0 0 2px var(--text-primary)" : "none"
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Font Size</div>
+                <div className="caption">{fontSize}px</div>
+              </div>
+              <input
+                type="range"
+                min="12"
+                max="24"
+                value={fontSize}
+                onChange={e => setFontSize(parseInt(e.target.value))}
+                style={{ width: 120 }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Danger Zone */}
+        <div className="card" style={{ border: "1px solid var(--error)" }}>
+          <h3 className="h4" style={{ marginBottom: 16, color: "var(--error)" }}>Danger Zone</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Export Data</div>
+                <div className="caption">Download a copy of all your data</div>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={handleExportData}>Export</button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div className="body">Delete Account</div>
+                <div className="caption">Permanently remove your account and data</div>
+              </div>
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ background: "var(--error)" }}
+                onClick={handleDeleteAccount}
+              >
+                Delete Account
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
