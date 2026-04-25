@@ -14,12 +14,14 @@ import PipelineToasts from "@/components/PipelineToasts";
 /* ── Module Registry ─────────────────────────────────────────── */
 const MODULES = [
   { id: "management", label: "Management", icon: "📋", color: "var(--accent)" },
+  { id: "knowledge", label: "Knowledge", icon: "🧠", color: "var(--agent-scholar)" },
   { id: "settings",  label: "Settings",  icon: "⚙️",  color: "var(--text-secondary)" },
 ];
 
 /* ── Lazy Module Loading ─────────────────────────────────────── */
 const moduleComponents = {
   management: lazy(() => import("@/components/modules/ManagementModule/ManagementDashboard")),
+  knowledge: lazy(() => import("@/components/modules/KnowledgeModule")),
   settings:  lazy(() => import("@/components/modules/SettingsModule")),
 };
 
