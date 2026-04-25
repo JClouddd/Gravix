@@ -1,24 +1,133 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import WarRoomModal from './WarRoomModal';
 
 export default function ProjectsView() {
+  const [activeWarRoomPlan, setActiveWarRoomPlan] = useState(null);
+
+  // Temporary mock data for aesthetic display
+  const mockProjects = [
+    { id: 1, title: 'Omni-Hub v2', description: 'Complete the autonomous architecture rewrite', progress: 78, color: 'var(--accent)' },
+    { id: 2, title: 'Cinematic Pipeline', description: 'Automate video generation using Stitch UI', progress: 45, color: 'var(--agent-forge)' },
+    { id: 3, title: 'Agent Framework', description: 'Implement multi-agent routing capabilities', progress: 92, color: 'var(--agent-scholar)' }
+  ];
+
+  // Mock pending Implementation Plans for the Approval Matrix
+  const mockPendingPlans = [
+    { id: 101, title: 'BigQuery Data Lake Migration', aiModel: 'Vertex Swarm', tasks: 12, estDuration: '45m', status: 'Awaiting Authorization', color: 'var(--system-blue)' },
+    { id: 102, title: 'Cinematic Pipeline Webhooks', aiModel: 'Jules Action', tasks: 4, estDuration: '12m', status: 'Awaiting Authorization', color: 'var(--system-warning)' }
+  ];
+
   return (
-    <div className="w-full h-full p-6 overflow-y-auto">
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="text-2xl font-semibold text-white">Projects</h2>
-        <button className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition-colors">
+    <div className="w-full h-full flex flex-col gap-lg" style={{ padding: "8px 24px 24px 24px", overflowY: "auto" }}>
+      
+      {/* Header Controls */}
+      <div className="card-glass flex items-center justify-between" style={{ padding: "16px 24px" }}>
+        <div className="flex items-center gap-md">
+          <div className="module-icon" style={{ background: "var(--accent-glow)", color: "var(--accent)", width: 48, height: 48, fontSize: 24 }}>
+            📂
+          </div>
+          <div>
+            <h2 className="h2 text-gradient" style={{ backgroundImage: "linear-gradient(to right, #a855f7, #ec4899)" }}>Project Milestones</h2>
+            <p className="caption">High-level containers for your task workflows</p>
+          </div>
+        </div>
+
+        <button 
+          className="btn btn-primary shadow-lg hover:shadow-xl transition-all"
+          style={{ borderRadius: "var(--radius-xl)", padding: "0 24px", background: "linear-gradient(135deg, #a855f7, #ec4899)" }}
+        >
           + New Project
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {/* Empty State Stub */}
-        <div className="col-span-full py-20 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
-          <div className="text-gray-400 mb-2">No projects yet</div>
-          <div className="text-sm text-gray-500">Group your tasks into manageable projects.</div>
+      {/* The Approval Matrix (Pending AI Plans) */}
+      <div className="flex flex-col gap-md mb-6">
+        <h3 className="h3 text-white flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+          Approval Matrix <span className="caption text-blue-400">({mockPendingPlans.length} Pending AI Plans)</span>
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {mockPendingPlans.map(plan => (
+            <div key={plan.id} className="card-glass border-blue-500/30 flex flex-col gap-3 relative overflow-hidden" style={{ background: 'rgba(10, 20, 40, 0.4)' }}>
+              {/* Scanline effect */}
+              <div className="absolute inset-0 w-full h-[1px] bg-blue-500/20 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-scanline"></div>
+              
+              <div className="flex justify-between items-start z-10">
+                <div>
+                  <h4 className="h4 text-blue-100">{plan.title}</h4>
+                  <p className="caption text-blue-300/70">{plan.tasks} Sub-Tasks • Est: {plan.estDuration}</p>
+                </div>
+                <span className="badge" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }}>
+                  {plan.aiModel}
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between mt-2 z-10 pt-3 border-t border-white/5">
+                <span className="text-xs text-amber-400 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span> {plan.status}
+                </span>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setActiveWarRoomPlan(plan)}
+                    className="btn btn-icon w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors" 
+                    title="Deep Dive War Room"
+                  >
+                    👁️
+                  </button>
+                  <button className="btn text-xs font-bold px-4 py-1.5 rounded-lg text-white shadow-[0_0_15px_rgba(59,130,246,0.4)] hover:shadow-[0_0_25px_rgba(59,130,246,0.6)] transition-all" style={{ background: 'linear-gradient(90deg, #2563eb, #3b82f6)' }}>
+                    [Deploy Swarm]
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
+
+      <div className="grid-3 pb-10">
+        {mockProjects.map(project => (
+          <div key={project.id} className="card-glass flex flex-col gap-sm relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-transform">
+            
+            {/* Subtle glow effect behind project */}
+            <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" style={{ background: project.color }}></div>
+
+            <h3 className="h3 text-white relative z-10">{project.title}</h3>
+            <p className="caption text-text-secondary relative z-10">{project.description}</p>
+            
+            <div className="mt-auto pt-4 flex flex-col gap-sm relative z-10">
+              <div className="flex justify-between items-center text-xs font-medium text-gray-400">
+                <span>Progress</span>
+                <span>{project.progress}%</span>
+              </div>
+              <div className="w-full h-2 bg-black/50 rounded-full overflow-hidden border border-white/10">
+                <div 
+                  className="h-full rounded-full" 
+                  style={{ width: `${project.progress}%`, background: `linear-gradient(90deg, ${project.color}, #ffffff)` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        ))}
+        
+        {/* Empty State / Add New Card */}
+        <div className="card-glass flex flex-col items-center justify-center min-h-[160px] border-dashed cursor-pointer hover:bg-white/[0.05] transition-colors gap-2">
+          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-xl mb-2 text-text-tertiary">
+            +
+          </div>
+          <h4 className="h4 text-text-secondary">Create Project</h4>
+        </div>
+      </div>
+
+      {/* Render War Room Modal */}
+      {activeWarRoomPlan && (
+        <WarRoomModal 
+          plan={activeWarRoomPlan} 
+          onClose={() => setActiveWarRoomPlan(null)} 
+        />
+      )}
     </div>
   );
 }

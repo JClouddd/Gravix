@@ -176,7 +176,7 @@ export async function POST(request) {
 
     // Call Gemini with the video
     const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${geminiApiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -263,7 +263,7 @@ export async function POST(request) {
       console.warn("[ingest-video] JSON parse failed. Retrying with extraction prompt...");
       try {
         const retryRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiApiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${geminiApiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -361,7 +361,7 @@ export async function POST(request) {
     // Log usage
     await logUsage({
       route: "/api/knowledge/ingest-video",
-      model: "gemini-2.5-flash-lite",
+      model: "gemini-2.5-pro",
       agent: "scholar",
       inputTokens: promptTokens,
       outputTokens: outputTokens,

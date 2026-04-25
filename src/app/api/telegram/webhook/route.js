@@ -4,6 +4,28 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
+    // ── Handle Telegram Inline Keyboard Callbacks ──
+    if (body.callback_query) {
+      const callbackData = JSON.parse(body.callback_query.data || '{}');
+      const chatId = body.callback_query.message.chat.id;
+      const messageId = body.callback_query.message.message_id;
+
+      if (callbackData.action === 'rollback_pipeline') {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        
+        // Asynchronously trigger the rollback API
+        fetch(`${baseUrl}/api/management/rollback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ planId: callbackData.planId, chatId, messageId })
+        }).catch(console.error);
+        
+        return Response.json({ success: true });
+      }
+      
+      return Response.json({ success: true });
+    }
+
     // ── Handle Jules CI Status Alerts (Failed or Completed) ──
     if (body.sessionId && (body.status === 'failed' || body.status === 'completed')) {
       const devopsToken = process.env.TELEGRAM_DEVOPS_BOT_TOKEN;
@@ -39,6 +61,44 @@ export async function POST(request) {
             } : undefined
           }),
         });
+      }
+      return Response.json({ success: true });
+    }
+
+    // ── Handle Firebase App Hosting & Omni-Pipeline Alerts ──
+    if (body.source === 'firebase_app_hosting' || body.source === 'omni_pipeline') {
+      const devopsToken = process.env.TELEGRAM_DEVOPS_BOT_TOKEN;
+      const expectedChatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
+
+      if (devopsToken && expectedChatId) {
+        let text = `🚨 **Critical Pipeline Failure Detected**\n\n`;
+        text += `**Source:** ${body.source === 'firebase_app_hosting' ? 'Firebase App Hosting' : 'Omni-Pipeline Swarm'}\n`;
+        text += `**Status:** ${body.status || 'FAILED'}\n`;
+        if (body.planId) text += `**Plan ID:** OMNI-${body.planId}\n`;
+        if (body.errorMessage) text += `\n**Error Trace:**\n\`${body.errorMessage.substring(0, 200)}...\`\n`;
+
+        const tgUrl = `https://api.telegram.org/bot${devopsToken}/sendMessage`;
+        await fetch(tgUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: expectedChatId,
+            text: text,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '🔄 Retry Deploy', callback_data: JSON.stringify({ action: 'retry_pipeline', planId: body.planId }) },
+                  { text: '⏮️ Rollback (Safe Mode)', callback_data: JSON.stringify({ action: 'rollback_pipeline', planId: body.planId }) }
+                ]
+              ]
+            }
+          }),
+        });
+        
+        // ── Step 3: UI Telemetry Sync ──
+        // (Mocking Firestore sync for now. In production, this updates the ai_implementation_plans document to 'Fatal Error')
+        console.log(`[TELEMETRY] Syncing Fatal Error state to Firestore for Plan: ${body.planId}`);
       }
       return Response.json({ success: true });
     }
