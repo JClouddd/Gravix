@@ -81,28 +81,25 @@ export default function CalendarView() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col p-6 overflow-y-auto">
+    <div className="w-full h-full flex flex-col overflow-y-auto" style={{ padding: "24px" }}>
       {/* Calendar Header / Controls */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-4">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
           <h2 className="text-2xl font-semibold text-white">Upcoming Events</h2>
           <button 
             onClick={() => setShowNewEventModal(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors text-sm"
+            className="btn btn-primary btn-sm"
           >
             + New Event
           </button>
         </div>
-        <div className="flex space-x-1 p-1 bg-black/50 rounded-lg">
+        <div style={{ display: "flex", gap: "4px", background: "var(--bg-secondary)", padding: "4px", borderRadius: "var(--radius-md)" }}>
             {['list', 'day', 'week', 'month'].map((v) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
-                className={`px-3 py-1 rounded text-xs font-medium uppercase tracking-wider transition-colors ${
-                  view === v
-                    ? 'bg-white/20 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-white/10'
-                }`}
+                className={`btn btn-sm ${view === v ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ minHeight: "28px", padding: "4px 12px", textTransform: "capitalize" }}
               >
                 {v}
               </button>

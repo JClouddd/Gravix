@@ -101,22 +101,23 @@ export default function TasksView() {
   };
 
   return (
-    <div className="w-full h-full p-6 overflow-y-auto">
-      <div className="flex items-center justify-between mb-8">
+    <div className="w-full h-full p-6 overflow-y-auto" style={{ padding: "24px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
         <h2 className="text-2xl font-semibold text-white">Tasks</h2>
-        <div className="flex space-x-3">
+        <div style={{ display: "flex", gap: "12px" }}>
           {selectedTasks.size > 0 && (
             <button 
               onClick={handleAutoSchedule}
               disabled={isAutoScheduling}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg font-medium transition-colors flex items-center shadow-[0_0_15px_rgba(168,85,247,0.4)]"
+              className="btn"
+              style={{ background: "var(--agent-courier)", color: "var(--bg-primary)" }}
             >
               ✨ Auto-Schedule ({selectedTasks.size})
             </button>
           )}
           <button 
             onClick={() => setShowNewTaskModal(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors"
+            className="btn btn-primary"
           >
             + New Task
           </button>

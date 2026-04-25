@@ -5,43 +5,45 @@ import TasksView from './Tasks/TasksView';
 import ProjectsView from './Projects/ProjectsView';
 import TagsView from './Tags/TagsView';
 import CalendarView from './Calendar/CalendarView';
+import HelpTooltip from "@/components/HelpTooltip";
 
 export default function ManagementDashboard() {
   const [activeTab, setActiveTab] = useState('calendar');
 
   const tabs = [
-    { id: 'calendar', label: 'Calendar' },
-    { id: 'tasks', label: 'Tasks' },
-    { id: 'projects', label: 'Projects' },
-    { id: 'tags', label: 'Tags' },
+    { id: 'calendar', label: 'Calendar', icon: '📅' },
+    { id: 'tasks', label: 'Tasks', icon: '✅' },
+    { id: 'projects', label: 'Projects', icon: '📂' },
+    { id: 'tags', label: 'Tags', icon: '🏷️' },
   ];
 
   return (
-    <div className="w-full h-full flex flex-col bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden shadow-2xl">
-      {/* Header / Nav */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
-        <h1 className="text-xl font-semibold text-white tracking-wide">
-          Antigravity Management
-        </h1>
-        <div className="flex space-x-1 p-1 bg-black/50 rounded-lg">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div className="module-header">
+        <div className="module-header-left">
+          <div className="module-icon" style={{ background: "var(--accent-subtle)" }}>📋</div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 className="module-title">Management</h1>
+              <HelpTooltip module="management" />
+            </div>
+            <p className="module-subtitle">Omni-Hub calendar, tasks, and project management</p>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                activeTab === tab.id
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-[0_0_15px_rgba(37,99,235,0.2)]'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'
-              }`}
+              className={`btn ${activeTab === tab.id ? "btn-primary" : "btn-secondary"}`}
             >
-              {tab.label}
+              {tab.icon} {tab.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden relative">
+      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {activeTab === 'calendar' && <CalendarView />}
         {activeTab === 'tasks' && <TasksView />}
         {activeTab === 'projects' && <ProjectsView />}
