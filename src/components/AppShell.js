@@ -14,31 +14,13 @@ import PipelineToasts from "@/components/PipelineToasts";
 /* ── Module Registry ─────────────────────────────────────────── */
 const MODULES = [
   { id: "management", label: "Management", icon: "📋", color: "var(--accent)" },
-  { id: "home",      label: "Home",      icon: "🏠", color: "var(--accent)" },
-  { id: "planner",   label: "Planner",   icon: "📅", color: "var(--agent-courier)" },
-  { id: "email",     label: "Email",     icon: "✉️",  color: "var(--agent-courier)" },
-  { id: "agents",    label: "Agents",    icon: "🤖", color: "var(--agent-conductor)" },
-  { id: "knowledge", label: "Knowledge", icon: "🧠", color: "var(--agent-scholar)" },
-  { id: "clients",   label: "Clients",   icon: "👥", color: "var(--agent-builder)" },
-  { id: "finance",   label: "Finance",   icon: "💰", color: "var(--success)" },
-  { id: "colab",     label: "Colab",     icon: "📊", color: "var(--agent-analyst)" },
   { id: "settings",  label: "Settings",  icon: "⚙️",  color: "var(--text-secondary)" },
-  { id: "telemetry", label: "Telemetry", icon: "📡", color: "var(--accent)" },
 ];
 
 /* ── Lazy Module Loading ─────────────────────────────────────── */
 const moduleComponents = {
   management: lazy(() => import("@/components/modules/ManagementModule/ManagementDashboard")),
-  home:      lazy(() => import("@/components/modules/HomeModule")),
-  planner:   lazy(() => import("@/components/modules/PlannerModule")),
-  email:     lazy(() => import("@/components/modules/EmailModule")),
-  agents:    lazy(() => import("@/components/modules/AgentsModule")),
-  knowledge: lazy(() => import("@/components/modules/KnowledgeModule")),
-  clients:   lazy(() => import("@/components/modules/ClientsModule")),
-  finance:   lazy(() => import("@/components/modules/FinanceModule")),
-  colab:     lazy(() => import("@/components/modules/ColabModule")),
   settings:  lazy(() => import("@/components/modules/SettingsModule")),
-  telemetry: lazy(() => import("@/components/modules/AgentTelemetry")),
 };
 
 /* ── AppShell Component ──────────────────────────────────────── */
