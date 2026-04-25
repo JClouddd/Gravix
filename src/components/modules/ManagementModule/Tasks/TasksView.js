@@ -12,6 +12,10 @@ export default function TasksView() {
   const [newTask, setNewTask] = useState({ title: '', notes: '', due: '', tags: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Auto-Schedule Selection State
+  const [selectedTasks, setSelectedTasks] = useState(new Set());
+  const [isAutoScheduling, setIsAutoScheduling] = useState(false);
+
   useEffect(() => {
     fetch('/api/management/tasks')
       .then(res => res.json())
@@ -66,16 +70,57 @@ export default function TasksView() {
     }
   };
 
+  const toggleSelection = (taskId) => {
+    const newSet = new Set(selectedTasks);
+    if (newSet.has(taskId)) newSet.delete(taskId);
+    else newSet.add(taskId);
+    setSelectedTasks(newSet);
+  };
+
+  const handleAutoSchedule = async () => {
+    if (selectedTasks.size === 0) return;
+    setIsAutoScheduling(true);
+    try {
+      const res = await fetch('/api/management/auto-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskIds: Array.from(selectedTasks) })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Successfully auto-scheduled ${data.scheduledCount || selectedTasks.size} tasks into your calendar!`);
+        setSelectedTasks(new Set());
+      } else {
+        alert("Auto-Schedule failed: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsAutoScheduling(false);
+    }
+  };
+
   return (
     <div className="w-full h-full p-6 overflow-y-auto">
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-2xl font-semibold text-white">Tasks</h2>
-        <button 
-          onClick={() => setShowNewTaskModal(true)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors"
-        >
-          + New Task
-        </button>
+        <div className="flex space-x-3">
+          {selectedTasks.size > 0 && (
+            <button 
+              onClick={handleAutoSchedule}
+              disabled={isAutoScheduling}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg font-medium transition-colors flex items-center shadow-[0_0_15px_rgba(168,85,247,0.4)]"
+            >
+              ✨ Auto-Schedule ({selectedTasks.size})
+            </button>
+          )}
+          <button 
+            onClick={() => setShowNewTaskModal(true)}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors"
+          >
+            + New Task
+          </button>
+        </div>
       </div>
 
       {/* Task Filters & Sorting */}
@@ -108,10 +153,15 @@ export default function TasksView() {
         )}
 
         {!loading && !error && tasks.map(task => (
-          <div key={task.id} className="flex items-center justify-between p-4 border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] rounded-xl transition-colors cursor-pointer group">
+          <div key={task.id} className={`flex items-center justify-between p-4 border transition-colors cursor-pointer group rounded-xl ${selectedTasks.has(task.id) ? 'bg-purple-900/20 border-purple-500/50' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}>
             <div className="flex items-center space-x-4">
-              <input type="checkbox" checked={task.status === 'completed'} readOnly className="w-5 h-5 rounded border-white/20 bg-black/50 text-blue-500 focus:ring-0" />
-              <div>
+              <input 
+                type="checkbox" 
+                checked={selectedTasks.has(task.id)} 
+                onChange={() => toggleSelection(task.id)} 
+                className="w-5 h-5 rounded border-white/20 bg-black/50 text-purple-500 focus:ring-0 cursor-pointer" 
+              />
+              <div onClick={() => toggleSelection(task.id)}>
                 <div className={`font-medium ${task.status === 'completed' ? 'text-gray-500 line-through' : 'text-gray-200'}`}>
                   {task.title}
                 </div>

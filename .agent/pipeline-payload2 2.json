@@ -1,0 +1,104 @@
+{
+  "name": "Phase 2-5: Universal Ingestion + Core UI Restore",
+  "autoApprove": true,
+  "waves": [
+    {
+      "waveNumber": 0,
+      "status": "pending",
+      "tasks": [
+        {
+          "title": "feat: Add ModuleSettingsPanel component",
+          "prompt": "Create a new generic component `src/components/shared/ModuleSettingsPanel.js`. It should be a reusable sliding panel that takes generic configuration props (e.g. settings schema, isOpen, onClose). Integrate the new ModuleSettingsPanel into `src/components/modules/KnowledgeModule.js` and `src/components/modules/AgentsModule.js` to replace any placeholder settings gear behaviors.",
+          "files": [
+            "src/components/shared/ModuleSettingsPanel.js",
+            "src/components/modules/KnowledgeModule.js",
+            "src/components/modules/AgentsModule.js"
+          ],
+          "fileLocks": [
+            "src/components/shared/ModuleSettingsPanel.js",
+            "src/components/modules/KnowledgeModule.js",
+            "src/components/modules/AgentsModule.js"
+          ],
+          "autoApprove": true,
+          "acceptanceCriteria": "ModuleSettingsPanel built and wired successfully into Knowledge and Agents modules."
+        }
+      ]
+    },
+    {
+      "waveNumber": 1,
+      "status": "pending",
+      "tasks": [
+        {
+          "title": "feat: Upgrade ColabModule UI with Tab Architecture and Batch Select",
+          "prompt": "Update `src/components/modules/ColabModule.js` to implement a robust strict Tab architecture containing: 'Pending', 'Approved', and 'Rejected'. Add multi-select checkboxes to the individual notebook cards. Implement a floating action bar that appears when items are selected providing 'Batch Approve' and 'Batch Reject' visual buttons. (Do not worry about wiring the backend API for batch just yet, get the UI architecture flawless).",
+          "files": [
+            "src/components/modules/ColabModule.js"
+          ],
+          "fileLocks": [
+            "src/components/modules/ColabModule.js"
+          ],
+          "autoApprove": true,
+          "acceptanceCriteria": "Tabs navigate correctly and selecting multiple checkboxes exposes the floating action bar."
+        }
+      ]
+    },
+    {
+      "waveNumber": 2,
+      "status": "pending",
+      "tasks": [
+        {
+          "title": "feat: Meeting Audio Transcription API",
+          "prompt": "Create a new API route `src/app/api/meet/transcripts/route.js`. This should accept a POST request with generic audio metadata or a URL, and use `src/lib/geminiClient.js` (potentially adding an audio prompt wrapper if necessary) or a placeholder standard structure to ingest audio. Then, modify `src/components/modules/PlannerModule.js` to include a prominent 'Upload Meeting Audio' button that triggers a toast placeholder demonstrating the API connection.",
+          "files": [
+            "src/app/api/meet/transcripts/route.js",
+            "src/components/modules/PlannerModule.js"
+          ],
+          "fileLocks": [
+            "src/app/api/meet/transcripts/route.js",
+            "src/components/modules/PlannerModule.js"
+          ],
+          "autoApprove": true,
+          "acceptanceCriteria": "API route handles POST cleanly. PlannerModule UI shows the newly added button."
+        }
+      ]
+    },
+    {
+      "waveNumber": 3,
+      "status": "pending",
+      "tasks": [
+        {
+          "title": "feat: Ingestion Context Bundles UI",
+          "prompt": "We are executing Phase 2 of the Universal Ingestion Engine. Modify `src/components/modules/knowledge/IngestionTab.js`. Add a distinct UI section or text input wrapper for 'Context Bundles'. A User should be able to type a 'Project ID' or 'Topic Bundle ID' that gets attached as `contextId` metadata when ingesting a URL or file. Update the component state safely to ensure this `contextId` is sent alongside `sourceType` inside standard ingestion POST requests.",
+          "files": [
+            "src/components/modules/knowledge/IngestionTab.js"
+          ],
+          "fileLocks": [
+            "src/components/modules/knowledge/IngestionTab.js"
+          ],
+          "autoApprove": true,
+          "acceptanceCriteria": "Context Bundle input UI is clearly visible and correctly appends metadata mapping."
+        }
+      ]
+    },
+    {
+      "waveNumber": 4,
+      "status": "pending",
+      "tasks": [
+        {
+          "title": "feat: Docs Scraper & Git Repo Ingest APIs",
+          "prompt": "We are executing Phase 3 and 4 of the Universal Ingestion Engine. Create `src/app/api/knowledge/ingest-docs/route.js` designed to accept a url and extract standard markdown content via Firecrawl's /scrape endpoints (add simple fetch placeholders for it). It should use `embed()` from `geminiClient` to convert chunks to vectors. Similarly, create `src/app/api/knowledge/ingest-repo/route.js` that contains a boilerplate structure for cloning/extracting a given Github repository AST into summaries that are passed into our Firestore vector search database.",
+          "files": [
+            "src/app/api/knowledge/ingest-docs/route.js",
+            "src/app/api/knowledge/ingest-repo/route.js"
+          ],
+          "fileLocks": [
+            "src/app/api/knowledge/ingest-docs/route.js",
+            "src/app/api/knowledge/ingest-repo/route.js"
+          ],
+          "autoApprove": true,
+          "acceptanceCriteria": "Both backend endpoints securely execute and log theoretical crawler workflows and utilize gemini endpoints."
+        }
+      ]
+    }
+  ]
+}

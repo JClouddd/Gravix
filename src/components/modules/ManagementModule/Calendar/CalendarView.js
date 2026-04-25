@@ -1,6 +1,22 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { enUS } from 'date-fns/locale';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+
+const locales = {
+  'en-US': enUS,
+}
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+})
 
 export default function CalendarView() {
   const [view, setView] = useState('list');
@@ -109,33 +125,61 @@ export default function CalendarView() {
             <span className="text-gray-300">Habits</span>
           </label>
         </div>
-      </div>
-
-      {/* Events List Display (Fallback while grid is pending) */}
-      <div className="flex flex-col space-y-3">
+      {/* Calendar Grid Display */}
+      <div className="flex-1 bg-white/[0.02] border border-white/10 rounded-xl overflow-hidden p-4 min-h-[500px]">
         {loading && <div className="text-gray-400">Loading calendar events...</div>}
         {error && <div className="text-red-400 bg-red-900/20 p-4 rounded-lg">{error}</div>}
         
-        {!loading && !error && events.length === 0 && (
-          <div className="w-full py-20 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
-            <div className="text-gray-400 mb-2">No upcoming events</div>
-            <div className="text-sm text-gray-500">Create an event to get started.</div>
-          </div>
+        {!loading && !error && (
+          <Calendar
+            localizer={localizer}
+            events={events.map(e => ({
+              id: e.id,
+              title: e.summary,
+              start: new Date(e.start),
+              end: new Date(e.end || e.start),
+              color: e.color || '#4285f4'
+            }))}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: '100%', minHeight: 600, color: '#e5e7eb' }}
+            views={['month', 'week', 'day', 'agenda']}
+            defaultView="week"
+            eventPropGetter={(event) => ({
+              style: {
+                backgroundColor: event.color,
+                borderRadius: '6px',
+                border: 'none',
+                opacity: 0.8,
+                color: 'white',
+                borderLeft: `4px solid ${event.color === '#4285f4' ? '#2563eb' : 'rgba(255,255,255,0.3)'}`
+              }
+            })}
+            components={{
+              toolbar: (toolbarProps) => (
+                <div className="flex justify-between items-center mb-4 text-white">
+                  <div className="flex space-x-2">
+                    <button onClick={() => toolbarProps.onNavigate('PREV')} className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded">Prev</button>
+                    <button onClick={() => toolbarProps.onNavigate('TODAY')} className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded">Today</button>
+                    <button onClick={() => toolbarProps.onNavigate('NEXT')} className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded">Next</button>
+                  </div>
+                  <span className="text-xl font-bold">{toolbarProps.label}</span>
+                  <div className="flex space-x-2">
+                    {toolbarProps.views.map(view => (
+                      <button 
+                        key={view} 
+                        onClick={() => toolbarProps.onView(view)} 
+                        className={`px-3 py-1 rounded capitalize ${toolbarProps.view === view ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'}`}
+                      >
+                        {view}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            }}
+          />
         )}
-
-        {!loading && !error && events.map(evt => (
-          <div key={evt.id} className="flex flex-col p-4 border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] rounded-xl transition-colors cursor-pointer group">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: evt.color || '#4285f4' }} />
-                <span className="font-medium text-gray-200">{evt.summary}</span>
-              </div>
-              <div className="text-sm text-gray-400">
-                {evt.start ? new Date(evt.start).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'No Time'}
-              </div>
-            </div>
-          </div>
-        ))}
       </div>
 
       {/* New Event Modal */}
