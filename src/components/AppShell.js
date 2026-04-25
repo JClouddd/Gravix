@@ -13,21 +13,23 @@ import PipelineToasts from "@/components/PipelineToasts";
 
 /* ── Module Registry ─────────────────────────────────────────── */
 const MODULES = [
+  { id: "home", label: "Home", icon: "🏠", color: "var(--accent)" },
   { id: "management", label: "Management", icon: "📋", color: "var(--accent)" },
-  { id: "knowledge", label: "Knowledge", icon: "🧠", color: "var(--agent-scholar)" },
+  { id: "finance", label: "Finance", icon: "💰", color: "var(--agent-finance)" },
   { id: "settings",  label: "Settings",  icon: "⚙️",  color: "var(--text-secondary)" },
 ];
 
 /* ── Lazy Module Loading ─────────────────────────────────────── */
 const moduleComponents = {
+  home: lazy(() => import("@/components/modules/HomeModule")),
   management: lazy(() => import("@/components/modules/ManagementModule/ManagementDashboard")),
-  knowledge: lazy(() => import("@/components/modules/KnowledgeModule")),
+  finance: lazy(() => import("@/components/modules/FinanceModule")),
   settings:  lazy(() => import("@/components/modules/SettingsModule")),
 };
 
 /* ── AppShell Component ──────────────────────────────────────── */
 export default function AppShell() {
-  const [activeModule, setActiveModule] = useState("management");
+  const [activeModule, setActiveModule] = useState("home");
   const [collapsed, setCollapsed] = useState(false);
 
   const [theme, setTheme] = useState("dark");
