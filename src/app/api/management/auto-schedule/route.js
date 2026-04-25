@@ -1,14 +1,31 @@
 import { NextResponse } from "next/server";
-import { getValidTokens, googleApiRequest } from "@/lib/googleAuth";
+import { refreshAccessToken, googleApiRequest } from "@/lib/googleAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function POST(req) {
   try {
     // 1. Get Authentication
-    const tokens = await getValidTokens();
-    if (!tokens) {
+    const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
+    if (!tokensDoc.exists) {
       return NextResponse.json({ success: false, connected: false, error: "Not authenticated with Google" }, { status: 401 });
     }
+
+    const tokens = tokensDoc.data();
+    let accessToken = tokens.accessToken;
+
+    if (Date.now() > tokens.expiresAt) {
+      try {
+        const refreshed = await refreshAccessToken(tokens.refreshToken);
+        accessToken = refreshed.access_token;
+        await adminDb.collection("settings").doc("google_oauth").update({
+          accessToken: refreshed.access_token,
+          expiresAt: Date.now() + (refreshed.expires_in * 1000),
+        });
+      } catch (err) {
+        return NextResponse.json({ success: false, connected: false, error: "Token expired" }, { status: 401 });
+      }
+    }
+
 
     // 2. Parse Request
     const { taskIds } = await req.json();
@@ -17,7 +34,7 @@ export async function POST(req) {
     }
 
     // 3. Find primary calendar ID
-    const calendarsRes = await googleApiRequest('https://www.googleapis.com/calendar/v3/users/me/calendarList', tokens.access_token);
+    const calendarsRes = await googleApiRequest('https://www.googleapis.com/calendar/v3/users/me/calendarList', accessToken);
     const primaryCalendar = calendarsRes.items?.find(c => c.primary)?.id || 'primary';
 
     // 4. Heuristic Auto-Scheduling (Motion pattern MVP)
@@ -50,9 +67,11 @@ export async function POST(req) {
       // For now, we force schedule.
       await googleApiRequest(
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(primaryCalendar)}/events`,
-        tokens.access_token,
-        'POST',
-        eventPayload
+        accessToken,
+        {
+          method: 'POST',
+          body: JSON.stringify(eventPayload)
+        }
       );
 
       // Increment slot for next task
