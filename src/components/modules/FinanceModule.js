@@ -122,14 +122,13 @@ export default function FinanceModule() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/costs/summary").then((r) => r.json()),
-      fetch("/api/costs/breakdown").then((r) => r.json()),
+      fetch("/api/costs/bigquery").then((r) => r.json()),
       fetch("/api/costs/history?period=30d&groupBy=day").then((r) => r.json()),
       fetch("/api/costs/credits").then((r) => r.json()),
     ])
-      .then(([summaryData, breakdownData, historyRes, creditsRes]) => {
-        setSummary(summaryData);
-        setBreakdown(breakdownData);
+      .then(([bqData, historyRes, creditsRes]) => {
+        setSummary(bqData);
+        setBreakdown(bqData);
         setHistoryData(historyRes);
         setCredits(creditsRes);
         setLoading(false);
