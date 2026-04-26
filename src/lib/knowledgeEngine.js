@@ -265,20 +265,20 @@ export async function getAgentContext(agentId, domains = [], limit = 5) {
     
     // Construct the SQL query
     let query = `
-      SELECT video_id, category, payload_json, timestamp 
+      SELECT source_uri, tags, payload, ingested_at 
       FROM \`antigravity-hub-jcloud.antigravity_lake.omni_vault\` 
-      WHERE 1=1
+      WHERE entity_type = 'video_masterclass'
     `;
     
     const params = {};
     
     if (domains.length > 0) {
-      // Very basic BigQuery array matching for categories
-      query += ` AND category IN UNNEST(@domains)`;
+      // BigQuery array matching for categories inside the tags array
+      query += ` AND EXISTS (SELECT * FROM UNNEST(tags) AS t WHERE t IN UNNEST(@domains))`;
       params.domains = domains;
     }
     
-    query += ` ORDER BY timestamp DESC LIMIT @limit`;
+    query += ` ORDER BY ingested_at DESC LIMIT @limit`;
     params.limit = limit;
 
     const options = {
@@ -291,16 +291,16 @@ export async function getAgentContext(agentId, domains = [], limit = 5) {
     let notebooks = rows.map(row => {
       let data = {};
       try {
-        data = typeof row.payload_json === 'string' ? JSON.parse(row.payload_json) : row.payload_json;
+        data = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
       } catch(e) {
-        data = { title: row.video_id, raw_content: row.payload_json };
+        data = { title: row.source_uri, raw_content: row.payload };
       }
       
       return {
-        id: row.video_id,
-        name: data.title || `Video Insight: ${row.video_id}`,
-        description: data.summary || `Extracted knowledge for ${row.category}`,
-        domainTags: [row.category],
+        id: row.source_uri,
+        name: data.title || `Video Insight: ${row.source_uri}`,
+        description: data.summary || `Extracted knowledge for ${row.tags?.[0] || 'Uncategorized'}`,
+        domainTags: row.tags || [],
         applicableAgents: ["scholar", "conductor", "forge"], // Swarm knowledge applies to all core agents
         skillSpec: data.core_concepts || null,
         researchDossier: data.ui_ux_improvements || null,
