@@ -256,18 +256,20 @@ Help the user review this content. Answer questions about it, suggest improvemen
  */
 export async function getAgentContext(agentId, domains = [], limit = 5) {
   try {
-    const { adminDb } = await import("@/lib/firebaseAdmin");
+    const { BigQuery } = await import('@google-cloud/bigquery');
+    const bigquery = new BigQuery();
 
-    // Query approved notebooks
-    const snapshot = await adminDb
-      .collection("notebooks")
-      .where("status", "==", "approved")
-      .get();
+    const query = `
+      SELECT payload_json
+      FROM \`antigravity_lake.omni_vault\`
+      WHERE JSON_EXTRACT_SCALAR(payload_json, '$.status') = 'approved'
+    `;
+    const [rows] = await bigquery.query({ query });
 
-    let notebooks = snapshot.docs.map(doc => {
-      const data = doc.data();
+    let notebooks = rows.map((row, index) => {
+      const data = JSON.parse(row.payload_json);
       return {
-        id: doc.id,
+        id: data.id || `bq-${index}`,
         name: data.name,
         description: data.description,
         domainTags: data.skillSpec?.domainTags || data.classification?.tags || [],
