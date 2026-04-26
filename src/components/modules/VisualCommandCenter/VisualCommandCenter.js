@@ -52,9 +52,6 @@ export default function VisualCommandCenter() {
                  <div className="flex-1 h-20 bg-white/5 rounded-md border border-white/10 flex items-center justify-center text-xs text-white/40" style={{ flex: 1, height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>In Progress</div>
                  <div className="flex-1 h-20 bg-white/5 rounded-md border border-white/10 flex items-center justify-center text-xs text-white/40" style={{ flex: 1, height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>Done</div>
              </div>
-                 <div className="flex-1 h-20 bg-white/5 rounded-md border border-white/10 flex items-center justify-center text-xs text-white/40">In Progress</div>
-                 <div className="flex-1 h-20 bg-white/5 rounded-md border border-white/10 flex items-center justify-center text-xs text-white/40">Done</div>
-             </div>
         </motion.div>
 
         {/* Node Flows Panel */}
@@ -69,9 +66,6 @@ export default function VisualCommandCenter() {
                  <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500 flex items-center justify-center text-xs z-10" style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(59,130,246,0.2)', border: '1px solid #3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>A</div>
                  <div className="w-16 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 mx-2" style={{ width: '64px', height: '2px', background: 'linear-gradient(to right, #3b82f6, #a855f7)', margin: '0 8px' }}></div>
                  <div className="w-8 h-8 rounded-full bg-purple-500/20 border border-purple-500 flex items-center justify-center text-xs z-10" style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(168,85,247,0.2)', border: '1px solid #a855f7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>B</div>
-             </div>
-                 <div className="w-16 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 mx-2"></div>
-                 <div className="w-8 h-8 rounded-full bg-purple-500/20 border border-purple-500 flex items-center justify-center text-xs z-10">B</div>
              </div>
         </motion.div>
 
