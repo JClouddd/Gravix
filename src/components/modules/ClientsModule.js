@@ -87,7 +87,7 @@ export default function ClientsModule() {
   const fetchContacts = async () => {
     setIsFetchingContacts(true);
     try {
-      const res = await fetch("/api/contacts");
+      const res = await fetch("/api/clients/contacts");
       if (res.ok) {
         const data = await res.json();
         setContacts(data.contacts || []);
@@ -105,7 +105,7 @@ export default function ClientsModule() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/contacts", {
+      const res = await fetch("/api/clients/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newContact)
