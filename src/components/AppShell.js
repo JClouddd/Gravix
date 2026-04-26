@@ -13,6 +13,7 @@ import PipelineToasts from "@/components/PipelineToasts";
 
 /* ── Module Registry ─────────────────────────────────────────── */
 const MODULES = [
+  { id: "vcc", label: "Command Center", icon: "🎛️", color: "var(--accent)" },
   { id: "home", label: "Home", icon: "🏠", color: "var(--accent)" },
   { id: "management", label: "Management", icon: "📋", color: "var(--accent)" },
   { id: "finance", label: "Finance", icon: "💰", color: "var(--agent-finance)" },
@@ -21,6 +22,7 @@ const MODULES = [
 
 /* ── Lazy Module Loading ─────────────────────────────────────── */
 const moduleComponents = {
+  vcc: lazy(() => import("@/components/modules/VisualCommandCenter/VisualCommandCenter")),
   home: lazy(() => import("@/components/modules/HomeModule")),
   management: lazy(() => import("@/components/modules/ManagementModule/ManagementDashboard")),
   finance: lazy(() => import("@/components/modules/FinanceModule")),

@@ -848,3 +848,15 @@ input, textarea, select {
   border-color: var(--card-border);
   color: var(--text-secondary);
 }
+
+.h-full { height: 100%; }
+
+.h-20 { height: 80px; }
+
+.flex-1 { flex: 1 1 0%; }
+
+.justify-center { justify-content: center; }
+
+.text-xs { font-size: 12px; }
+
+.text-sm { font-size: 14px; }
