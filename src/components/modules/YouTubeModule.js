@@ -6,6 +6,9 @@ export default function YouTubeModule() {
   const columns = ["Ideation", "Scripting", "Production", "Review", "Published"];
 
   const [trends, setTrends] = useState([]);
+  const [masterScript, setMasterScript] = useState(null);
+  const [dispatchStatus, setDispatchStatus] = useState(null);
+  const [assemblyStatus, setAssemblyStatus] = useState(null);
 
   const fetchTrends = async () => {
     try {
@@ -17,18 +20,61 @@ export default function YouTubeModule() {
     }
   };
 
-  const simulateHeavyTask = (taskName, url, body) => {
+  const generateMasterScript = async () => {
     window.dispatchEvent(
       new CustomEvent("add-toast", {
-        detail: { title: "Queued to Background", message: `${taskName} started`, type: "info" },
+        detail: { title: "Queued to Background", message: "Master Script Generation started", type: "info" },
       })
     );
-    // Asynchronous task execution without blocking the UI
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).catch((err) => console.error(err));
+    try {
+      const res = await fetch("/api/youtube/incubation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: "AI Trends", audience: "Developers" }),
+      });
+      const data = await res.json();
+      setMasterScript(data.data);
+    } catch (error) {
+      console.error("Failed to generate master script", error);
+    }
+  };
+
+  const dispatchProvider = async () => {
+    window.dispatchEvent(
+      new CustomEvent("add-toast", {
+        detail: { title: "Queued to Background", message: "Dynamic Provider Dispatch (Veo 3) started", type: "info" },
+      })
+    );
+    try {
+      const res = await fetch("/api/youtube/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "veo", prompt: "A robot reading code" }),
+      });
+      const data = await res.json();
+      setDispatchStatus(data);
+    } catch (error) {
+      console.error("Failed to dispatch provider", error);
+    }
+  };
+
+  const assembleVideo = async () => {
+    window.dispatchEvent(
+      new CustomEvent("add-toast", {
+        detail: { title: "Queued to Background", message: "Cloud Run FFmpeg Assembly started", type: "info" },
+      })
+    );
+    try {
+      const res = await fetch("/api/youtube/assembly", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assets: ["/tmp/asset1.mp4", "/tmp/asset2.mp4"] }),
+      });
+      const data = await res.json();
+      setAssemblyStatus(data);
+    } catch (error) {
+      console.error("Failed to assemble video", error);
+    }
   };
 
   return (
@@ -39,25 +85,48 @@ export default function YouTubeModule() {
         <button onClick={fetchTrends} style={{ padding: "8px 16px", cursor: "pointer" }} className="card-glass">
           Fetch Trends (Incubation)
         </button>
-        <button onClick={() => simulateHeavyTask("Master Script Generation", "/api/youtube/incubation", { topic: "AI Trends", audience: "Developers" })} style={{ padding: "8px 16px", cursor: "pointer" }} className="card-glass">
+        <button onClick={generateMasterScript} style={{ padding: "8px 16px", cursor: "pointer" }} className="card-glass">
           Generate Master Script
         </button>
-        <button onClick={() => simulateHeavyTask("Dynamic Provider Dispatch (Veo 3)", "/api/youtube/dispatch", { provider: "veo", prompt: "A robot reading code" })} style={{ padding: "8px 16px", cursor: "pointer" }} className="card-glass">
+        <button onClick={dispatchProvider} style={{ padding: "8px 16px", cursor: "pointer" }} className="card-glass">
           Dispatch Veo 3
         </button>
-        <button onClick={() => simulateHeavyTask("Cloud Run FFmpeg Assembly", "/api/youtube/assembly", { assets: ["asset1", "asset2"] })} style={{ padding: "8px 16px", cursor: "pointer" }} className="card-glass">
+        <button onClick={assembleVideo} style={{ padding: "8px 16px", cursor: "pointer" }} className="card-glass">
           Assemble Video
         </button>
       </div>
 
-      {trends.length > 0 && (
-        <div style={{ marginBottom: "20px" }}>
-          <h4>Trending Topics:</h4>
-          <ul>
-            {trends.map((t, idx) => <li key={idx}>{t}</li>)}
-          </ul>
-        </div>
-      )}
+      <div style={{ display: "flex", gap: "20px", marginBottom: "20px", flexWrap: "wrap" }}>
+        {trends.length > 0 && (
+          <div className="card-glass" style={{ padding: "15px", flex: "1 1 300px" }}>
+            <h4>Trending Topics:</h4>
+            <ul>
+              {trends.map((t, idx) => <li key={idx}>{t}</li>)}
+            </ul>
+          </div>
+        )}
+
+        {masterScript && (
+          <div className="card-glass" style={{ padding: "15px", flex: "1 1 300px", maxHeight: "200px", overflowY: "auto" }}>
+            <h4>Master Script:</h4>
+            <pre style={{ whiteSpace: "pre-wrap", fontSize: "12px" }}>{JSON.stringify(masterScript, null, 2)}</pre>
+          </div>
+        )}
+
+        {dispatchStatus && (
+          <div className="card-glass" style={{ padding: "15px", flex: "1 1 300px" }}>
+            <h4>Dispatch Status:</h4>
+            <pre style={{ whiteSpace: "pre-wrap", fontSize: "12px" }}>{JSON.stringify(dispatchStatus, null, 2)}</pre>
+          </div>
+        )}
+
+        {assemblyStatus && (
+          <div className="card-glass" style={{ padding: "15px", flex: "1 1 300px" }}>
+            <h4>Assembly Status:</h4>
+            <pre style={{ whiteSpace: "pre-wrap", fontSize: "12px" }}>{JSON.stringify(assemblyStatus, null, 2)}</pre>
+          </div>
+        )}
+      </div>
 
       <div
         style={{

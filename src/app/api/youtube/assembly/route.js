@@ -1,4 +1,6 @@
 import { logRouteError } from "@/lib/errorLogger";
+import { stitchVideos } from "@/lib/workers/ffmpegWorker";
+import path from "path";
 
 export async function POST(request) {
   try {
@@ -12,12 +14,22 @@ export async function POST(request) {
       );
     }
 
-    // Mock assembly logic
-    return Response.json({
-      success: true,
-      assemblyId: `assembly-mock-${Date.now()}`,
-      status: "queued"
-    });
+    const assemblyId = `assembly-${Date.now()}`;
+    const outputPath = path.join("/tmp", `${assemblyId}.mp4`);
+
+    try {
+      const finalVideoPath = await stitchVideos(assets, outputPath);
+
+      return Response.json({
+        success: true,
+        assemblyId,
+        status: "completed",
+        outputPath: finalVideoPath
+      });
+    } catch (ffmpegError) {
+      throw new Error(`FFmpeg processing failed: ${ffmpegError.message}`);
+    }
+
   } catch (error) {
     await logRouteError(
       "youtube",
