@@ -5,6 +5,10 @@ vi.mock("@/lib/errorLogger", () => ({
   logRouteError: vi.fn(),
 }));
 
+vi.mock("@/lib/workers/ffmpegWorker", () => ({
+  stitchVideos: vi.fn().mockResolvedValue("/tmp/mock-output.mp4"),
+}));
+
 describe("/api/youtube/assembly", () => {
   it("should return an error if assets is missing", async () => {
     const request = new Request("http://localhost/api/youtube/assembly", {
@@ -41,6 +45,7 @@ describe("/api/youtube/assembly", () => {
     const data = await response.json();
     expect(data.success).toBe(true);
     expect(data.assemblyId).toBeDefined();
-    expect(data.status).toBe("queued");
+    expect(data.status).toBe("completed");
+    expect(data.outputPath).toBe("/tmp/mock-output.mp4");
   });
 });

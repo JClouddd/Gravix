@@ -1,4 +1,5 @@
 import { logRouteError } from "@/lib/errorLogger";
+import { synthesizeSpeech } from "@/lib/googleTTS";
 
 export async function POST(request) {
   try {
@@ -14,11 +15,24 @@ export async function POST(request) {
       );
     }
 
-    // Mock dispatching logic
+    if (provider === "tts") {
+      if (!prompt) {
+         return Response.json({ error: "Missing 'prompt' (script) for TTS provider." }, { status: 400 });
+      }
+      const audioContent = await synthesizeSpeech(prompt);
+      return Response.json({
+        success: true,
+        provider,
+        audioContent
+      });
+    }
+
+    // Mock dispatching logic for veo and lyria
     return Response.json({
       success: true,
       provider,
       jobId: `mock-job-${Date.now()}`,
+      status: "queued"
     });
   } catch (error) {
     await logRouteError(
