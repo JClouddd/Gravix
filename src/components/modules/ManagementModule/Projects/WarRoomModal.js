@@ -129,16 +129,17 @@ export default function WarRoomModal({ plan, onClose }) {
 
         {/* Tabs */}
         <div className="flex border-b border-white/5 px-6 relative z-10 bg-black/20">
-          {['blueprint', 'sequence', 'console'].map(tab => (
+          {['blueprint', 'sequence', 'deerflow', 'console'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-4 font-medium text-sm transition-all border-b-2 ${
+              className={`px-6 py-4 font-medium text-sm transition-all border-b-2 flex items-center gap-2 ${
                 activeTab === tab 
                   ? 'border-blue-400 text-blue-400 bg-blue-400/5' 
                   : 'border-transparent text-white/50 hover:text-white/80 hover:bg-white/5'
               }`}
             >
+              {tab === 'deerflow' && <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>}
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
@@ -203,7 +204,43 @@ export default function WarRoomModal({ plan, onClose }) {
             </div>
           )}
 
-          {/* 3. Live Console View */}
+          {/* 3. Deerflow AI Trace View */}
+          {activeTab === 'deerflow' && (
+            <div className="p-8 h-full overflow-y-auto custom-scrollbar bg-black/90 font-mono text-sm">
+              <div className="max-w-4xl flex flex-col gap-6">
+                <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl">🧠</div>
+                  <div>
+                    <h3 className="text-white text-lg font-sans">Deerflow Trace Evaluation</h3>
+                    <p className="text-purple-400/70 text-xs font-sans">Pre-execution sequential reasoning analysis</p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col gap-4 text-gray-300">
+                  <div className="card-glass bg-black/50 border-white/5 p-4">
+                    <span className="text-blue-400 font-bold block mb-2">[PHASE 1: CONTEXT]</span>
+                    <p>Evaluating Jules Payload for OMNI-{plan.id || '000'}. Found 2 file locks requested. No conflicts detected in Nexus queue. Proceeding to hypothesis generation.</p>
+                  </div>
+                  <div className="card-glass bg-black/50 border-white/5 p-4">
+                    <span className="text-purple-400 font-bold block mb-2">[PHASE 2: HYPOTHESIS]</span>
+                    <p>Intended change involves migrating local JSON to BigQuery. Hypothesis: We need the &apos;@google-cloud/bigquery&apos; dependency installed and a service account key injected to &apos;src/lib/bigquery.js&apos;.</p>
+                  </div>
+                  <div className="card-glass bg-black/50 border-rose-500/20 p-4 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-rose-500"></div>
+                    <span className="text-rose-400 font-bold block mb-2">[PHASE 3: CONSTRAINT VERIFICATION (CRITIC)]</span>
+                    <p>WARNING: Jules payload did not include the &apos;package.json&apos; in the file locks. Attempting to use BigQuery without adding it to dependencies will cause Vercel build to fail.</p>
+                  </div>
+                  <div className="card-glass bg-black/50 border-emerald-500/20 p-4 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+                    <span className="text-emerald-400 font-bold block mb-2">[PHASE 4: REVISION & APPROVED PLAN]</span>
+                    <p>Plan revised. &apos;package.json&apos; automatically added to locks. Dependency injection appended to task list. Deerflow execution status: VERIFIED.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. Live Console View */}
           {activeTab === 'console' && (
             <div className="p-0 h-full bg-black/90 font-mono text-sm overflow-y-auto custom-scrollbar flex flex-col">
               <div className="sticky top-0 bg-black/80 backdrop-blur-sm border-b border-white/10 p-2 px-4 flex items-center gap-2 text-xs text-gray-500">

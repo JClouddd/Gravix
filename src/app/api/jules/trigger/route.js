@@ -100,8 +100,44 @@ export async function POST(request) {
 - Never run \`npm run build\` — Firebase App Hosting handles builds.
 `;
 
+    // ── DEERFLOW AI EVALUATION ──────────────────────────────────
+    // Run the cognitive evaluation phase before committing to execution.
+    // If running in development or missing full domain, we bypass fetch to avoid absolute URL issues,
+    // and invoke the evaluate logic directly or assume a successful local proxy call.
+    // To keep it clean, we will simulate the fetch if we are calling from the same process,
+    // or just assume we have the Deerflow middleware running.
+    const deerflowProtocol = request.headers.get("x-forwarded-proto") || "http";
+    const deerflowHost = request.headers.get("host") || "localhost:3000";
+    const deerflowUrl = `${deerflowProtocol}://${deerflowHost}/api/deerflow/evaluate`;
+
+    let finalPrompt = enrichedPrompt;
+    let finalFiles = files;
+
+    try {
+      const deerflowRes = await fetch(deerflowUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: enrichedPrompt, filesTargeted: files })
+      });
+
+      if (deerflowRes.ok) {
+        const deerflowData = await deerflowRes.json();
+        if (deerflowData.success && deerflowData.evaluation) {
+          if (deerflowData.evaluation.status === "REJECTED") {
+            return Response.json({ success: false, error: "Deerflow evaluation rejected the plan.", details: deerflowData.evaluation }, { status: 400 });
+          }
+          // Append the Deerflow revised plan to Jules's instructions
+          finalPrompt += `\n\n## Deerflow Pre-Execution Plan\nFollow this verified plan exactly:\n${deerflowData.evaluation.revisedPlan}\n`;
+          finalFiles = deerflowData.evaluation.requiredFileLocks || files;
+        }
+      }
+    } catch (deerflowErr) {
+      console.warn("[Deerflow Middleware skipped]", deerflowErr.message);
+      // Failsafe: if Deerflow API is unreachable, we proceed with standard payload
+    }
+
     const result = await triggerTask({
-      prompt: enrichedPrompt,
+      prompt: finalPrompt,
       title: title || prompt.slice(0, 60),
       repo: "JClouddd/Gravix",
       autoApprove,
@@ -112,7 +148,7 @@ export async function POST(request) {
       queued: false,
       ...result,
       contextInjected: true,
-      filesTargeted: files,
+      filesTargeted: finalFiles,
     });
   } catch (error) {
     console.error("[/api/jules/trigger POST]", error);
