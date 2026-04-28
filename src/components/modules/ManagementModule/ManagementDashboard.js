@@ -5,6 +5,7 @@ import TasksView from './Tasks/TasksView';
 import ProjectsView from './Projects/ProjectsView';
 import TagsView from './Tags/TagsView';
 import CalendarView from './Calendar/CalendarView';
+import ReportsView from './Reports/ReportsView';
 import HelpTooltip from "@/components/HelpTooltip";
 
 export default function ManagementDashboard() {
@@ -14,6 +15,7 @@ export default function ManagementDashboard() {
     { id: 'calendar', label: 'Calendar', icon: '📅' },
     { id: 'tasks', label: 'Tasks', icon: '✅' },
     { id: 'projects', label: 'Projects', icon: '📂' },
+    { id: 'reports', label: 'Reports', icon: '📊' },
     { id: 'tags', label: 'Tags', icon: '🏷️' },
   ];
 
@@ -47,6 +49,7 @@ export default function ManagementDashboard() {
         {activeTab === 'calendar' && <CalendarView />}
         {activeTab === 'tasks' && <TasksView />}
         {activeTab === 'projects' && <ProjectsView />}
+        {activeTab === 'reports' && <ReportsView />}
         {activeTab === 'tags' && <TagsView />}
       </div>
     </div>

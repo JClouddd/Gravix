@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import WarRoomModal from './WarRoomModal';
+import ProjectDetailsModal from './ProjectDetailsModal';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 
 export default function ProjectsView() {
   const [activeWarRoomPlan, setActiveWarRoomPlan] = useState(null);
+  const [activeProject, setActiveProject] = useState(null);
 
   // State for Real-Time Telemetry
   const [projects, setProjects] = useState([
@@ -120,8 +122,19 @@ export default function ProjectsView() {
             {/* Subtle glow effect behind project */}
             <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" style={{ background: project.color }}></div>
 
-            <h3 className="h3 text-white relative z-10">{project.title}</h3>
-            <p className="caption text-text-secondary relative z-10">{project.description}</p>
+            <div className="flex justify-between items-start relative z-10">
+              <div>
+                <h3 className="h3 text-white">{project.title}</h3>
+                <p className="caption text-text-secondary mt-1">{project.description}</p>
+              </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); setActiveProject(project); }}
+                className="btn-icon w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors flex-shrink-0 ml-2" 
+                title="View Details"
+              >
+                👁️
+              </button>
+            </div>
             
             <div className="mt-auto pt-4 flex flex-col gap-sm relative z-10">
               <div className="flex justify-between items-center text-xs font-medium text-gray-400">
@@ -152,6 +165,14 @@ export default function ProjectsView() {
         <WarRoomModal 
           plan={activeWarRoomPlan} 
           onClose={() => setActiveWarRoomPlan(null)} 
+        />
+      )}
+
+      {/* Render Project Details Modal */}
+      {activeProject && (
+        <ProjectDetailsModal
+          project={activeProject}
+          onClose={() => setActiveProject(null)}
         />
       )}
     </div>

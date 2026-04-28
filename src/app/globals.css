@@ -775,15 +775,15 @@ input, textarea, select {
 /* ── React Big Calendar Dark Theme Overrides ────────────────── */
 .rbc-calendar {
   font-family: inherit;
-  color: var(--text-primary);
+  color: var(--text-primary) !important;
 }
 
 .rbc-month-view, .rbc-time-view, .rbc-agenda-view {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-lg);
+  background: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: var(--radius-lg) !important;
   overflow: hidden;
-  box-shadow: var(--card-shadow);
+  box-shadow: var(--card-shadow) !important;
 }
 
 .rbc-header {
@@ -791,7 +791,8 @@ input, textarea, select {
   font-weight: 600;
   border-bottom: 1px solid var(--card-border) !important;
   border-left: 1px solid var(--card-border) !important;
-  color: var(--text-secondary);
+  color: var(--text-secondary) !important;
+  background: transparent !important;
 }
 
 .rbc-month-row, .rbc-day-bg, .rbc-time-content, .rbc-timeslot-group, .rbc-time-header-content {
@@ -821,30 +822,36 @@ input, textarea, select {
 }
 
 .rbc-toolbar button {
-  color: var(--text-primary);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-md);
-  padding: 6px 14px;
-  background: var(--bg-tertiary);
+  color: var(--text-primary) !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 6px 14px !important;
+  background: var(--bg-tertiary) !important;
   transition: all var(--duration-fast) var(--ease-out);
 }
 
 .rbc-toolbar button:hover {
-  background: var(--bg-hover);
-  border-color: var(--glass-border-hover);
+  background: var(--bg-hover) !important;
+  border-color: var(--glass-border-hover) !important;
 }
 
 .rbc-toolbar button.rbc-active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  box-shadow: 0 0 10px var(--accent-glow);
+  background: var(--accent) !important;
+  color: white !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 10px var(--accent-glow) !important;
 }
 
 .rbc-agenda-view table.rbc-agenda-table {
-  border-color: var(--card-border);
+  border-color: var(--card-border) !important;
 }
 .rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
-  border-color: var(--card-border);
-  color: var(--text-secondary);
+  border-color: var(--card-border) !important;
+  color: var(--text-secondary) !important;
+}
+.rbc-time-view .rbc-allday-cell {
+  background: rgba(0,0,0,0.2) !important;
+}
+.rbc-time-header.rbc-overflowing {
+  border-right: 1px solid var(--card-border) !important;
 }

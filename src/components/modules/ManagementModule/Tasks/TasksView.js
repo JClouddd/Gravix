@@ -93,12 +93,30 @@ export default function TasksView() {
     }
   };
 
-  const toggleSelection = (taskId) => {
+  const toggleScheduleSelection = (taskId) => {
     const newSet = new Set(selectedTasks);
     if (newSet.has(taskId)) newSet.delete(taskId);
     else newSet.add(taskId);
     setSelectedTasks(newSet);
   };
+
+  const handleToggleComplete = async (taskId, currentStatus) => {
+    const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    try {
+      await fetch('/api/management/tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: taskId, updates: { status: newStatus } })
+      });
+    } catch (err) {
+      console.error("Failed to update task status");
+    }
+  };
+  
+  const [showCompleted, setShowCompleted] = useState(false);
+  const pendingTasks = tasks.filter(t => t.status !== 'completed');
+  const completedTasks = tasks.filter(t => t.status === 'completed');
 
   const handleAutoSchedule = async () => {
     if (selectedTasks.size === 0) return;
@@ -201,26 +219,26 @@ export default function TasksView() {
           </div>
         )}
 
-        {!loading && !error && tasks.map(task => (
+        {/* Active Tasks */}
+        {!loading && !error && pendingTasks.map(task => (
           <div 
             key={task.id} 
-            className="card-glass flex items-center justify-between transition-all cursor-pointer group hover:scale-[1.01]"
+            className="card-glass flex items-center justify-between transition-all group hover:scale-[1.01]"
             style={{ 
               padding: "16px 20px",
               borderColor: selectedTasks.has(task.id) ? "var(--accent)" : "var(--glass-border)",
               boxShadow: selectedTasks.has(task.id) ? "0 0 0 1px var(--accent)" : "var(--card-shadow)"
             }}
-            onClick={() => toggleSelection(task.id)}
           >
             <div className="flex items-center gap-md w-full max-w-[70%]">
               <input 
                 type="checkbox" 
-                checked={selectedTasks.has(task.id)} 
-                onChange={(e) => { e.stopPropagation(); toggleSelection(task.id); }} 
-                className="w-5 h-5 rounded border-white/20 bg-black/50 accent-blue-500 focus:ring-0 cursor-pointer flex-shrink-0" 
+                checked={task.status === 'completed'} 
+                onChange={() => handleToggleComplete(task.id, task.status)} 
+                className="w-5 h-5 rounded border-white/20 bg-black/50 accent-green-500 focus:ring-0 cursor-pointer flex-shrink-0" 
               />
               <div className="flex flex-col">
-                <div className={`h4 ${task.status === 'completed' ? 'text-text-tertiary line-through' : 'text-text-primary'}`}>
+                <div className={`h4 text-text-primary`}>
                   {task.title}
                 </div>
                 {task.notes && <div className="caption mt-1 line-clamp-1 opacity-80">{task.notes}</div>}
@@ -253,6 +271,15 @@ export default function TasksView() {
                     {new Date(task.due).toLocaleDateString()}
                   </span>
                 )}
+                
+                {/* Auto-Schedule Icon */}
+                <button 
+                  onClick={() => toggleScheduleSelection(task.id)}
+                  className={`btn-icon w-8 h-8 rounded-lg ml-2 transition-all ${selectedTasks.has(task.id) ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50' : 'bg-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
+                  title="Select for Auto-Scheduling"
+                >
+                  📅
+                </button>
               </div>
 
               {/* Temporal Time-Delta Tracking UI */}
@@ -268,6 +295,45 @@ export default function TasksView() {
             </div>
           </div>
         ))}
+
+        {/* Completed Tasks Accordion */}
+        {completedTasks.length > 0 && (
+          <div className="mt-8">
+            <button 
+              onClick={() => setShowCompleted(!showCompleted)} 
+              className="flex items-center gap-2 text-text-secondary hover:text-white transition-colors text-sm font-medium mb-4"
+            >
+              <span className={`transition-transform ${showCompleted ? 'rotate-90' : ''}`}>▶</span>
+              Completed Tasks ({completedTasks.length})
+            </button>
+            
+            {showCompleted && (
+              <div className="flex flex-col gap-sm">
+                {completedTasks.map(task => (
+                  <div 
+                    key={task.id} 
+                    className="card-glass flex items-center justify-between transition-all opacity-60 hover:opacity-100"
+                    style={{ padding: "12px 20px" }}
+                  >
+                    <div className="flex items-center gap-md w-full max-w-[70%]">
+                      <input 
+                        type="checkbox" 
+                        checked={task.status === 'completed'} 
+                        onChange={() => handleToggleComplete(task.id, task.status)} 
+                        className="w-5 h-5 rounded border-white/20 bg-black/50 accent-green-500 focus:ring-0 cursor-pointer flex-shrink-0" 
+                      />
+                      <div className="flex flex-col">
+                        <div className="h4 text-text-tertiary line-through">
+                          {task.title}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* New Task Modal */}

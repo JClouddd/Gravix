@@ -21,6 +21,8 @@ const localizer = dateFnsLocalizer({
 export default function CalendarView() {
   const [view, setView] = useState('week');
   const [events, setEvents] = useState([]);
+  const [calendars, setCalendars] = useState([]);
+  const [visibleCalendars, setVisibleCalendars] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -35,6 +37,9 @@ export default function CalendarView() {
       .then(data => {
         if (data.success && data.connected) {
           setEvents(data.events || []);
+          const cals = data.calendars || [];
+          setCalendars(cals);
+          setVisibleCalendars(new Set(cals.map(c => c.id)));
         } else if (!data.connected) {
           setError("Google OAuth is not connected. Please connect your account.");
         } else {
@@ -80,6 +85,15 @@ export default function CalendarView() {
     }
   };
 
+  const toggleCalendar = (calId) => {
+    const newSet = new Set(visibleCalendars);
+    if (newSet.has(calId)) newSet.delete(calId);
+    else newSet.add(calId);
+    setVisibleCalendars(newSet);
+  };
+
+  const filteredEvents = events.filter(e => visibleCalendars.has(e.calendarId));
+
   return (
     <div className="w-full h-full flex flex-col gap-lg" style={{ padding: "8px 24px 24px 24px", overflowY: "auto" }}>
       
@@ -96,22 +110,6 @@ export default function CalendarView() {
         </div>
 
         <div className="flex items-center gap-md">
-          {/* Visibility Toggles */}
-          <div className="flex items-center gap-sm bg-black/40 px-4 py-2 rounded-lg border border-white/5">
-            <label className="flex items-center gap-sm cursor-pointer hover:opacity-80 transition-opacity">
-              <input type="checkbox" defaultChecked className="accent-blue-500 w-4 h-4" />
-              <span className="caption font-medium">Tasks</span>
-            </label>
-            <label className="flex items-center gap-sm cursor-pointer hover:opacity-80 transition-opacity">
-              <input type="checkbox" defaultChecked className="accent-purple-500 w-4 h-4" />
-              <span className="caption font-medium">Projects</span>
-            </label>
-            <label className="flex items-center gap-sm cursor-pointer hover:opacity-80 transition-opacity">
-              <input type="checkbox" defaultChecked className="accent-green-500 w-4 h-4" />
-              <span className="caption font-medium">Habits</span>
-            </label>
-          </div>
-
           <button 
             onClick={() => setShowNewEventModal(true)}
             className="btn btn-primary shadow-lg hover:shadow-xl transition-all"
@@ -122,58 +120,86 @@ export default function CalendarView() {
         </div>
       </div>
 
-      {/* Calendar Grid Display */}
-      <div className="card-glass flex-1 flex flex-col min-h-[600px] overflow-hidden" style={{ padding: "24px" }}>
-        {loading && (
-          <div className="flex-1 flex items-center justify-center flex-col gap-sm">
-            <div className="status-dot pulse" style={{ background: "var(--accent)", width: 16, height: 16 }}></div>
-            <div className="text-secondary font-medium mt-4">Loading your schedule...</div>
-          </div>
-        )}
-        
-        {error && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="card border-error-subtle bg-error-subtle/10 text-center max-w-md">
-              <div className="text-4xl mb-4">⚠️</div>
-              <h3 className="h3 text-white mb-2">Connection Error</h3>
-              <p className="caption">{error}</p>
+      <div className="flex-1 flex gap-md min-h-[600px] overflow-hidden">
+        {/* Sidebar */}
+        <div className="w-64 flex flex-col gap-sm overflow-y-auto pr-2 custom-scrollbar hidden md:flex">
+          <div className="card-glass p-4">
+            <h3 className="h4 text-white mb-4">My Calendars</h3>
+            {calendars.length === 0 && !loading && (
+              <div className="caption text-gray-500">No calendars found.</div>
+            )}
+            <div className="flex flex-col gap-3">
+              {calendars.map(cal => (
+                <label key={cal.id} className="flex items-center gap-3 cursor-pointer group">
+                  <div className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center transition-all ${visibleCalendars.has(cal.id) ? '' : 'bg-transparent border border-gray-600'}`} style={{ backgroundColor: visibleCalendars.has(cal.id) ? cal.backgroundColor : 'transparent' }}>
+                    {visibleCalendars.has(cal.id) && <span className="text-white text-[10px] font-bold">✓</span>}
+                  </div>
+                  <span className="caption font-medium group-hover:text-white transition-colors truncate" title={cal.summary}>
+                    {cal.summary}
+                  </span>
+                </label>
+              ))}
             </div>
+            
+            <button className="btn btn-secondary w-full mt-6 flex justify-center text-xs opacity-70 hover:opacity-100">
+              + Add Google Calendar
+            </button>
           </div>
-        )}
-        
-        {!loading && !error && (
-          <div className="flex-1 w-full h-full custom-calendar-wrapper">
-            <Calendar
-              localizer={localizer}
-              events={events.map(e => ({
-                id: e.id,
-                title: e.summary,
-                start: new Date(e.start),
-                end: new Date(e.end || e.start),
-                color: e.color || '#4285f4'
-              }))}
-              startAccessor="start"
-              endAccessor="end"
-              style={{ height: '100%', width: '100%' }}
-              views={['month', 'week', 'day', 'agenda']}
-              defaultView="week"
-              eventPropGetter={(event) => ({
-                style: {
-                  backgroundColor: event.color,
-                  borderRadius: '6px',
-                  border: 'none',
-                  opacity: 0.9,
-                  color: 'white',
-                  fontWeight: 500,
-                  fontSize: '12px',
-                  padding: '2px 6px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                  borderLeft: `4px solid ${event.color === '#4285f4' ? '#2563eb' : 'rgba(255,255,255,0.4)'}`
-                }
-              })}
-            />
-          </div>
-        )}
+        </div>
+
+        {/* Calendar Grid Display */}
+        <div className="card-glass flex-1 flex flex-col overflow-hidden" style={{ padding: "24px" }}>
+          {loading && (
+            <div className="flex-1 flex items-center justify-center flex-col gap-sm">
+              <div className="status-dot pulse" style={{ background: "var(--accent)", width: 16, height: 16 }}></div>
+              <div className="text-secondary font-medium mt-4">Loading your schedule...</div>
+            </div>
+          )}
+          
+          {error && (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="card border-error-subtle bg-error-subtle/10 text-center max-w-md">
+                <div className="text-4xl mb-4">⚠️</div>
+                <h3 className="h3 text-white mb-2">Connection Error</h3>
+                <p className="caption">{error}</p>
+              </div>
+            </div>
+          )}
+          
+          {!loading && !error && (
+            <div className="flex-1 w-full h-full custom-calendar-wrapper">
+              <Calendar
+                localizer={localizer}
+                events={filteredEvents.map(e => ({
+                  id: e.id,
+                  title: e.summary,
+                  start: new Date(e.start),
+                  end: new Date(e.end || e.start),
+                  color: e.color || '#4285f4'
+                }))}
+                startAccessor="start"
+                endAccessor="end"
+                style={{ height: '100%', width: '100%' }}
+                views={['month', 'week', 'day', 'agenda']}
+                defaultView="week"
+                eventPropGetter={(event) => ({
+                  style: {
+                    backgroundColor: event.color,
+                    borderRadius: '6px',
+                    border: 'none',
+                    opacity: 0.9,
+                    color: 'white',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    padding: '2px 6px',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                    borderLeft: `4px solid ${event.color === '#4285f4' ? '#2563eb' : 'rgba(255,255,255,0.4)'}`
+                  }
+                })}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* New Event Modal */}
