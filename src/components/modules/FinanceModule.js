@@ -499,14 +499,14 @@ function CostTrendsChart({ historyData }) {
   }
 
   const history = [...historyData.history].reverse(); // oldest to newest for left-to-right
-  const maxCost = Math.max(...history.map(d => d.totalCost), 0.01); // avoid division by zero
+  const maxCost = Math.max(...history.map(d => Number(d.totalCost) || 0), 0.01); // avoid division by zero
 
   return (
     <div className="card">
       <div className="h3" style={{ marginBottom: 16 }}>Cost Trends</div>
       <div style={{ display: "flex", alignItems: "flex-end", height: 200, gap: 4, paddingBottom: 24, position: "relative" }}>
         {history.map((day, i) => {
-          const heightPct = (day.totalCost / maxCost) * 100;
+          const heightPct = ((Number(day.totalCost) || 0) / maxCost) * 100;
           return (
             <div
               key={day.date}
@@ -519,7 +519,7 @@ function CostTrendsChart({ historyData }) {
                 height: "100%",
                 group: "bar"
               }}
-              title={`${day.date}: $${day.totalCost.toFixed(4)}`}
+              title={`${day.date}: $${(Number(day.totalCost) || 0).toFixed(4)}`}
             >
               <div
                 style={{

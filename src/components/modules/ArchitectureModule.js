@@ -190,9 +190,7 @@ export default function ArchitectureModule() {
           {nodesToRender.map((node) => {
             if (node.orbit === 0) return null; // Center node
             
-            // Adjust radius down slightly if panel is open to fit better
-            const scaleFactor = selectedNode ? 0.8 : 1;
-            const radius = zoomedNode ? 150 : (node.orbit === 1 ? 140 * scaleFactor : node.orbit === 2 ? 220 * scaleFactor : 300 * scaleFactor);
+            const radius = zoomedNode ? 150 : (node.orbit === 1 ? 140 : node.orbit === 2 ? 220 : 300);
             const rad = (node.angle * Math.PI) / 180;
             const x = Math.cos(rad) * radius;
             const y = Math.sin(rad) * radius;

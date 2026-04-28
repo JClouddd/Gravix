@@ -16,6 +16,8 @@ export const metadata = {
   },
 };
 
+import { AuthProvider } from "@/lib/authProvider";
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={inter.variable}>
@@ -27,7 +29,9 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         <ServiceWorkerRegister />
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import ArchitectureModule from "./ArchitectureModule";
 import AgentTelemetry from "./AgentTelemetry";
 
 
@@ -284,11 +283,6 @@ useEffect(() => {
         )}
       </div>
 
-      {/* Orbital Architecture Graph */}
-      <div style={{ marginBottom: 24 }}>
-        <ArchitectureModule />
-      </div>
-
       {/* Credit Gauges */}
       <div className="grid-3" style={{ marginBottom: 24 }}>
         <CreditCard
@@ -308,7 +302,7 @@ useEffect(() => {
         <CreditCard
           title="Knowledge Base"
           used={knowledge?.stats?.documentsIngested || 0}
-          total={15}
+          total={Math.max(knowledge?.stats?.documentsIngested || 0, 15)}
           unit=""
           color="var(--agent-scholar)"
           label="docs ingested"
