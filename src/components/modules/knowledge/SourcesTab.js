@@ -50,6 +50,17 @@ export default function SourcesTab({ status }) {
     }
   };
 
+  const handleForceSync = async () => {
+    if (!confirm("Trigger the Sync-All webhook? This will force a refresh of all scheduled sources in the background.")) return;
+    try {
+      const res = await fetch("/api/knowledge/sync-all", { method: "POST" });
+      if (!res.ok) throw new Error("Sync failed");
+      alert("Sync triggered successfully. Check Pipeline Reports for progress.");
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  };
+
   // Build button label
   const buttonLabel = ingesting
     ? "⏳ Ingesting..."
@@ -60,13 +71,21 @@ export default function SourcesTab({ status }) {
       <div className="card" style={{ padding: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3 className="h4">Documentation Sources ({status?.scheduledSources?.length || 0})</h3>
-          <button
-            className="btn btn-primary btn-sm"
-            disabled={ingesting || pendingSources.length === 0 || (hasVideos && !costConfirmed)}
-            onClick={handleIngestAll}
-          >
-            {buttonLabel}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleForceSync}
+            >
+              Force Sync Webhook
+            </button>
+            <button
+              className="btn btn-primary btn-sm"
+              disabled={ingesting || pendingSources.length === 0 || (hasVideos && !costConfirmed)}
+              onClick={handleIngestAll}
+            >
+              {buttonLabel}
+            </button>
+          </div>
         </div>
 
         {/* Video cost confirmation */}

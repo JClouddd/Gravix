@@ -50,6 +50,22 @@ export default function PlannerModule() {
   const [calendarFilter, setCalendarFilter] = useState("All");
   const [tasksFilter, setTasksFilter] = useState("All");
 
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
+
+  const handleSyncCalendar = async () => {
+    setIsSyncingCalendar(true);
+    try {
+      const res = await fetch("/api/webhooks/calendar-sync", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to sync calendar");
+      alert("Calendar sync triggered successfully.");
+    } catch (err) {
+      console.error(err);
+      alert("Error syncing calendar: " + err.message);
+    } finally {
+      setIsSyncingCalendar(false);
+    }
+  };
+
   const fetchData = useCallback(async () => {
     try {
       const [calRes, meetRes, tasksRes] = await Promise.all([
@@ -1096,6 +1112,13 @@ export default function PlannerModule() {
           </div>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={handleSyncCalendar}
+            disabled={isSyncingCalendar}
+          >
+            {isSyncingCalendar ? "Syncing..." : "Sync to Google Calendar"}
+          </button>
           <button className="btn btn-primary btn-sm" onClick={() => setShowAddEvent(true)}>+ New Event</button>
         </div>
       </div>

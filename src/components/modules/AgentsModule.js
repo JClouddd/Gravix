@@ -355,6 +355,22 @@ export default function AgentsModule() {
     }
   };
 
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
+
+  const handleDiagnose = async () => {
+    setIsDiagnosing(true);
+    try {
+      const res = await fetch("/api/sentinel/diagnose", { method: "POST" });
+      if (!res.ok) throw new Error("Diagnostics failed");
+      alert("Diagnostics complete. Auto-remediation triggered if issues were found.");
+    } catch (err) {
+      console.error(err);
+      alert("Error running diagnostics: " + err.message);
+    } finally {
+      setIsDiagnosing(false);
+    }
+  };
+
   return (
     <div>
       <div className="module-header">
@@ -370,6 +386,13 @@ export default function AgentsModule() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={handleDiagnose}
+            disabled={isDiagnosing}
+          >
+            {isDiagnosing ? "Diagnosing..." : "Run Diagnostics & Auto-Remediate"}
+          </button>
           <GearButton onClick={() => setIsSettingsOpen(!isSettingsOpen)} />
         </div>
       </div>

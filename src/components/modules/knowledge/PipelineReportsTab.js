@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase";
 export default function PipelineReportsTab() {
   const [pipelines, setPipelines] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isDeploying, setIsDeploying] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, "ingestion_pipelines"), orderBy("updatedAt", "desc"));
@@ -22,6 +23,20 @@ export default function PipelineReportsTab() {
     return () => unsub();
   }, []);
 
+  const handleDeploySwarm = async () => {
+    if (!confirm("Deploy a new Cloud Batch Swarm instance? This will consume compute resources.")) return;
+    setIsDeploying(true);
+    try {
+      const res = await fetch("/api/swarm/trigger", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to deploy swarm");
+    } catch (err) {
+      console.error(err);
+      alert("Swarm deployment failed: " + err.message);
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
   if (loading) {
     return <div className="skeleton skeleton-card" style={{ height: 200 }} />;
   }
@@ -29,10 +44,21 @@ export default function PipelineReportsTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div className="card">
-        <h3 className="h4" style={{ marginBottom: 16 }}>Live Pipeline Reports</h3>
-        <p className="body-sm" style={{ color: "var(--text-secondary)", marginBottom: 20 }}>
-          Real-time telemetry from the Cloud Batch autonomous ingestion swarm.
-        </p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div>
+            <h3 className="h4" style={{ margin: 0 }}>Live Pipeline Reports</h3>
+            <p className="body-sm" style={{ color: "var(--text-secondary)", margin: "4px 0 0 0" }}>
+              Real-time telemetry from the Cloud Batch autonomous ingestion swarm.
+            </p>
+          </div>
+          <button 
+            className="btn btn-primary" 
+            onClick={handleDeploySwarm}
+            disabled={isDeploying}
+          >
+            {isDeploying ? "Deploying..." : "Deploy Cloud Swarm"}
+          </button>
+        </div>
 
         {pipelines.length === 0 ? (
           <div className="empty-state" style={{ padding: 40 }}>

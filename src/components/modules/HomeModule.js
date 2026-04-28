@@ -5,6 +5,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import ArchitectureModule from "./ArchitectureModule";
+import AgentTelemetry from "./AgentTelemetry";
 import { generateMatrixCSS } from "@/lib/uiMatrix";
 
 
@@ -428,7 +429,24 @@ useEffect(() => {
       {/* System Health Section */}
       <div className="card" style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h3 className="h4">System Health Dashboard</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <h3 className="h4" style={{ margin: 0 }}>System Health Dashboard</h3>
+            <button 
+              className="btn btn-secondary btn-sm" 
+              onClick={async () => {
+                const btn = document.getElementById("global-diag-btn");
+                if(btn) btn.innerText = "Diagnosing...";
+                try {
+                  await fetch("/api/sentinel/diagnose", { method: "POST" });
+                  fetchHealth();
+                } catch(e) {}
+                if(btn) btn.innerText = "Run Global Diagnostics";
+              }}
+              id="global-diag-btn"
+            >
+              Run Global Diagnostics
+            </button>
+          </div>
           {healthData && (
             <span className={`badge ${healthData.status === "healthy" ? "badge-success" : healthData.status === "degraded" ? "badge-warning" : "badge-error"}`} style={{ textTransform: "capitalize" }}>
               Status: {healthData.status}
@@ -544,6 +562,11 @@ useEffect(() => {
             </p>
           </div>
         )}
+      </div>
+
+      {/* Agent Telemetry Live Stream */}
+      <div style={{ marginTop: 24 }}>
+        <AgentTelemetry />
       </div>
 
       {/* Activity Feed */}
