@@ -27,7 +27,18 @@ export default function PipelineReportsTab() {
     if (!confirm("Deploy a new Cloud Batch Swarm instance? This will consume compute resources.")) return;
     setIsDeploying(true);
     try {
-      const res = await fetch("/api/swarm/trigger", { method: "POST" });
+      const res = await fetch("/api/swarm/batch", { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          urls: [
+            "https://www.youtube.com/watch?v=41EfOY0LnyA", // DSPy
+            "https://www.youtube.com/watch?v=wXzEQ2vE52c", // Reflexion
+            "https://www.youtube.com/watch?v=L58TzH3a2tU", // GC Next '24 Autonomous Agents
+            "https://www.youtube.com/watch?v=R8KB-Zcynxc"  // LangGraph
+          ]
+        })
+      });
       if (!res.ok) throw new Error("Failed to deploy swarm");
     } catch (err) {
       console.error(err);

@@ -3,6 +3,7 @@ import { readFile } from "fs/promises";
 import { join } from "path";
 import { logRouteError } from "@/lib/errorLogger";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { generate } from "@/lib/geminiClient";
 
 /**
  * POST /api/jules/trigger — Trigger a Jules task with file-level lock protection
@@ -61,14 +62,46 @@ export async function POST(request) {
     // ── BUILD ENRICHED PROMPT ────────────────────────────────
     let enrichedPrompt = "";
 
-    // Inject GEMINI.md context so Jules knows the project conventions
+    // Inject GEMINI.md context using Sniper Context Retrieval
     try {
       const geminiMdPath = join(process.cwd(), ".gemini", "GEMINI.md");
       const geminiMd = await readFile(geminiMdPath, "utf-8");
-      enrichedPrompt += `## Project Context\n${geminiMd}\n\n`;
-    } catch {
-      // GEMINI.md not available — proceed without it
+      
+      const sniperPrompt = `You are a context router for an AI agent. 
+The agent is about to execute the following task: "${prompt}".
+Here is the entire GEMINI.md project documentation:
+${geminiMd}
+
+Extract ONLY the specific rules, guidelines, and context from GEMINI.md that are directly relevant to this task. Ignore unrelated sections. Keep it concise.`;
+
+      const sniperResult = await generate({
+        prompt: sniperPrompt,
+        complexity: "flash", 
+      });
+      
+      enrichedPrompt += `## Relevant Project Context\n${sniperResult.text}\n\n`;
+    } catch (e) {
+      console.error("Sniper context failed:", e);
       enrichedPrompt += "## Project Context\nGravix — Next.js 16 app on Firebase App Hosting. Deploy target: https://gravix--antigravity-hub-jcloud.us-east4.hosted.app/\n\n";
+    }
+
+    // Inject Episodic Memory (Reflexion)
+    try {
+      const memorySnapshot = await adminDb.collection("jules_memory")
+        .orderBy("createdAt", "desc")
+        .limit(5)
+        .get();
+        
+      if (!memorySnapshot.empty) {
+        enrichedPrompt += `## Critical Past Lessons (Episodic Memory)\nDo not repeat these past mistakes:\n`;
+        memorySnapshot.forEach(doc => {
+          const data = doc.data();
+          enrichedPrompt += `- ${data.lesson}\n`;
+        });
+        enrichedPrompt += `\n`;
+      }
+    } catch (memErr) {
+      console.warn("Failed to fetch episodic memory:", memErr);
     }
 
     // Add the actual task
