@@ -11,15 +11,10 @@ const getShortcutLabel = (actionType, actionName) => {
 };
 
 const COMMANDS = [
-  // Navigation
   { id: "nav-home", type: "Navigation", label: "Go to Home", icon: "🏠", action: "home", shortcut: getShortcutLabel("nav", "home") },
+  { id: "nav-management", type: "Navigation", label: "Go to Management", icon: "📋", action: "management", shortcut: getShortcutLabel("nav", "management") },
   { id: "nav-finance", type: "Navigation", label: "Go to Finance", icon: "💰", action: "finance", shortcut: getShortcutLabel("nav", "finance") },
-  { id: "nav-email", type: "Navigation", label: "Go to Email", icon: "✉️", action: "email", shortcut: getShortcutLabel("nav", "email") },
-  { id: "nav-planner", type: "Navigation", label: "Go to Planner", icon: "📅", action: "planner", shortcut: getShortcutLabel("nav", "planner") },
-  { id: "nav-agents", type: "Navigation", label: "Go to Agents", icon: "🤖", action: "agents", shortcut: getShortcutLabel("nav", "agents") },
-  { id: "nav-knowledge", type: "Navigation", label: "Go to Knowledge", icon: "🧠", action: "knowledge", shortcut: getShortcutLabel("nav", "knowledge") },
-  { id: "nav-clients", type: "Navigation", label: "Go to Clients", icon: "👥", action: "clients", shortcut: getShortcutLabel("nav", "clients") },
-  { id: "nav-colab", type: "Navigation", label: "Go to Colab", icon: "📊", action: "colab", shortcut: getShortcutLabel("nav", "colab") },
+  { id: "nav-architecture", type: "Navigation", label: "Go to Ecosystem", icon: "🪐", action: "architecture", shortcut: getShortcutLabel("nav", "architecture") },
   { id: "nav-settings", type: "Navigation", label: "Go to Settings", icon: "⚙️", action: "settings", shortcut: getShortcutLabel("nav", "settings") },
 
   // Actions
@@ -103,11 +98,6 @@ export default function CommandPalette({ setActiveModule }) {
     } else if (cmd.type === "Action" && setActiveModule) {
       // Map actions to their target modules
       const actionModuleMap = {
-        "act-email": "email",
-        "act-task": "planner",
-        "act-client": "clients",
-        "act-notebook": "colab",
-        "act-search": "knowledge",
         "act-health": "home",
       };
       const targetModule = actionModuleMap[cmd.id];
