@@ -98,6 +98,15 @@ export async function POST(request) {
 - Create a single-purpose PR with a clear title.
 - Write commit messages following conventional commits (feat:, fix:, chore:, docs:).
 - Never run \`npm run build\` — Firebase App Hosting handles builds.
+
+## CRITICAL: RE-ACT SANDBOX LOOP (VERIFICATION PHASE)
+Before you commit any code, you MUST verify it against the secure Cloud Run Sandbox.
+1. Write your code logic.
+2. Use \`curl\` to send your code to: https://gravix-sandbox-426017291723.us-east4.run.app/execute
+   Example payload: \`{"files": [{"path": "src/file.js", "content": "..."}], "command": "node src/file.js"}\`
+   Header: \`Authorization: Bearer gravix-sandbox-secret-123\`
+3. If the sandbox returns an error (exitCode > 0), you must READ the error, REASON about why it failed, FIX the code, and TRY AGAIN.
+4. You may only push to GitHub once the Sandbox returns exitCode: 0.
 `;
 
     // ── DEERFLOW AI EVALUATION ──────────────────────────────────

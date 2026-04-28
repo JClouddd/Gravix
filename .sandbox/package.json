@@ -1,0 +1,15 @@
+{
+  "name": "gravix-sandbox",
+  "version": "1.0.0",
+  "description": "Ephemeral secure code execution sandbox for Jules and Deerflow",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "eslint": "^8.57.0",
+    "babel-eslint": "^10.1.0",
+    "eslint-plugin-react": "^7.34.1"
+  }
+}
