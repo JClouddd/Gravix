@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remarkGfm';
+import remarkGfm from 'remark-gfm';
 
 export default function ReportsView() {
   const [loading, setLoading] = useState(true);
