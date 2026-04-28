@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gravix-cache-v2';
+const CACHE_NAME = 'gravix-cache-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -27,7 +27,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event: network-first for API, cache-first for static assets
+// Fetch event
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -36,32 +36,46 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request)
-        .catch(() => caches.match(request)) // only fallback if fetch fails, but do not cache API
+        .catch(() => caches.match(request)) 
     );
     return;
   }
 
-  // Use cache-first strategy for static assets
+  // Use Network-First strategy for HTML navigation (fixes the hard-refresh issue)
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).then((response) => {
+        return caches.open(CACHE_NAME).then((cache) => {
+          cache.put(request, response.clone());
+          return response;
+        });
+      }).catch(() => {
+        return caches.match(request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          return caches.match('/');
+        });
+      })
+    );
+    return;
+  }
+
+  // Use Stale-While-Revalidate for other static assets (JS chunks, CSS, images)
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(request).then((response) => {
-        // Cache newly fetched static assets
-        if (response && response.status === 200 && response.type === 'basic') {
-          const responseToCache = response.clone();
+      const fetchPromise = fetch(request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(request, responseToCache);
           });
         }
-        return response;
+        return networkResponse;
       }).catch(() => {
-        // Offline fallback
-        if (request.mode === 'navigate') {
-          return caches.match('/');
-        }
+        // ignore errors
       });
+
+      // Return cached response immediately if available, while network fetch runs in background
+      return cachedResponse || fetchPromise;
     })
   );
 });
