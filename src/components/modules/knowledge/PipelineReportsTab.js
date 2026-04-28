@@ -67,27 +67,55 @@ export default function PipelineReportsTab() {
             <p className="empty-state-desc">Trigger a Cloud Batch ingestion to see live progress here.</p>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", background: "var(--bg-secondary)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+            {/* Table Header */}
+            <div style={{ 
+              display: "grid", 
+              gridTemplateColumns: "2fr 1fr 2fr", 
+              gap: 16, 
+              padding: "12px 16px", 
+              borderBottom: "1px solid var(--card-border)",
+              color: "var(--text-secondary)",
+              fontWeight: 600,
+              fontSize: 12,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em"
+            }}>
+              <div>Pipeline / ID</div>
+              <div>Status</div>
+              <div style={{ textAlign: "right" }}>Progress</div>
+            </div>
+
+            {/* Table Body */}
             {pipelines.map(pipeline => (
               <div key={pipeline.id} style={{ 
-                padding: 16, 
-                border: "1px solid var(--card-border)", 
-                borderRadius: "var(--radius-md)",
-                background: "var(--bg-secondary)"
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <div>
-                    <h4 className="body" style={{ fontWeight: 600, margin: 0 }}>{pipeline.title || pipeline.vid_id}</h4>
-                    <span className="caption" style={{ color: "var(--text-secondary)" }}>ID: {pipeline.vid_id} • Last Updated: {new Date(pipeline.updatedAt).toLocaleTimeString()}</span>
-                  </div>
+                display: "grid", 
+                gridTemplateColumns: "2fr 1fr 2fr", 
+                gap: 16,
+                padding: "16px", 
+                borderBottom: "1px solid var(--card-border)", 
+                alignItems: "center",
+                transition: "background 0.2s ease"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+              >
+                {/* Col 1 */}
+                <div>
+                  <h4 className="body" style={{ fontWeight: 600, margin: 0, color: "var(--text-primary)" }}>{pipeline.title || pipeline.vid_id}</h4>
+                  <span className="caption" style={{ color: "var(--text-secondary)" }}>{pipeline.vid_id}</span>
+                </div>
+
+                {/* Col 2 */}
+                <div>
                   <span className={`badge ${pipeline.progress === 100 ? "badge-success" : pipeline.status.includes("Failed") ? "badge-error" : "badge-accent pulse"}`}>
                     {pipeline.status}
                   </span>
                 </div>
 
-                {/* Progress Bar */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ flex: 1, height: 8, background: "var(--bg-tertiary)", borderRadius: 4, overflow: "hidden" }}>
+                {/* Col 3: Right Aligned Progress */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "flex-end" }}>
+                  <div style={{ width: 100, height: 6, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
                     <div style={{ 
                       height: "100%", 
                       width: `${pipeline.progress || 0}%`, 
@@ -95,7 +123,7 @@ export default function PipelineReportsTab() {
                       transition: "width 0.5s ease"
                     }} />
                   </div>
-                  <span className="caption" style={{ fontWeight: 600, width: 40, textAlign: "right" }}>
+                  <span className="mono" style={{ fontWeight: 600, width: 40, textAlign: "right", color: "var(--text-primary)" }}>
                     {pipeline.progress || 0}%
                   </span>
                 </div>

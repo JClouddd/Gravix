@@ -110,33 +110,69 @@ export default function SourcesTab({ status }) {
           </div>
         )}
       </div>
-      {status?.scheduledSources?.map((source) => {
-        const isVideo = YOUTUBE_REGEX.test(source.url);
-        return (
-          <div key={source.id} className="card" style={{ padding: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div className="body" style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-                  {isVideo && <span className="badge badge-info" style={{ fontSize: 11, padding: "2px 6px" }}>🎬 Video</span>}
-                  {source.name}
-                </div>
-                <a
-                  href={source.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="caption"
-                  style={{ color: "var(--info)" }}
-                >
-                  {source.url}
-                </a>
-              </div>
-              <span className={`badge ${source.status === "ingested" ? "badge-success" : "badge-warning"}`}>
-                {source.status === "ingested" ? "✅ Ingested" : "⏳ Pending"}
-              </span>
-            </div>
+      {status?.scheduledSources?.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", background: "var(--bg-secondary)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+          {/* Table Header */}
+          <div style={{ 
+            display: "grid", 
+            gridTemplateColumns: "3fr 1fr", 
+            gap: 16, 
+            padding: "12px 16px", 
+            borderBottom: "1px solid var(--card-border)",
+            color: "var(--text-secondary)",
+            fontWeight: 600,
+            fontSize: 12,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em"
+          }}>
+            <div>Source URL</div>
+            <div style={{ textAlign: "right" }}>Status</div>
           </div>
-        );
-      })}
+
+          {/* Table Body */}
+          {status.scheduledSources.map((source) => {
+            const isVideo = YOUTUBE_REGEX.test(source.url);
+            return (
+              <div key={source.id} style={{ 
+                display: "grid", 
+                gridTemplateColumns: "3fr 1fr", 
+                gap: 16,
+                padding: "12px 16px", 
+                borderBottom: "1px solid var(--card-border)", 
+                alignItems: "center",
+                transition: "background 0.2s ease"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+              >
+                {/* Col 1 */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, overflow: "hidden" }}>
+                  <div className="body" style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {isVideo && <span className="badge badge-info" style={{ fontSize: 10, padding: "2px 6px" }}>🎬 Video</span>}
+                    {source.name}
+                  </div>
+                  <a
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="caption truncate"
+                    style={{ color: "var(--info)", textDecoration: "none" }}
+                  >
+                    {source.url}
+                  </a>
+                </div>
+
+                {/* Col 2 */}
+                <div style={{ textAlign: "right" }}>
+                  <span className={`badge ${source.status === "ingested" ? "badge-success" : "badge-warning"}`}>
+                    {source.status === "ingested" ? "✅ Ingested" : "⏳ Pending"}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

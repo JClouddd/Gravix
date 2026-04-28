@@ -36,8 +36,19 @@ export default function AppShell() {
 
   const [theme, setTheme] = useState("dark");
   const [isMobile, setIsMobile] = useState(false);
+  const [dynamicCSS, setDynamicCSS] = useState("");
   const touchStartRef = useRef(null);
   const touchEndRef = useRef(null);
+
+  useEffect(() => {
+    // Load dynamic UI matrix CSS from DESIGN.md
+    fetch('/api/design/sync')
+      .then(res => res.json())
+      .then(data => {
+        if (data.css) setDynamicCSS(data.css);
+      })
+      .catch(err => console.error("Failed to load design css:", err));
+  }, []);
 
   const handleModuleChange = useCallback((id) => {
     setActiveModule(id);
@@ -115,6 +126,7 @@ export default function AppShell() {
 
   return (
     <div className="app-shell bg-gradient-premium">
+      {dynamicCSS && <style dangerouslySetInnerHTML={{ __html: dynamicCSS }} />}
       <PipelineToasts />
       <CommandPalette setActiveModule={handleModuleChange} />
 

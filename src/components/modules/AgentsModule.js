@@ -25,6 +25,7 @@ export default function AgentsModule() {
   const [rosterChatInput, setRosterChatInput] = useState("");
   const [rosterChatStatus, setRosterChatStatus] = useState("idle");
   const [rosterChatResult, setRosterChatResult] = useState(null);
+  const [lastPrompt, setLastPrompt] = useState("");
 
   // Workflow state
   const [highlightedAgent, setHighlightedAgent] = useState(null);
@@ -246,6 +247,7 @@ export default function AgentsModule() {
     if (!rosterChatInput.trim()) return;
     setRosterChatStatus("routing");
     setRosterChatResult(null);
+    setLastPrompt(rosterChatInput);
 
     try {
       const res = await fetch("/api/agents/route", {
@@ -603,33 +605,41 @@ export default function AgentsModule() {
             )}
 
             {rosterChatResult && rosterChatStatus !== "routing" && (
-              <div style={{ background: "var(--bg-secondary)", padding: 16, borderRadius: 8, border: "1px solid var(--card-border)" }}>
-                {rosterChatResult.error ? (
-                  <p className="body-sm" style={{ color: "var(--error)" }}>{rosterChatResult.error}</p>
-                ) : (
-                  <>
-                    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, color: "var(--text-secondary)" }}>
-                      <span>Result</span>
-                      <span>→</span>
-                      <span style={{ color: "var(--accent)" }}>Conductor</span>
-                      {rosterChatResult.routing?.agent && (
-                        <>
-                          <span>→</span>
-                          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{rosterChatResult.routing.agent}</span>
-                        </>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {/* User Prompt */}
+                <div style={{ alignSelf: "flex-end", background: "var(--accent-subtle)", padding: "12px 16px", borderRadius: "12px 12px 0 12px", border: "1px solid var(--accent)" }}>
+                  <p className="body-sm" style={{ color: "var(--text-primary)" }}>{lastPrompt}</p>
+                </div>
+
+                {/* Agent Response */}
+                <div style={{ background: "var(--bg-secondary)", padding: 16, borderRadius: "0 12px 12px 12px", border: "1px solid var(--card-border)", alignSelf: "flex-start", width: "100%" }}>
+                  {rosterChatResult.error ? (
+                    <p className="body-sm" style={{ color: "var(--error)" }}>{rosterChatResult.error}</p>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, color: "var(--text-secondary)", borderBottom: "1px solid var(--card-border)", paddingBottom: 8 }}>
+                        <span className="badge" style={{ background: "var(--accent)", color: "white" }}>Conductor</span>
+                        {rosterChatResult.routing?.agent && (
+                          <>
+                            <span>→</span>
+                            <span className="badge" style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)", border: "1px solid var(--card-border)" }}>
+                              {rosterChatResult.routing.agent}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {rosterChatResult.response?.text ? (
+                        <p className="body-sm" style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}>
+                          {rosterChatResult.response.text}
+                        </p>
+                      ) : (
+                        <p className="body-sm" style={{ marginBottom: 8 }}>
+                          {rosterChatResult.message || JSON.stringify(rosterChatResult)}
+                        </p>
                       )}
-                    </div>
-                    {rosterChatResult.response?.text ? (
-                       <p className="body-sm" style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}>
-                         {rosterChatResult.response.text}
-                       </p>
-                    ) : (
-                       <p className="body-sm" style={{ marginBottom: 8 }}>
-                         {rosterChatResult.message || JSON.stringify(rosterChatResult)}
-                       </p>
-                    )}
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </div>

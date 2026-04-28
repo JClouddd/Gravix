@@ -114,6 +114,41 @@ export default function SettingsModule() {
     eventArc: false
   });
 
+  // Design Engine State
+  const [designContent, setDesignContent] = useState("Loading design matrix...");
+  const [isSavingDesign, setIsSavingDesign] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/design/sync')
+      .then(res => res.json())
+      .then(data => {
+        if (data.content) setDesignContent(data.content);
+      })
+      .catch(err => {
+        console.error("Failed to load DESIGN.md:", err);
+        setDesignContent("Failed to load design config.");
+      });
+  }, []);
+
+  const saveDesign = async () => {
+    setIsSavingDesign(true);
+    try {
+      const res = await fetch('/api/design/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: designContent })
+      });
+      if (!res.ok) throw new Error("Failed to sync");
+      alert("Design Matrix Synced! Refreshing UI in 2s...");
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save design config.");
+    } finally {
+      setIsSavingDesign(false);
+    }
+  };
+
   useEffect(() => {
     // Load notification prefs
     const fetchPrefs = async () => {
@@ -243,6 +278,30 @@ export default function SettingsModule() {
                 }
               }}>Save</button>
             </div>
+          </div>
+        </div>
+
+        {/* Design Editor */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>Vibe-Driven Design Engine</h3>
+          <p className="caption" style={{ marginBottom: 16 }}>
+            Edit the <code>DESIGN.md</code> configuration to instantly update the Omni-Hub&apos;s aesthetic. The 60-30-10 color rule and C.R.A.P principles are enforced globally.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <textarea
+              className="input mono"
+              style={{ minHeight: "250px", resize: "vertical", fontSize: "12px", lineHeight: "1.4", background: "var(--bg-tertiary)" }}
+              value={designContent}
+              onChange={e => setDesignContent(e.target.value)}
+            />
+            <button 
+              className="btn btn-primary btn-sm" 
+              style={{ alignSelf: "flex-end" }} 
+              onClick={saveDesign}
+              disabled={isSavingDesign}
+            >
+              {isSavingDesign ? "Syncing Matrix..." : "Sync UI Matrix"}
+            </button>
           </div>
         </div>
 

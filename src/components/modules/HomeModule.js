@@ -6,7 +6,6 @@ import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestor
 import { db } from "@/lib/firebase";
 import ArchitectureModule from "./ArchitectureModule";
 import AgentTelemetry from "./AgentTelemetry";
-import { generateMatrixCSS } from "@/lib/uiMatrix";
 
 
 /**
@@ -194,7 +193,6 @@ useEffect(() => {
 
   return (
     <div>
-      <style dangerouslySetInnerHTML={{ __html: generateMatrixCSS() }} />
       {/* Search Bar */}
       <div style={{ position: "relative", marginBottom: "24px", zIndex: 100 }}>
         <div style={{ position: "relative", width: "100%", maxWidth: "600px", margin: "0 auto" }}>
