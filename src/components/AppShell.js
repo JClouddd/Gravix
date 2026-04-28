@@ -16,6 +16,7 @@ const MODULES = [
   { id: "home", label: "Home", icon: "🏠", color: "var(--accent)" },
   { id: "management", label: "Management", icon: "📋", color: "var(--accent)" },
   { id: "finance", label: "Finance", icon: "💰", color: "var(--agent-finance)" },
+  { id: "architecture", label: "Ecosystem", icon: "🪐", color: "#00d4ff" },
   { id: "settings",  label: "Settings",  icon: "⚙️",  color: "var(--text-secondary)" },
 ];
 
@@ -24,6 +25,7 @@ const moduleComponents = {
   home: lazy(() => import("@/components/modules/HomeModule")),
   management: lazy(() => import("@/components/modules/ManagementModule/ManagementDashboard")),
   finance: lazy(() => import("@/components/modules/FinanceModule")),
+  architecture: lazy(() => import("@/components/modules/ArchitectureModule")),
   settings:  lazy(() => import("@/components/modules/SettingsModule")),
 };
 

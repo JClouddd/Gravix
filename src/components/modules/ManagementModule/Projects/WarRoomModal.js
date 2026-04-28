@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 export default function WarRoomModal({ plan, onClose }) {
   const [activeTab, setActiveTab] = useState('blueprint');
   const [isIgniting, setIsIgniting] = useState(false);
   const [localStatus, setLocalStatus] = useState(plan.status);
+  const [systemStats, setSystemStats] = useState(null);
   
   // Mock Terminal Feed Data
   const [terminalLines, setTerminalLines] = useState([
@@ -13,6 +16,22 @@ export default function WarRoomModal({ plan, onClose }) {
     '> [ARCHITECT] Parsing video digest JSON...',
     '> [ARCHITECT] Abstract Syntax Tree mapped successfully.',
   ]);
+
+  // Real-time Firebase Telemetry Listener
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'system', 'knowledge_stats'), (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        setSystemStats(data);
+        // Push a live terminal update when data changes
+        setTerminalLines(prev => [
+          ...prev, 
+          `> [TELEMETRY] Omni-Vault Sync: ${data.total_videos_ingested || 0} Videos, ${data.total_chunks || 0} Chunks.`
+        ]);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Simulate live terminal typing
   useEffect(() => {

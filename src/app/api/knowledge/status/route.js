@@ -61,8 +61,8 @@ export async function GET() {
     status: "operational",
     dataStore: {
       type: "vertex_ai",
-      id: "gravix-knowledge",
-      engineId: "gravix-scholar",
+      id: "omni-knowledge-brain",
+      engineId: "omni-knowledge-brain",
       bucket: "gs://gravix-knowledge-docs",
       region: "global",
       project: "antigravity-hub-jcloud",

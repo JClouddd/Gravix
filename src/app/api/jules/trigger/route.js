@@ -90,7 +90,10 @@ export async function POST(request) {
 
     // Add standard rules for Jules
     enrichedPrompt += `## Rules
-- Do NOT modify files outside the scope described above.
+- ZERO REACT CODING. Do NOT write or modify .js/.jsx React components for UI features.
+- Instead of writing React code, you MUST output UI structures as JSON Schemas and push them to Firestore (collection: dynamic_ui).
+- The Hub uses a Headless DynamicRenderer to build the UI from your JSON schemas.
+- Only modify backend scripts, APIs, or configuration files.
 - Run \`npx next lint\` before committing to catch errors.
 - Create a single-purpose PR with a clear title.
 - Write commit messages following conventional commits (feat:, fix:, chore:, docs:).

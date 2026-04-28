@@ -1,23 +1,49 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import WarRoomModal from './WarRoomModal';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 
 export default function ProjectsView() {
   const [activeWarRoomPlan, setActiveWarRoomPlan] = useState(null);
 
-  // Temporary mock data for aesthetic display
-  const mockProjects = [
+  // State for Real-Time Telemetry
+  const [projects, setProjects] = useState([
     { id: 1, title: 'Omni-Hub v2', description: 'Complete the autonomous architecture rewrite', progress: 78, color: 'var(--accent)' },
     { id: 2, title: 'Cinematic Pipeline', description: 'Automate video generation using Stitch UI', progress: 45, color: 'var(--agent-forge)' },
     { id: 3, title: 'Agent Framework', description: 'Implement multi-agent routing capabilities', progress: 92, color: 'var(--agent-scholar)' }
-  ];
+  ]);
 
-  // Mock pending Implementation Plans for the Approval Matrix
-  const mockPendingPlans = [
+  const [pendingPlans, setPendingPlans] = useState([
     { id: 101, title: 'BigQuery Data Lake Migration', aiModel: 'Vertex Swarm', tasks: 12, estDuration: '45m', status: 'Awaiting Authorization', color: 'var(--system-blue)' },
     { id: 102, title: 'Cinematic Pipeline Webhooks', aiModel: 'Jules Action', tasks: 4, estDuration: '12m', status: 'Awaiting Authorization', color: 'var(--system-warning)' }
-  ];
+  ]);
+
+  useEffect(() => {
+    // Listen to live 'projects' collection
+    const unsubProjects = onSnapshot(collection(db, 'projects'), (snapshot) => {
+      if (!snapshot.empty) {
+        const liveProjects = [];
+        snapshot.forEach(doc => liveProjects.push({ id: doc.id, ...doc.data() }));
+        setProjects(liveProjects);
+      }
+    });
+
+    // Listen to live 'ai_plans' collection
+    const unsubPlans = onSnapshot(collection(db, 'ai_plans'), (snapshot) => {
+      if (!snapshot.empty) {
+        const livePlans = [];
+        snapshot.forEach(doc => livePlans.push({ id: doc.id, ...doc.data() }));
+        setPendingPlans(livePlans);
+      }
+    });
+
+    return () => {
+      unsubProjects();
+      unsubPlans();
+    };
+  }, []);
 
   return (
     <div className="w-full h-full flex flex-col gap-lg" style={{ padding: "8px 24px 24px 24px", overflowY: "auto" }}>
@@ -46,11 +72,11 @@ export default function ProjectsView() {
       <div className="flex flex-col gap-md mb-6">
         <h3 className="h3 text-white flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-          Approval Matrix <span className="caption text-blue-400">({mockPendingPlans.length} Pending AI Plans)</span>
+          Approval Matrix <span className="caption text-blue-400">({pendingPlans.length} Pending AI Plans)</span>
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {mockPendingPlans.map(plan => (
+          {pendingPlans.map(plan => (
             <div key={plan.id} className="card-glass border-blue-500/30 flex flex-col gap-3 relative overflow-hidden" style={{ background: 'rgba(10, 20, 40, 0.4)' }}>
               {/* Scanline effect */}
               <div className="absolute inset-0 w-full h-[1px] bg-blue-500/20 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-scanline"></div>
@@ -88,7 +114,7 @@ export default function ProjectsView() {
       </div>
 
       <div className="grid-3 pb-10">
-        {mockProjects.map(project => (
+        {projects.map(project => (
           <div key={project.id} className="card-glass flex flex-col gap-sm relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-transform">
             
             {/* Subtle glow effect behind project */}

@@ -34,16 +34,56 @@ export default function KnowledgeVaultTab({ status, setActiveTab }) {
     }
   };
 
+  const NOTEBOOKS = [
+    { id: "ui_component", title: "UI & Aesthetics", icon: "✨", tag: "UI_Component", desc: "Glassmorphic design, animations, and frontend logic." },
+    { id: "architecture_logic", title: "Architecture", icon: "🏗️", tag: "Architecture_Logic", desc: "System schemas, headless renderers, and database models." },
+    { id: "predictive_math", title: "Predictive Math", icon: "🧮", tag: "Predictive_Math", desc: "Token burn velocity, cost algorithms, and scaling math." },
+    { id: "task_management", title: "Task Engine", icon: "✅", tag: "Task_Management", desc: "Jules autonomous pipeline and task state tracking." },
+    { id: "crm_logic", title: "CRM & Clients", icon: "👥", tag: "CRM_Logic", desc: "Client data structures and management workflows." }
+  ];
+
+  const handleNotebookClick = (notebook) => {
+    setSearchTerm(`Synthesize all knowledge regarding ${notebook.title} (${notebook.tag})`);
+    // Need a slight delay to ensure state updates before form submission simulation
+    setTimeout(() => {
+      document.getElementById('vault-search-form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    }, 100);
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* NotebookLM UI Grid */}
+      {!isSearching && !searchResults && (
+        <div style={{ marginBottom: 12 }}>
+          <h3 className="h4" style={{ marginBottom: 16 }}>Your Knowledge Notebooks</h3>
+          <div className="grid-3">
+            {NOTEBOOKS.map(nb => (
+              <div 
+                key={nb.id} 
+                className="card card-hover" 
+                style={{ cursor: "pointer", borderTop: "3px solid var(--accent)" }}
+                onClick={() => handleNotebookClick(nb)}
+              >
+                <div style={{ fontSize: 24, marginBottom: 12 }}>{nb.icon}</div>
+                <h4 className="body" style={{ fontWeight: 600, marginBottom: 4 }}>{nb.title}</h4>
+                <p className="caption" style={{ color: "var(--text-secondary)" }}>{nb.desc}</p>
+                <div style={{ marginTop: 12 }}>
+                  <span className="badge badge-accent" style={{ fontSize: 10 }}>#{nb.tag}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Search Bar */}
       <div className="card">
-        <form onSubmit={handleSearch} style={{ display: "flex", gap: 12 }}>
+        <form id="vault-search-form" onSubmit={handleSearch} style={{ display: "flex", gap: 12 }}>
           <input
             type="text"
             className="input"
             style={{ flex: 1 }}
-            placeholder="Ask Scholar a question..."
+            placeholder="Ask Scholar a question or select a notebook..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             disabled={isSearching}
@@ -85,6 +125,12 @@ export default function KnowledgeVaultTab({ status, setActiveTab }) {
       {/* Results Display */}
       {!isSearching && searchResults && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+             <h3 className="h4">Notebook Analysis</h3>
+             <button className="btn btn-ghost btn-sm" onClick={() => { setSearchResults(null); setSearchTerm(""); }}>
+               ← Back to Notebooks
+             </button>
+          </div>
           {/* Summary / Grounded Answer */}
           {searchResults.summary && (
             <div className="card card-glass" style={{ border: "1px solid var(--accent-subtle)" }}>
@@ -160,30 +206,6 @@ export default function KnowledgeVaultTab({ status, setActiveTab }) {
               </div>
             )
           )}
-        </div>
-      )}
-
-      {/* Initial Empty State (No search yet) */}
-      {!isSearching && !searchResults && !error && (
-        <div className="card">
-          <div className="empty-state">
-            <div className="empty-state-icon">📖</div>
-            <p className="empty-state-title">Brain Vault</p>
-            <p className="empty-state-desc">
-              {status?.stats?.documentsIngested
-                ? `${status.stats.documentsIngested} documents in the vault. Use the search to query.`
-                : "Your knowledge base is empty. Start by ingesting documentation or adding content in the Ingestion tab."}
-            </p>
-            {!status?.stats?.documentsIngested && (
-              <button
-                className="btn btn-primary"
-                style={{ marginTop: 16 }}
-                onClick={() => setActiveTab("Ingestion")}
-              >
-                Start Ingesting
-              </button>
-            )}
-          </div>
         </div>
       )}
     </div>

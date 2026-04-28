@@ -108,7 +108,7 @@ function IncomeTrackerTab() {
  * Finance Module
  * Income tracker + Cost dashboard + Credit allocation
  */
-const TABS = ["Overview", "Income Tracker", "By Model", "By Agent"];
+const TABS = ["Overview", "Out-of-Pocket Calc", "Income Tracker", "By Model", "By Agent"];
 
 export default function FinanceModule() {
   const [showExportDropdown, setShowExportDropdown] = useState(false);
@@ -204,6 +204,10 @@ export default function FinanceModule() {
 
       {activeTab === "Overview" && (
         <OverviewTab summary={summary} historyData={historyData} credits={credits} breakdown={breakdown} />
+      )}
+
+      {activeTab === "Out-of-Pocket Calc" && (
+        <OutOfPocketTab summary={summary} credits={credits} breakdown={breakdown} />
       )}
 
       {activeTab === "Income Tracker" && (
@@ -674,6 +678,108 @@ function SessionGaugeCard({ title, used, total }) {
           Today: {used} used<br/>
           Remaining: {remaining}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function OutOfPocketTab({ summary, credits }) {
+  const [futureInputs, setFutureInputs] = useState([]);
+  const [newFutureDesc, setNewFutureDesc] = useState("");
+  const [newFutureCost, setNewFutureCost] = useState("");
+
+  const addFutureInput = (e) => {
+    e.preventDefault();
+    if (!newFutureDesc || !newFutureCost) return;
+    setFutureInputs([...futureInputs, { id: Date.now(), desc: newFutureDesc, cost: parseFloat(newFutureCost) }]);
+    setNewFutureDesc("");
+    setNewFutureCost("");
+  };
+
+  const removeFutureInput = (id) => {
+    setFutureInputs(futureInputs.filter(item => item.id !== id));
+  };
+
+  // Safe defaults
+  const totalSpend = (typeof summary?.totalSpend === "number" && !isNaN(summary.totalSpend)) ? summary.totalSpend : 0;
+  const genaiCredit = credits?.genaiCredit?.remaining || 0;
+  const cloudCredit = credits?.cloudCredit?.remaining || 0;
+  const totalCredits = genaiCredit + cloudCredit;
+
+  const additionalFutureCost = futureInputs.reduce((sum, item) => sum + item.cost, 0);
+
+  // Projected current month cost = current spend + future predicted items
+  const now = new Date();
+  const currentDay = now.getDate() || 1;
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const baseProjected = (totalSpend / currentDay) * daysInMonth;
+  const totalProjected = baseProjected + additionalFutureCost;
+
+  // Monthly Credit Reset Logic (Simplification: Google Cloud typically bills monthly, subtract remaining credits)
+  // If projected cost exceeds available credits, the difference is Out of Pocket.
+  const outOfPocketEstimate = Math.max(0, totalProjected - totalCredits);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div className="card" style={{ borderTop: "4px solid var(--info)" }}>
+        <div className="h3" style={{ marginBottom: 16 }}>Google Cloud Billing / Out-of-Pocket Estimator</div>
+        <p className="body-sm" style={{ color: "var(--text-secondary)", marginBottom: 24 }}>
+          Calculates your real out-of-pocket (OOP) expenses by applying your active GCP and Vertex AI credits to your projected monthly API usage.
+        </p>
+
+        <div className="grid-3" style={{ marginBottom: 24 }}>
+          <div style={{ padding: 16, background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)" }}>
+            <div className="caption">Projected Monthly Gross</div>
+            <div className="h2">${totalProjected.toFixed(2)}</div>
+            <div className="caption" style={{ color: "var(--text-tertiary)", marginTop: 4 }}>Based on current velocity + future</div>
+          </div>
+          <div style={{ padding: 16, background: "rgba(0, 200, 83, 0.1)", border: "1px solid var(--success)", borderRadius: "var(--radius-md)" }}>
+            <div className="caption" style={{ color: "var(--success)" }}>Available Credits</div>
+            <div className="h2" style={{ color: "var(--success)" }}>-${totalCredits.toFixed(2)}</div>
+            <div className="caption" style={{ color: "var(--success)", marginTop: 4 }}>GenAI + Cloud Free Tier</div>
+          </div>
+          <div style={{ padding: 16, background: outOfPocketEstimate > 0 ? "rgba(255, 82, 82, 0.1)" : "var(--bg-tertiary)", border: outOfPocketEstimate > 0 ? "1px solid var(--error)" : "1px solid transparent", borderRadius: "var(--radius-md)" }}>
+            <div className="caption" style={{ color: outOfPocketEstimate > 0 ? "var(--error)" : "var(--text-secondary)" }}>Estimated Out-of-Pocket</div>
+            <div className="h2" style={{ color: outOfPocketEstimate > 0 ? "var(--error)" : "var(--text-primary)" }}>${outOfPocketEstimate.toFixed(2)}</div>
+            <div className="caption" style={{ color: outOfPocketEstimate > 0 ? "var(--error)" : "var(--text-tertiary)", marginTop: 4 }}>Charged to credit card at EOM</div>
+          </div>
+        </div>
+
+        <div className="h4" style={{ marginBottom: 12 }}>Future System / Additional Cost Planner</div>
+        <form onSubmit={addFutureInput} style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+          <input 
+            type="text" 
+            className="input" 
+            placeholder="System Name (e.g., OpenNexus Web Scraper)" 
+            style={{ flex: 1 }}
+            value={newFutureDesc}
+            onChange={(e) => setNewFutureDesc(e.target.value)}
+          />
+          <input 
+            type="number" 
+            className="input" 
+            placeholder="Est. Cost/mo ($)" 
+            style={{ width: 150 }}
+            value={newFutureCost}
+            onChange={(e) => setNewFutureCost(e.target.value)}
+            step="0.01"
+          />
+          <button type="submit" className="btn btn-secondary">Add</button>
+        </form>
+
+        {futureInputs.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {futureInputs.map(item => (
+              <div key={item.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)" }}>
+                <span className="body-sm">{item.desc}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span className="mono" style={{ color: "var(--warning)" }}>+${item.cost.toFixed(2)}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => removeFutureInput(item.id)} style={{ padding: "0 8px" }}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

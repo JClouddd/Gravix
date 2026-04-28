@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 
 export default function TasksView() {
   const [tasks, setTasks] = useState([]);
@@ -16,14 +18,16 @@ export default function TasksView() {
   const [selectedTasks, setSelectedTasks] = useState(new Set());
   const [isAutoScheduling, setIsAutoScheduling] = useState(false);
 
+  // Initial Fetch & Real-time Telemetry
   useEffect(() => {
+    // 1. Initial Fetch
     fetch('/api/management/tasks')
       .then(res => res.json())
       .then(data => {
         if (data.success && data.connected && data.tasks && data.tasks.length > 0) {
           setTasks(data.tasks);
         } else {
-          // Fallback to Omni-Pipeline Mock Data to visualize the new UI
+          // Fallback to Omni-Pipeline Mock Data
           setTasks([
             { id: 'ai-1', title: 'Compile OpenClaw Core', notes: 'Jules Swarm executing React context build', status: 'pending', ai_status: 'Swarm Executing', anticipated_time: '15m', actual_time: '20m', time_shift: '+5m', due: new Date().toISOString() },
             { id: 'ai-2', title: 'Verify BigQuery Schema', notes: 'Auditor agent running lint checks', status: 'pending', ai_status: 'Auditing', anticipated_time: '5m', actual_time: '12m', time_shift: '+7m', due: new Date().toISOString() },
@@ -36,6 +40,22 @@ export default function TasksView() {
         setError(err.message);
         setLoading(false);
       });
+
+    // 2. Real-time Telemetry (SSE via Firestore WebSocket)
+    const unsub = onSnapshot(collection(db, 'management_tasks'), (snapshot) => {
+      // When a backend agent updates a task, instantly merge it into the state
+      const liveUpdates = {};
+      snapshot.forEach(doc => { liveUpdates[doc.id] = doc.data(); });
+      
+      setTasks(currentTasks => currentTasks.map(task => {
+        if (liveUpdates[task.id]) {
+          return { ...task, antigravity_metadata: liveUpdates[task.id] };
+        }
+        return task;
+      }));
+    });
+
+    return () => unsub();
   }, []);
 
   const handleCreateTask = async (e) => {

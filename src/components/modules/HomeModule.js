@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import ArchitectureModule from "./ArchitectureModule";
+import { generateMatrixCSS } from "@/lib/uiMatrix";
 
 
 /**
@@ -177,7 +179,7 @@ useEffect(() => {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         <div className="grid-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="skeleton skeleton-card" style={{ height: 100 }} />
@@ -191,6 +193,7 @@ useEffect(() => {
 
   return (
     <div>
+      <style dangerouslySetInnerHTML={{ __html: generateMatrixCSS() }} />
       {/* Search Bar */}
       <div style={{ position: "relative", marginBottom: "24px", zIndex: 100 }}>
         <div style={{ position: "relative", width: "100%", maxWidth: "600px", margin: "0 auto" }}>
@@ -282,21 +285,9 @@ useEffect(() => {
         )}
       </div>
 
-      {/* Module Header */}
-      <div className="module-header">
-        <div className="module-header-left">
-          <div className="module-icon" style={{ background: "var(--accent-subtle)" }}>🏠</div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <h1 className="module-title">Dashboard</h1>
-              <HelpTooltip module="home" />
-            </div>
-            <p className="module-subtitle">Welcome back — here&apos;s your system overview</p>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <span className="badge badge-accent">Gravix v0.1.0</span>
-        </div>
+      {/* Orbital Architecture Graph */}
+      <div style={{ marginBottom: 24 }}>
+        <ArchitectureModule />
       </div>
 
       {/* Credit Gauges */}
@@ -323,6 +314,44 @@ useEffect(() => {
           color="var(--agent-scholar)"
           label="docs ingested"
         />
+      </div>
+
+      {/* Token Burn Velocity Meter */}
+      <div className="card" style={{ marginBottom: 24, borderLeft: "4px solid var(--warning)", background: "linear-gradient(90deg, rgba(255,170,0,0.05) 0%, transparent 100%)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 className="h4" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span>🔥</span> Token Burn Velocity
+          </h3>
+          <span className="badge badge-warning">Active Monitoring</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 250 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span className="caption">Current Velocity</span>
+              <span className="caption" style={{ color: "var(--warning)", fontWeight: 600 }}>~{(costs?.credits?.genai?.used * 1500).toFixed(0)} tokens / min</span>
+            </div>
+            <div style={{ width: "100%", height: 8, background: "var(--bg-tertiary)", borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ width: `${Math.min(100, Math.max(10, costs?.credits?.genai?.used * 10 || 15))}%`, height: "100%", background: "var(--warning)" }} className="pulse" />
+            </div>
+          </div>
+          <div>
+            <button 
+              className="btn btn-error btn-sm" 
+              onClick={async () => {
+                if (window.confirm("ENGAGE KILLSWITCH? This will halt all autonomous pipelines and APIs instantly.")) {
+                  try {
+                    const res = await fetch("/api/automation/killswitch", { method: "POST" });
+                    if (res.ok) alert("Killswitch engaged successfully. Systems halted.");
+                  } catch (e) {
+                    alert("Killswitch failed!");
+                  }
+                }
+              }}
+            >
+              🛑 EMERGENCY KILLSWITCH
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* System Status */}

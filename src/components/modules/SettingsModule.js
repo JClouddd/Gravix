@@ -5,6 +5,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { requestPermission } from "@/lib/notifications";
 import HelpTooltip from "@/components/HelpTooltip";
+import { useAuth } from "@/lib/authProvider";
 
 /**
  * Settings Module
@@ -26,8 +27,21 @@ const INTEGRATIONS = [
 ];
 
 export default function SettingsModule() {
-  // Profile State
-  const [profile, setProfile] = useState({ name: "Jane Doe", email: "jane.doe@example.com" });
+  // Profile State from Firebase Auth
+  const { user } = useAuth();
+  
+  // Local fallback if user isn't loaded yet
+  const [profile, setProfile] = useState({ 
+    name: user?.displayName || "Loading...", 
+    email: user?.email || "loading..." 
+  });
+
+  useEffect(() => {
+    if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setProfile({ name: user.displayName || "User", email: user.email || "" });
+    }
+  }, [user]);
 
   // PWA Install State
   const [installed, setInstalled] = useState(false);
@@ -76,14 +90,11 @@ export default function SettingsModule() {
   });
 
   // Security State
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [sessionTimeout, setSessionTimeout] = useState("30");
-  const [twoFactor, setTwoFactor] = useState(false);
+  // Removed fake states
 
   // Appearance State
   const [theme, setTheme] = useState("dark");
-  const [accentColor, setAccentColor] = useState("#3b82f6");
-  const [fontSize, setFontSize] = useState(14);
+  // Removed fake accent and font size states
 
   // Notifications State
   const [pushEnabled, setPushEnabled] = useState(
@@ -160,21 +171,7 @@ export default function SettingsModule() {
     }
   };
 
-  const presetColors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
-
-  const handleIntegrationToggle = (key) => {
-    setIntegrations(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleDeleteAccount = () => {
-    if (window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
-      alert("Account deleted.");
-    }
-  };
-
-  const handleExportData = () => {
-    alert("Data export started.");
-  };
+  // Integration Details array remains unchanged
 
   const integrationDetails = [
     { id: "gmail", name: "Gmail", desc: "Read and send emails autonomously" },
@@ -410,10 +407,10 @@ export default function SettingsModule() {
           <h3 className="h4" style={{ marginBottom: 16 }}>System Info</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[
-              ["GCP Project", "antigravity-hub-jcloud"],
+              ["GCP Project", process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "antigravity-hub-jcloud"],
               ["Region", "us-central1"],
-              ["Service Account", "gravix-hub@antigravity-hub-jcloud.iam.gserviceaccount.com"],
-              ["Version", "0.1.0"],
+              ["Service Account", `gravix-hub@${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "antigravity-hub-jcloud"}.iam.gserviceaccount.com`],
+              ["Version", "1.0.0"],
             ].map(([key, val]) => (
               <div key={key} style={{ display: "flex", justifyContent: "space-between" }}>
                 <span className="body-sm" style={{ color: "var(--text-secondary)" }}>{key}</span>
@@ -423,148 +420,7 @@ export default function SettingsModule() {
           </div>
         </div>
 
-        {/* Security */}
-        <div className="card">
-          <h3 className="h4" style={{ marginBottom: 16 }}>Security</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label className="caption" style={{ display: "block", marginBottom: 4 }}>API Key</label>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  type={showApiKey ? "text" : "password"}
-                  className="input"
-                  value="sk-gravix-ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"
-                  readOnly
-                />
-                <button className="btn btn-secondary" onClick={() => setShowApiKey(!showApiKey)}>
-                  {showApiKey ? "Hide" : "Show"}
-                </button>
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div className="body">Session Timeout</div>
-                <div className="caption">Automatically log out after inactivity</div>
-              </div>
-              <select className="input" style={{ width: 120, padding: "6px 10px" }} value={sessionTimeout} onChange={(e) => setSessionTimeout(e.target.value)}>
-                <option value="15">15 mins</option>
-                <option value="30">30 mins</option>
-                <option value="60">1 hour</option>
-                <option value="never">Never</option>
-              </select>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div className="body">Two-Factor Authentication</div>
-                <div className="caption">Add an extra layer of security</div>
-              </div>
-              <input type="checkbox" checked={twoFactor} onChange={(e) => setTwoFactor(e.target.checked)} />
-            </div>
-          </div>
-        </div>
 
-        {/* Appearance */}
-        <div className="card">
-          <h3 className="h4" style={{ marginBottom: 16 }}>Appearance</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div className="body">Restart Onboarding Tour</div>
-                <div className="caption">Replay the introductory guide</div>
-              </div>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  if (window.confirm("Are you sure you want to restart the onboarding tour?")) {
-                    localStorage.removeItem("gravix-onboarding-complete");
-                    window.location.reload();
-                  }
-                }}
-              >
-                Restart Tour
-              </button>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div className="body">Theme</div>
-                <div className="caption">Toggle between dark, light, and system</div>
-              </div>
-              <select className="input" style={{ width: 120, padding: "6px 10px" }} value={theme} onChange={(e) => {
-                const val = e.target.value;
-                setTheme(val);
-                if (val !== "system") {
-                  document.documentElement.setAttribute("data-theme", val);
-                } else {
-                  document.documentElement.removeAttribute("data-theme");
-                }
-              }}>
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
-                <option value="system">System</option>
-              </select>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div className="body">Accent Color</div>
-                <div className="caption">Choose your primary color</div>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {presetColors.map(color => (
-                  <div
-                    key={color}
-                    onClick={() => setAccentColor(color)}
-                    style={{
-                      width: 24, height: 24, borderRadius: "50%", background: color, cursor: "pointer",
-                      border: accentColor === color ? "2px solid white" : "2px solid transparent",
-                      boxShadow: accentColor === color ? "0 0 0 2px var(--text-primary)" : "none"
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div className="body">Font Size</div>
-                <div className="caption">{fontSize}px</div>
-              </div>
-              <input
-                type="range"
-                min="12"
-                max="24"
-                value={fontSize}
-                onChange={e => setFontSize(parseInt(e.target.value))}
-                style={{ width: 120 }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Danger Zone */}
-        <div className="card" style={{ border: "1px solid var(--error)" }}>
-          <h3 className="h4" style={{ marginBottom: 16, color: "var(--error)" }}>Danger Zone</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div className="body">Export Data</div>
-                <div className="caption">Download a copy of all your data</div>
-              </div>
-              <button className="btn btn-secondary btn-sm" onClick={handleExportData}>Export</button>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div className="body">Delete Account</div>
-                <div className="caption">Permanently remove your account and data</div>
-              </div>
-              <button
-                className="btn btn-primary btn-sm"
-                style={{ background: "var(--error)" }}
-                onClick={handleDeleteAccount}
-              >
-                Delete Account
-              </button>
-            </div>
-          </div>
-        </div>
 
       </div>
     </div>
