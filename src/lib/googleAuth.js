@@ -235,7 +235,7 @@ export async function getCalendarEventsMulti(accessToken, calendarIds = ["primar
 export async function createCalendarEvent(accessToken, calendarId = "primary", event) {
   return googleApiRequest(
     accessToken,
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1`,
     {
       method: "POST",
       body: JSON.stringify(event),

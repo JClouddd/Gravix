@@ -95,7 +95,7 @@ async function linkToClient(data, context) {
   const email = data.email || data;
   const from = email.from || "";
 
-  // Extract domain from "Name <email@domain.com>" format
+  // Extract domain out of Name <email@domain.com> format
   const domainMatch = from.match(/@([a-zA-Z0-9.-]+)/);
   if (!domainMatch) {
     return { action: "linkToClient", result: "skipped", reason: "no domain in sender" };
