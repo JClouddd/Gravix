@@ -35,9 +35,9 @@ export async function POST(req) {
                   {
                     container: {
                       // Using the most recent deployment hash. In production, tag with 'latest'
-                      imageUri: "us-east4-docker.pkg.dev/antigravity-hub-jcloud/cloud-run-source-deploy/gravix-agent-engine@sha256:a922a9f91bbacb855f04acbafa5d691557c71175a546be99c72db3f34a5808f0",
+                      imageUri: "us-east4-docker.pkg.dev/antigravity-hub-jcloud/cloud-run-source-deploy/gravix-agent-engine:latest",
                       entrypoint: "python3",
-                      commands: ["cloud_chunker.py", url],
+                      commands: ["cloud_chunker.py", "--action", "scrape", "--url", url],
                     },
                     environment: {
                       variables: {

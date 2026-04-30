@@ -1,38 +1,44 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 
 export default function TasksView() {
+  const [taskLists, setTaskLists] = useState([]);
+  const [activeListId, setActiveListId] = useState("@default");
+  
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // New Task Modal State
-  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', notes: '', due: '', tags: '' });
+  // UI States
+  const [inlineTaskTitle, setInlineTaskTitle] = useState('');
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [showCompleted, setShowCompleted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Auto-Schedule Selection State
-  const [selectedTasks, setSelectedTasks] = useState(new Set());
+  const [selectedForSchedule, setSelectedForSchedule] = useState(new Set());
   const [isAutoScheduling, setIsAutoScheduling] = useState(false);
 
-  // Initial Fetch & Real-time Telemetry
+  // Fetch tasks when activeListId changes
   useEffect(() => {
-    // 1. Initial Fetch
-    fetch('/api/management/tasks')
+    setLoading(true);
+    fetch(`/api/management/tasks?taskListId=${activeListId}`)
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.connected && data.tasks && data.tasks.length > 0) {
-          setTasks(data.tasks);
+        if (data.success && data.connected) {
+          setTasks(data.tasks || []);
+          setTaskLists(data.taskLists || []);
+          // Only set activeListId if it was the default initialization
+          if (activeListId === "@default" && data.taskListId) {
+            setActiveListId(data.taskListId);
+          }
+        } else if (!data.connected) {
+          setError("Google OAuth is not connected. Please connect your account in Settings.");
         } else {
-          // Fallback to Omni-Pipeline Mock Data
-          setTasks([
-            { id: 'ai-1', title: 'Compile OpenClaw Core', notes: 'Jules Swarm executing React context build', status: 'pending', ai_status: 'Swarm Executing', anticipated_time: '15m', actual_time: '20m', time_shift: '+5m', due: new Date().toISOString() },
-            { id: 'ai-2', title: 'Verify BigQuery Schema', notes: 'Auditor agent running lint checks', status: 'pending', ai_status: 'Auditing', anticipated_time: '5m', actual_time: '12m', time_shift: '+7m', due: new Date().toISOString() },
-            { id: 'ai-3', title: 'Deploy Cinematic Pipeline', notes: 'Firebase App Hosting crash detected', status: 'pending', ai_status: 'Fatal Error', anticipated_time: '10m', actual_time: '45m', time_shift: '+35m', due: new Date().toISOString() }
-          ]);
+          setError(data.error || "Failed to load tasks");
         }
         setLoading(false);
       })
@@ -40,10 +46,11 @@ export default function TasksView() {
         setError(err.message);
         setLoading(false);
       });
+  }, [activeListId]);
 
-    // 2. Real-time Telemetry (SSE via Firestore WebSocket)
+  // Real-time Telemetry for AI metadata
+  useEffect(() => {
     const unsub = onSnapshot(collection(db, 'management_tasks'), (snapshot) => {
-      // When a backend agent updates a task, instantly merge it into the state
       const liveUpdates = {};
       snapshot.forEach(doc => { liveUpdates[doc.id] = doc.data(); });
       
@@ -54,24 +61,21 @@ export default function TasksView() {
         return task;
       }));
     });
-
     return () => unsub();
   }, []);
 
+  // --- Actions ---
+
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    if (!newTask.title.trim()) return;
+    if (!inlineTaskTitle.trim()) return;
     
     setIsSubmitting(true);
     try {
       const payload = {
-        ...newTask,
-        tags: newTask.tags.split(',').map(t => t.trim()).filter(Boolean)
+        title: inlineTaskTitle,
+        taskListId: activeListId,
       };
-      // For tasks, Google expects RFC 3339 timestamp with Z
-      if (payload.due) {
-        payload.due = new Date(payload.due).toISOString();
-      }
 
       const res = await fetch('/api/management/tasks', {
         method: 'POST',
@@ -81,8 +85,7 @@ export default function TasksView() {
       const data = await res.json();
       if (data.success && data.task) {
         setTasks([data.task, ...tasks]);
-        setShowNewTaskModal(false);
-        setNewTask({ title: '', notes: '', due: '', tags: '' });
+        setInlineTaskTitle('');
       } else {
         alert("Error: " + (data.error || "Failed to create task"));
       }
@@ -93,44 +96,85 @@ export default function TasksView() {
     }
   };
 
-  const toggleScheduleSelection = (taskId) => {
-    const newSet = new Set(selectedTasks);
-    if (newSet.has(taskId)) newSet.delete(taskId);
-    else newSet.add(taskId);
-    setSelectedTasks(newSet);
-  };
+  const handleUpdateTask = async (taskId, updates) => {
+    // Optimistic UI Update
+    setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    if (selectedTask && selectedTask.id === taskId) {
+      setSelectedTask({ ...selectedTask, ...updates });
+    }
 
-  const handleToggleComplete = async (taskId, currentStatus) => {
-    const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
     try {
       await fetch('/api/management/tasks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: taskId, updates: { status: newStatus } })
+        body: JSON.stringify({ id: taskId, taskListId: activeListId, updates })
       });
     } catch (err) {
-      console.error("Failed to update task status");
+      console.error("Failed to update task");
     }
   };
-  
-  const [showCompleted, setShowCompleted] = useState(false);
-  const pendingTasks = tasks.filter(t => t.status !== 'completed');
-  const completedTasks = tasks.filter(t => t.status === 'completed');
+
+  const handleToggleComplete = (taskId, currentStatus) => {
+    const newStatus = currentStatus === 'completed' ? 'needsAction' : 'completed';
+    handleUpdateTask(taskId, { status: newStatus });
+  };
+
+  // Drag and Drop ordering
+  const dragItem = useRef();
+  const dragOverItem = useRef();
+
+  const handleDragStart = (e, index) => {
+    dragItem.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleDragEnter = (e, index) => {
+    dragOverItem.current = index;
+  };
+
+  const handleDragEnd = async (e) => {
+    e.target.style.opacity = '1';
+    if (dragItem.current !== null && dragOverItem.current !== null && dragItem.current !== dragOverItem.current) {
+      const newTasks = [...pendingTasks];
+      const draggedTask = newTasks[dragItem.current];
+      
+      // Remove and insert
+      newTasks.splice(dragItem.current, 1);
+      newTasks.splice(dragOverItem.current, 0, draggedTask);
+      
+      // Update local state immediately for pending tasks
+      setTasks([...newTasks, ...completedTasks]);
+
+      // Call API
+      const previousId = dragOverItem.current > 0 ? newTasks[dragOverItem.current - 1].id : null;
+      try {
+        await fetch('/api/management/tasks', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: draggedTask.id, taskListId: activeListId, action: 'move', previousId })
+        });
+      } catch (err) {
+        console.error("Drag order update failed");
+      }
+    }
+    dragItem.current = null;
+    dragOverItem.current = null;
+  };
 
   const handleAutoSchedule = async () => {
-    if (selectedTasks.size === 0) return;
+    if (selectedForSchedule.size === 0) return;
     setIsAutoScheduling(true);
     try {
       const res = await fetch('/api/management/auto-schedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskIds: Array.from(selectedTasks) })
+        body: JSON.stringify({ taskIds: Array.from(selectedForSchedule) })
       });
       const data = await res.json();
       if (data.success) {
-        alert(`Successfully auto-scheduled ${data.scheduledCount || selectedTasks.size} tasks into your calendar!`);
-        setSelectedTasks(new Set());
+        alert(`Successfully auto-scheduled ${data.scheduledCount || selectedForSchedule.size} tasks!`);
+        setSelectedForSchedule(new Set());
       } else {
         alert("Auto-Schedule failed: " + (data.error || "Unknown error"));
       }
@@ -141,282 +185,276 @@ export default function TasksView() {
     }
   };
 
+  const toggleScheduleSelection = (e, taskId) => {
+    e.stopPropagation();
+    const newSet = new Set(selectedForSchedule);
+    if (newSet.has(taskId)) newSet.delete(taskId);
+    else newSet.add(taskId);
+    setSelectedForSchedule(newSet);
+  };
+
+  // Split tasks
+  const pendingTasks = tasks.filter(t => t.status !== 'completed');
+  const completedTasks = tasks.filter(t => t.status === 'completed');
+
   return (
-    <div className="w-full h-full flex flex-col gap-lg" style={{ padding: "8px 24px 24px 24px", overflowY: "auto" }}>
+    <div className="w-full h-full flex flex-col gap-lg" style={{ padding: "8px 24px 24px 24px" }}>
       
       {/* Header Controls */}
-      <div className="card-glass flex items-center justify-between" style={{ padding: "16px 24px" }}>
+      <div className="card-glass flex items-center justify-between" style={{ padding: "16px 24px", flexShrink: 0 }}>
         <div className="flex items-center gap-md">
           <div className="module-icon" style={{ background: "var(--success-subtle)", color: "var(--success)", width: 48, height: 48, fontSize: 24 }}>
             ✅
           </div>
           <div>
-            <h2 className="h2 text-gradient" style={{ backgroundImage: "linear-gradient(to right, #4ade80, #3b82f6)" }}>Action Items</h2>
-            <p className="caption">Prioritize and execute your task queues</p>
+            <h2 className="h2 text-gradient" style={{ backgroundImage: "linear-gradient(to right, #4ade80, #3b82f6)" }}>Tasks Replica</h2>
+            <p className="caption">Dual-Engine Google Tasks UI</p>
           </div>
         </div>
 
         <div className="flex items-center gap-md">
-          {selectedTasks.size > 0 && (
+          {selectedForSchedule.size > 0 && (
             <button 
               onClick={handleAutoSchedule}
               disabled={isAutoScheduling}
               className="btn btn-primary"
               style={{ background: "var(--agent-courier)", color: "white", borderRadius: "var(--radius-xl)" }}
             >
-              <span className="mr-2">✨</span> Auto-Schedule ({selectedTasks.size})
+              <span className="mr-2">✨</span> Auto-Schedule ({selectedForSchedule.size})
             </button>
           )}
-          <button 
-            onClick={() => setShowNewTaskModal(true)}
-            className="btn btn-primary shadow-lg hover:shadow-xl transition-all"
-            style={{ borderRadius: "var(--radius-xl)", padding: "0 24px", background: "linear-gradient(135deg, var(--accent), var(--agent-analyst))" }}
-          >
-            + New Task
-          </button>
         </div>
       </div>
 
-      {/* Task Filters & Sorting */}
-      <div className="flex gap-sm">
-        <select className="input max-w-[200px] cursor-pointer" style={{ background: "var(--card-bg)" }}>
-          <option>Filter by Status</option>
-          <option>Todo</option>
-          <option>In Progress</option>
-          <option>Done</option>
-        </select>
-        <select className="input max-w-[200px] cursor-pointer" style={{ background: "var(--card-bg)" }}>
-          <option>Sort by Due Date</option>
-          <option>Priority</option>
-        </select>
-        <button className="btn btn-secondary border-warning-subtle text-warning hover:bg-warning-subtle/20">
-          Show Missing Info
-        </button>
-      </div>
-
-      {/* Task List */}
-      <div className="flex flex-col gap-sm pb-10">
-        {loading && (
-          <div className="flex flex-col items-center justify-center p-10 gap-sm card-glass">
-            <div className="status-dot pulse" style={{ background: "var(--success)", width: 16, height: 16 }}></div>
-            <div className="text-secondary font-medium mt-4">Syncing tasks...</div>
-          </div>
-        )}
+      {/* 3-Column Layout */}
+      <div className="flex flex-1 gap-md overflow-hidden min-h-0">
         
-        {error && (
-          <div className="card border-error-subtle bg-error-subtle/10 text-center p-8">
-            <div className="text-4xl mb-4">⚠️</div>
-            <h3 className="h3 text-white mb-2">Sync Error</h3>
-            <p className="caption">{error}</p>
-          </div>
-        )}
-        
-        {!loading && !error && tasks.length === 0 && (
-          <div className="empty-state card-glass border-dashed">
-            <div className="empty-state-icon">✅</div>
-            <div className="empty-state-title">Inbox Zero</div>
-            <div className="empty-state-desc">You have no tasks currently queued. Create one to get started.</div>
-          </div>
-        )}
-
-        {/* Active Tasks */}
-        {!loading && !error && pendingTasks.map(task => (
-          <div 
-            key={task.id} 
-            className="card-glass flex items-center justify-between transition-all group hover:scale-[1.01]"
-            style={{ 
-              padding: "16px 20px",
-              borderColor: selectedTasks.has(task.id) ? "var(--accent)" : "var(--glass-border)",
-              boxShadow: selectedTasks.has(task.id) ? "0 0 0 1px var(--accent)" : "var(--card-shadow)"
-            }}
-          >
-            <div className="flex items-center gap-md w-full max-w-[70%]">
-              <input 
-                type="checkbox" 
-                checked={task.status === 'completed'} 
-                onChange={() => handleToggleComplete(task.id, task.status)} 
-                className="w-5 h-5 rounded border-white/20 bg-black/50 accent-green-500 focus:ring-0 cursor-pointer flex-shrink-0" 
-              />
-              <div className="flex flex-col">
-                <div className={`h4 text-text-primary`}>
-                  {task.title}
-                </div>
-                {task.notes && <div className="caption mt-1 line-clamp-1 opacity-80">{task.notes}</div>}
-              </div>
-            </div>
-            
-            <div className="flex flex-col items-end gap-2 mt-2 md:mt-0">
-              <div className="flex items-center gap-sm">
-                
-                {/* Advanced Swarm Statuses */}
-                {task.ai_status && (
-                  <span className="badge" style={{ 
-                    background: task.ai_status === 'Fatal Error' ? 'rgba(239,68,68,0.1)' : task.ai_status === 'Auditing' ? 'rgba(245,158,11,0.1)' : 'rgba(59,130,246,0.1)',
-                    color: task.ai_status === 'Fatal Error' ? '#ef4444' : task.ai_status === 'Auditing' ? '#f59e0b' : '#3b82f6',
-                    border: `1px solid ${task.ai_status === 'Fatal Error' ? 'rgba(239,68,68,0.3)' : task.ai_status === 'Auditing' ? 'rgba(245,158,11,0.3)' : 'rgba(59,130,246,0.3)'}`
-                  }}>
-                    <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${task.ai_status === 'Fatal Error' ? 'bg-red-500 animate-pulse' : task.ai_status === 'Auditing' ? 'bg-amber-500 animate-pulse' : 'bg-blue-500 animate-pulse'}`}></span>
-                    {task.ai_status}
-                  </span>
-                )}
-
-                {task.antigravity_metadata?.tags?.map(tag => (
-                  <span key={tag} className="badge badge-info">
-                    {tag}
-                  </span>
-                ))}
-                {task.due && (
-                  <span className={`badge ${new Date(task.due) < new Date() ? 'badge-error' : 'badge-success'}`}>
-                    <div className={`status-dot ${new Date(task.due) < new Date() ? 'error' : 'online'}`} style={{ width: 6, height: 6 }}></div>
-                    {new Date(task.due).toLocaleDateString()}
-                  </span>
-                )}
-                
-                {/* Auto-Schedule Icon */}
-                <button 
-                  onClick={() => toggleScheduleSelection(task.id)}
-                  className={`btn-icon w-8 h-8 rounded-lg ml-2 transition-all ${selectedTasks.has(task.id) ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50' : 'bg-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
-                  title="Select for Auto-Scheduling"
-                >
-                  📅
-                </button>
-              </div>
-
-              {/* Temporal Time-Delta Tracking UI */}
-              {task.time_shift && (
-                <div className="flex items-center gap-3 text-xs font-mono bg-black/40 rounded-md px-2 py-1 border border-white/5">
-                  <span className="text-gray-400" title="Anticipated Duration">SCH: {task.anticipated_time}</span>
-                  <span className="text-gray-300" title="Actual Duration">ACT: {task.actual_time}</span>
-                  <span className={`font-bold ${task.time_shift.includes('+') ? 'text-rose-400 drop-shadow-[0_0_5px_rgba(251,113,133,0.8)]' : 'text-emerald-400'}`} title="Timeline Shift">
-                    Δ {task.time_shift}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {/* Completed Tasks Accordion */}
-        {completedTasks.length > 0 && (
-          <div className="mt-8">
-            <button 
-              onClick={() => setShowCompleted(!showCompleted)} 
-              className="flex items-center gap-2 text-text-secondary hover:text-white transition-colors text-sm font-medium mb-4"
+        {/* LEFT COLUMN: Task Lists */}
+        <div className="w-64 card-glass overflow-y-auto hidden md:flex flex-col gap-1 p-2">
+          <h4 className="caption text-gray-400 uppercase tracking-wider px-4 py-2 mb-2">My Lists</h4>
+          {taskLists.map(list => (
+            <button
+              key={list.id}
+              onClick={() => setActiveListId(list.id)}
+              className={`text-left px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${activeListId === list.id ? 'bg-blue-500/20 text-blue-400 font-medium' : 'hover:bg-white/5 text-gray-300'}`}
             >
-              <span className={`transition-transform ${showCompleted ? 'rotate-90' : ''}`}>▶</span>
-              Completed Tasks ({completedTasks.length})
+              <span className="text-lg opacity-70">📋</span>
+              <span className="truncate">{list.title}</span>
             </button>
-            
-            {showCompleted && (
-              <div className="flex flex-col gap-sm">
-                {completedTasks.map(task => (
-                  <div 
-                    key={task.id} 
-                    className="card-glass flex items-center justify-between transition-all opacity-60 hover:opacity-100"
-                    style={{ padding: "12px 20px" }}
-                  >
-                    <div className="flex items-center gap-md w-full max-w-[70%]">
-                      <input 
-                        type="checkbox" 
-                        checked={task.status === 'completed'} 
-                        onChange={() => handleToggleComplete(task.id, task.status)} 
-                        className="w-5 h-5 rounded border-white/20 bg-black/50 accent-green-500 focus:ring-0 cursor-pointer flex-shrink-0" 
-                      />
-                      <div className="flex flex-col">
-                        <div className="h4 text-text-tertiary line-through">
-                          {task.title}
-                        </div>
-                      </div>
+          ))}
+        </div>
+
+        {/* MIDDLE COLUMN: Tasks List */}
+        <div className="flex-1 card-glass flex flex-col overflow-hidden relative">
+          
+          {loading && (
+            <div className="absolute inset-0 bg-black/50 z-10 flex items-center justify-center backdrop-blur-sm">
+              <div className="status-dot pulse" style={{ background: "var(--success)", width: 16, height: 16 }}></div>
+            </div>
+          )}
+
+          {error && (
+            <div className="p-8 text-center text-red-400">
+              <p>⚠️ {error}</p>
+            </div>
+          )}
+
+          {/* Inline Create Task */}
+          <div className="p-4 border-b border-white/10 shrink-0">
+            <form onSubmit={handleCreateTask} className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">＋</span>
+              <input 
+                type="text" 
+                value={inlineTaskTitle}
+                onChange={e => setInlineTaskTitle(e.target.value)}
+                placeholder="Add a task"
+                className="w-full bg-transparent border-none text-white focus:outline-none focus:ring-0 text-lg py-2 pl-12 pr-4 rounded-lg hover:bg-white/5 transition-colors"
+                disabled={isSubmitting}
+              />
+            </form>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2">
+            {/* Active Tasks */}
+            <div className="flex flex-col gap-1">
+              {pendingTasks.map((task, index) => (
+                <div 
+                  key={task.id} 
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragEnter={(e) => handleDragEnter(e, index)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => setSelectedTask(task)}
+                  className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-colors group ${selectedTask?.id === task.id ? 'bg-blue-500/10' : 'hover:bg-white/5'}`}
+                >
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="cursor-grab text-gray-500 opacity-0 group-hover:opacity-100 hover:text-white transition-opacity">⋮⋮</span>
+                    <input 
+                      type="checkbox" 
+                      checked={false} 
+                      onChange={(e) => { e.stopPropagation(); handleToggleComplete(task.id, task.status); }} 
+                      className="w-5 h-5 rounded-full border-2 border-gray-400 bg-transparent accent-blue-500 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-colors"
+                      style={{ backgroundImage: task.status === 'completed' ? 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 16 16\' fill=\'white\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z\'/%3E%3C/svg%3E")' : 'none', backgroundSize: '100% 100%' }}
+                    />
+                  </div>
+                  
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <div className="text-white text-base font-medium truncate">{task.title}</div>
+                    {task.notes && <div className="text-sm text-gray-400 truncate mt-1">{task.notes}</div>}
+                    
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {task.due && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${new Date(task.due) < new Date() ? 'border-red-500/30 text-red-400 bg-red-500/10' : 'border-gray-500/30 text-gray-400'}`}>
+                          {new Date(task.due).toLocaleDateString()}
+                        </span>
+                      )}
+                      {task.antigravity_metadata?.ai_status && (
+                        <span className="text-xs px-2 py-0.5 rounded-full border border-blue-500/30 text-blue-400 bg-blue-500/10 flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
+                          {task.antigravity_metadata.ai_status}
+                        </span>
+                      )}
+                      {task.antigravity_metadata?.tags?.map(tag => (
+                        <span key={tag} className="text-xs px-2 py-0.5 rounded-full border border-white/10 text-gray-300">
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                ))}
+
+                  <button 
+                    onClick={(e) => toggleScheduleSelection(e, task.id)}
+                    className={`btn-icon w-8 h-8 rounded-full ml-2 opacity-0 group-hover:opacity-100 transition-all ${selectedForSchedule.has(task.id) ? 'opacity-100 bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
+                    title="Select for Auto-Scheduling"
+                  >
+                    📅
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Completed Accordion */}
+            {completedTasks.length > 0 && (
+              <div className="mt-6 border-t border-white/10 pt-4">
+                <button 
+                  onClick={() => setShowCompleted(!showCompleted)} 
+                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium px-3 py-1 rounded hover:bg-white/5"
+                >
+                  <span className={`transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}>▶</span>
+                  Completed ({completedTasks.length})
+                </button>
+                
+                {showCompleted && (
+                  <div className="flex flex-col gap-1 mt-2">
+                    {completedTasks.map(task => (
+                      <div 
+                        key={task.id} 
+                        onClick={() => setSelectedTask(task)}
+                        className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-colors group ${selectedTask?.id === task.id ? 'bg-blue-500/10' : 'hover:bg-white/5'}`}
+                      >
+                        <div className="mt-1">
+                          <input 
+                            type="checkbox" 
+                            checked={true} 
+                            onChange={(e) => { e.stopPropagation(); handleToggleComplete(task.id, task.status); }} 
+                            className="w-5 h-5 rounded border-none bg-blue-500 cursor-pointer flex-shrink-0 flex items-center justify-center appearance-none"
+                            style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 16 16\' fill=\'white\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z\'/%3E%3C/svg%3E")', backgroundSize: '100% 100%' }}
+                          />
+                        </div>
+                        <div className="text-gray-500 text-base line-through truncate flex-1">{task.title}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* New Task Modal */}
-      {showNewTaskModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-modal p-4 transition-all">
-          <div className="card-glass w-full max-w-md border-white/20 shadow-2xl relative overflow-hidden" style={{ animation: "scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
-            
-            {/* Decorative background glow */}
-            <div className="absolute -top-20 -right-20 w-40 h-40 bg-green-500/20 rounded-full blur-3xl pointer-events-none"></div>
-
-            <div className="flex justify-between items-center mb-6 relative z-10">
-              <h3 className="h2 text-white">New Task</h3>
-              <button onClick={() => setShowNewTaskModal(false)} className="btn-icon hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
+        {/* RIGHT COLUMN: Details Drawer */}
+        {selectedTask && (
+          <div className="w-80 card-glass flex flex-col border-l border-white/10 animate-fade-in slide-in-from-right relative">
+            <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
+              <span className="text-sm font-medium text-gray-400 uppercase tracking-wider">Details</span>
+              <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-white w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors">
                 ✕
               </button>
             </div>
-
-            <form onSubmit={handleCreateTask} className="flex flex-col gap-md relative z-10">
-              <div>
-                <label className="block caption font-medium mb-2 uppercase tracking-wider text-gray-400">Task Title</label>
-                <input 
-                  type="text" 
-                  value={newTask.title} 
-                  onChange={e => setNewTask({...newTask, title: e.target.value})}
-                  className="input text-lg font-medium"
-                  placeholder="e.g. Complete quarterly report"
-                  required
-                />
-              </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
               
-              <div>
-                <label className="block caption font-medium mb-2 uppercase tracking-wider text-gray-400">Notes / Description</label>
+              <div className="flex items-start gap-3">
+                 <input 
+                    type="checkbox" 
+                    checked={selectedTask.status === 'completed'} 
+                    onChange={() => handleToggleComplete(selectedTask.id, selectedTask.status)} 
+                    className="w-6 h-6 mt-1 rounded-full border-2 border-gray-400 bg-transparent accent-blue-500 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-colors"
+                    style={{ backgroundImage: selectedTask.status === 'completed' ? 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 16 16\' fill=\'white\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z\'/%3E%3C/svg%3E")' : 'none', backgroundSize: '100% 100%' }}
+                  />
                 <textarea 
-                  value={newTask.notes} 
-                  onChange={e => setNewTask({...newTask, notes: e.target.value})}
-                  className="input min-h-[100px] resize-none"
-                  placeholder="Optional details..."
+                  className="w-full bg-transparent border-none text-white text-xl font-medium focus:outline-none focus:ring-0 resize-none h-24"
+                  value={selectedTask.title}
+                  onChange={(e) => handleUpdateTask(selectedTask.id, { title: e.target.value })}
+                  placeholder="Task title"
                 />
               </div>
 
-              <div className="flex gap-md">
-                <div className="flex-1">
-                  <label className="block caption font-medium mb-2 uppercase tracking-wider text-gray-400">Due Date</label>
-                  <input 
-                    type="date" 
-                    value={newTask.due} 
-                    onChange={e => setNewTask({...newTask, due: e.target.value})}
-                    className="input"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block caption font-medium mb-2 uppercase tracking-wider text-gray-400">Tags</label>
-                  <input 
-                    type="text" 
-                    value={newTask.tags} 
-                    onChange={e => setNewTask({...newTask, tags: e.target.value})}
-                    className="input"
-                    placeholder="urgent, work"
-                  />
-                </div>
+              <div>
+                <label className="text-xs text-gray-400 uppercase font-medium mb-2 block">Notes</label>
+                <textarea 
+                  className="w-full bg-black/20 border border-white/10 text-gray-300 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg p-3 resize-none h-32"
+                  value={selectedTask.notes || ''}
+                  onChange={(e) => handleUpdateTask(selectedTask.id, { notes: e.target.value })}
+                  placeholder="Add details..."
+                />
               </div>
 
-              <div className="flex justify-end gap-sm mt-6 pt-6 border-t border-white/10">
-                <button 
-                  type="button" 
-                  onClick={() => setShowNewTaskModal(false)}
-                  className="btn btn-ghost"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className="btn btn-primary"
-                  style={{ minWidth: 120, background: "var(--success)" }}
-                >
-                  {isSubmitting ? 'Creating...' : 'Create Task'}
-                </button>
+              <div>
+                <label className="text-xs text-gray-400 uppercase font-medium mb-2 block">Due Date</label>
+                <input 
+                  type="date"
+                  className="w-full bg-black/20 border border-white/10 text-gray-300 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg p-2 px-3"
+                  value={selectedTask.due ? selectedTask.due.split('T')[0] : ''}
+                  onChange={(e) => handleUpdateTask(selectedTask.id, { due: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                />
               </div>
-            </form>
+
+              <div>
+                <label className="text-xs text-gray-400 uppercase font-medium mb-2 block flex justify-between">
+                  <span>AI Priorities (Tags)</span>
+                </label>
+                <input 
+                  type="text"
+                  className="w-full bg-black/20 border border-white/10 text-gray-300 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg p-2 px-3"
+                  value={selectedTask.antigravity_metadata?.tags?.join(', ') || ''}
+                  onChange={(e) => handleUpdateTask(selectedTask.id, { tags: e.target.value.split(',').map(t=>t.trim()).filter(Boolean) })}
+                  placeholder="High Priority, Client A..."
+                />
+              </div>
+
+              {selectedTask.antigravity_metadata?.ai_status && (
+                <div className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <div className="flex items-center gap-2 text-blue-400 font-medium mb-1">
+                    <span className="animate-spin text-lg">⚙️</span>
+                    Agent Telemetry
+                  </div>
+                  <div className="text-sm text-blue-300 opacity-80">
+                    Status: {selectedTask.antigravity_metadata.ai_status}
+                  </div>
+                  {selectedTask.antigravity_metadata.time_shift && (
+                    <div className="text-xs font-mono mt-2 bg-black/40 p-2 rounded">
+                      Δ {selectedTask.antigravity_metadata.time_shift} 
+                      (Expected: {selectedTask.antigravity_metadata.anticipated_time})
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

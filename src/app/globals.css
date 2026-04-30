@@ -44,15 +44,6 @@
   --agent-courier: hsl(205, 85%, 55%);
   --agent-sentinel: hsl(0, 72%, 58%);
   --agent-builder: hsl(45, 90%, 52%);
-  --agent-finance: hsl(135, 70%, 45%);
-
-  /* Legacy & Compatibility Tokens */
-  --accent-rgb: 99, 102, 241;
-  --primary: var(--accent);
-  --border-color: var(--glass-border);
-  --border: var(--glass-border);
-  --system-blue: var(--info);
-  --system-warning: var(--warning);
 
   /* Glass */
   --glass-bg: hsla(220, 10%, 15%, 0.4);

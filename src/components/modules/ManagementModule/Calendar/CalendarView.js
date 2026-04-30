@@ -28,18 +28,11 @@ export default function CalendarView() {
 
   // New Event Modal State
   const [showNewEventModal, setShowNewEventModal] = useState(false);
-  const [newEvent, setNewEvent] = useState({ 
-    summary: '', 
-    description: '', 
-    start: '', 
-    end: '', 
-    source: 'tasks',
-    guests: '',
-    generateMeetLink: false 
-  });
+  const [newEvent, setNewEvent] = useState({ summary: '', description: '', start: '', end: '', source: 'tasks' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  useEffect(() => {
+  const fetchEventsAndCalendars = () => {
     fetch('/api/management/calendar')
       .then(res => res.json())
       .then(data => {
@@ -59,6 +52,10 @@ export default function CalendarView() {
         setError(err.message);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchEventsAndCalendars();
   }, []);
 
   const handleCreateEvent = async (e) => {
@@ -70,8 +67,7 @@ export default function CalendarView() {
       const payload = {
         ...newEvent,
         start: new Date(newEvent.start).toISOString(),
-        end: new Date(newEvent.end).toISOString(),
-        guests: newEvent.guests.split(',').map(g => g.trim()).filter(Boolean)
+        end: new Date(newEvent.end).toISOString()
       };
 
       const res = await fetch('/api/management/calendar', {
@@ -83,7 +79,7 @@ export default function CalendarView() {
       if (data.success && data.event) {
         setEvents([data.event, ...events]);
         setShowNewEventModal(false);
-        setNewEvent({ summary: '', description: '', start: '', end: '', source: 'tasks', guests: '', generateMeetLink: false });
+        setNewEvent({ summary: '', description: '', start: '', end: '', source: 'tasks' });
       } else {
         alert("Error: " + (data.error || "Failed to create event"));
       }
@@ -94,20 +90,23 @@ export default function CalendarView() {
     }
   };
 
-  const handleSelectSlot = ({ start, end }) => {
-    // Format dates to YYYY-MM-DDThh:mm for datetime-local input
-    const formatDate = (date) => {
-      const d = new Date(date);
-      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-      return d.toISOString().slice(0, 16);
-    };
-    
-    setNewEvent(prev => ({
-      ...prev,
-      start: formatDate(start),
-      end: formatDate(end)
-    }));
-    setShowNewEventModal(true);
+  const handleSyncCalendar = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch("/api/webhooks/calendar-sync", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        // Refresh local view
+        fetchEventsAndCalendars();
+      } else {
+        alert("Failed to sync calendar.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error syncing calendar.");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const toggleCalendar = (calId) => {
@@ -135,6 +134,14 @@ export default function CalendarView() {
         </div>
 
         <div className="flex items-center gap-md">
+          <button 
+            onClick={handleSyncCalendar}
+            disabled={isSyncing}
+            className="btn btn-secondary shadow-sm hover:shadow-md transition-all"
+            style={{ borderRadius: "var(--radius-md)", padding: "0 16px" }}
+          >
+            {isSyncing ? "Syncing..." : "🔄 Sync"}
+          </button>
           <button 
             onClick={() => setShowNewEventModal(true)}
             className="btn btn-primary shadow-lg hover:shadow-xl transition-all"
@@ -197,31 +204,28 @@ export default function CalendarView() {
                 localizer={localizer}
                 events={filteredEvents.map(e => ({
                   id: e.id,
-                  title: e.isTask ? `✔️ ${e.summary.replace('[Task] ', '')}` : e.summary,
+                  title: e.summary,
                   start: new Date(e.start),
                   end: new Date(e.end || e.start),
-                  color: e.color || '#4285f4',
-                  isTask: e.isTask || false
+                  color: e.color || '#4285f4'
                 }))}
                 startAccessor="start"
                 endAccessor="end"
                 style={{ height: '100%', width: '100%' }}
-                selectable={true}
-                onSelectSlot={handleSelectSlot}
                 views={['month', 'week', 'day', 'agenda']}
                 defaultView="week"
                 eventPropGetter={(event) => ({
                   style: {
                     backgroundColor: event.color,
                     borderRadius: '6px',
-                    border: event.isTask ? '1px dashed rgba(255,255,255,0.8)' : 'none',
+                    border: 'none',
                     opacity: 0.9,
-                    color: event.isTask ? '#000' : 'white',
-                    fontWeight: event.isTask ? 600 : 500,
+                    color: 'white',
+                    fontWeight: 500,
                     fontSize: '12px',
                     padding: '2px 6px',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                    borderLeft: `4px solid ${event.isTask ? '#fff' : (event.color === '#4285f4' ? '#2563eb' : 'rgba(255,255,255,0.4)')}`
+                    borderLeft: `4px solid ${event.color === '#4285f4' ? '#2563eb' : 'rgba(255,255,255,0.4)'}`
                   }
                 })}
               />
@@ -300,33 +304,9 @@ export default function CalendarView() {
                 <textarea 
                   value={newEvent.description} 
                   onChange={e => setNewEvent({...newEvent, description: e.target.value})}
-                  className="input min-h-[80px] resize-none"
+                  className="input min-h-[100px] resize-none"
                   placeholder="Add notes, links, or agenda..."
                 />
-              </div>
-
-              <div>
-                <label className="block caption font-medium mb-2 uppercase tracking-wider text-gray-400">Guests</label>
-                <input 
-                  type="text" 
-                  value={newEvent.guests} 
-                  onChange={e => setNewEvent({...newEvent, guests: e.target.value})}
-                  className="input"
-                  placeholder="Comma separated emails (e.g. client@domain.com, team@gravix.io)"
-                />
-              </div>
-
-              <div className="flex items-center gap-3 mt-2">
-                <input 
-                  type="checkbox" 
-                  id="meetLink"
-                  checked={newEvent.generateMeetLink}
-                  onChange={e => setNewEvent({...newEvent, generateMeetLink: e.target.checked})}
-                  className="w-5 h-5 accent-blue-500 bg-white/10 border-white/20 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                />
-                <label htmlFor="meetLink" className="caption text-white cursor-pointer select-none">
-                  Add Google Meet video conferencing
-                </label>
               </div>
 
               <div className="flex justify-end gap-sm mt-4 pt-6 border-t border-white/10">

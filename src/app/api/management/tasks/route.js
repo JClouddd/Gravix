@@ -27,12 +27,16 @@ export async function GET(request) {
       }
     }
 
+    const { searchParams } = new URL(request.url);
+    const requestedListId = searchParams.get('taskListId');
+
     // 1. Fetch Google Tasks Lists to find the default list
     const lists = await getTaskLists(accessToken);
     const defaultList = lists.items?.[0]?.id || "@default";
+    const activeListId = requestedListId || defaultList;
     
     // 2. Fetch Google Tasks
-    const tasksRaw = await getTasks(accessToken, defaultList);
+    const tasksRaw = await getTasks(accessToken, activeListId);
     
     // 3. Fetch Firestore Metadata (custom tags, projects)
     const firestoreTasks = await adminDb.collection("management_tasks").get();
@@ -45,7 +49,13 @@ export async function GET(request) {
       antigravity_metadata: metadataMap[t.id] || { tags: [], projectId: null }
     }));
 
-    return NextResponse.json({ success: true, connected: true, tasks: mergedTasks, taskListId: defaultList });
+    return NextResponse.json({ 
+      success: true, 
+      connected: true, 
+      tasks: mergedTasks, 
+      taskListId: activeListId,
+      taskLists: lists.items || [] 
+    });
   } catch (error) {
     logRouteError("management", "/api/management/tasks GET error", error, "/api/management/tasks");
     return NextResponse.json({ success: false, connected: false, error: error.message }, { status: 500 });
@@ -83,6 +93,72 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error creating task:', error);
     logRouteError("management", "/api/management/tasks POST error", error, "/api/management/tasks");
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+export async function PATCH(request) {
+  try {
+    const data = await request.json();
+    const { id, taskListId = "@default", updates, action, previousId } = data;
+    
+    if (!id) throw new Error("Task ID is required");
+
+    const tokensDoc = await adminDb.collection("settings").doc("google_oauth").get();
+    if (!tokensDoc.exists) throw new Error("OAuth not configured");
+    let { accessToken } = tokensDoc.data();
+
+    // Handle 'move' action separately if requested via PATCH
+    if (action === 'move') {
+      const movedTask = await googleApiRequest(
+        accessToken,
+        `https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks/${id}/move${previousId ? `?previous=${previousId}` : ''}`,
+        { method: "POST" }
+      );
+      return NextResponse.json({ success: true, task: movedTask });
+    }
+
+    // Otherwise, it's a normal patch
+    if (!updates) throw new Error("Updates payload required");
+
+    // Separate Google Tasks fields vs Firestore Metadata fields
+    const googleFields = ['title', 'notes', 'due', 'status', 'completed'];
+    const googleUpdates = {};
+    const metaUpdates = {};
+    let hasGoogleUpdates = false;
+    let hasMetaUpdates = false;
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (googleFields.includes(key)) {
+        googleUpdates[key] = value;
+        hasGoogleUpdates = true;
+      } else {
+        metaUpdates[key] = value;
+        hasMetaUpdates = true;
+      }
+    }
+
+    let updatedGoogleTask = { id };
+    if (hasGoogleUpdates) {
+      updatedGoogleTask = await googleApiRequest(
+        accessToken,
+        `https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks/${id}`,
+        { method: "PATCH", body: JSON.stringify(googleUpdates) }
+      );
+    }
+
+    if (hasMetaUpdates) {
+      await adminDb.collection("management_tasks").doc(id).set({
+        ...metaUpdates,
+        updatedAt: adminDb.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    return NextResponse.json({ success: true, task: updatedGoogleTask });
+
+  } catch (error) {
+    console.error('Error updating task:', error);
+    logRouteError("management", "/api/management/tasks PATCH error", error, "/api/management/tasks");
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

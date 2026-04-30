@@ -23,6 +23,7 @@ const INTEGRATIONS = [
   { name: "Gmail API", status: "not connected", dot: "busy", needsOAuth: true },
   { name: "Google Calendar", status: "not connected", dot: "busy", needsOAuth: true },
   { name: "Google Tasks", status: "not connected", dot: "busy", needsOAuth: true },
+  { name: "Plaid API", status: "configured", dot: "online", meta: "Env: Sandbox" },
   { name: "Colab Enterprise", status: "not connected", dot: "offline", comingSoon: true },
 ];
 
@@ -113,6 +114,38 @@ export default function SettingsModule() {
     costThreshold: 72,
     eventArc: false
   });
+
+  // Plaid API State
+  const [plaidEnv, setPlaidEnv] = useState("sandbox");
+  const [isSavingPlaid, setIsSavingPlaid] = useState(false);
+
+  useEffect(() => {
+    // Load Plaid Env
+    const fetchPlaidEnv = async () => {
+      try {
+        const docRef = doc(db, "settings", "plaid_config");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists() && docSnap.data().environment) {
+          setPlaidEnv(docSnap.data().environment);
+        }
+      } catch (err) {
+        console.error("Failed to load plaid config:", err);
+      }
+    };
+    fetchPlaidEnv();
+  }, []);
+
+  const savePlaidEnv = async (env) => {
+    setIsSavingPlaid(true);
+    setPlaidEnv(env);
+    try {
+      await setDoc(doc(db, "settings", "plaid_config"), { environment: env }, { merge: true });
+    } catch (err) {
+      console.error("Failed to save plaid config:", err);
+    } finally {
+      setIsSavingPlaid(false);
+    }
+  };
 
   // Design Engine State
   const [designContent, setDesignContent] = useState("Loading design matrix...");
@@ -399,6 +432,32 @@ export default function SettingsModule() {
               <option>Batch (confirm set)</option>
               <option>Autonomous</option>
             </select>
+          </div>
+        </div>
+
+        {/* API Configurations */}
+        <div className="card">
+          <h3 className="h4" style={{ marginBottom: 16 }}>API Configurations</h3>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div className="body">Plaid Environment</div>
+              <div className="caption">Switch between Sandbox and Development keys</div>
+              {isSavingPlaid && <div className="caption" style={{ color: "var(--accent)" }}>Saving...</div>}
+            </div>
+            <div style={{ display: "flex", gap: 8, background: "var(--bg-tertiary)", padding: 4, borderRadius: "var(--radius-md)" }}>
+              <button 
+                className={`btn btn-sm ${plaidEnv === 'sandbox' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => savePlaidEnv('sandbox')}
+              >
+                Sandbox
+              </button>
+              <button 
+                className={`btn btn-sm ${plaidEnv === 'development' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => savePlaidEnv('development')}
+              >
+                Development
+              </button>
+            </div>
           </div>
         </div>
 

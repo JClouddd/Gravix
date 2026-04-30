@@ -1,13 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import HelpTooltip from "@/components/HelpTooltip";
 
 /**
- * Colab Module — Notebook runner + Results viewer + Pending notebook review
+ * Notebooks Tab — Notebook runner + Results viewer + Pending notebook review
  */
-
-export default function ColabModule() {
+export default function NotebooksTab() {
   const [notebooks, setNotebooks] = useState([]);
   const [pendingNotebooks, setPendingNotebooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +22,6 @@ export default function ColabModule() {
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
-
 
   // Execution flow state
   const [selectedNotebook, setSelectedNotebook] = useState(null);
@@ -169,20 +166,7 @@ export default function ColabModule() {
 
   return (
     <div>
-      <div className="module-header">
-        <div className="module-header-left">
-          <div className="module-icon" style={{ background: "hsla(280, 65%, 55%, 0.12)" }}>📊</div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <h1 className="module-title">Colab</h1>
-              <HelpTooltip module="colab" />
-            </div>
-            <p className="module-subtitle">Notebook execution and data analysis — powered by Analyst</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
+      {/* Notebook Sub-Tabs */}
       <div style={{
         display: "flex",
         gap: 4,

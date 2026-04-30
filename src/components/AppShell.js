@@ -15,14 +15,7 @@ import PipelineToasts from "@/components/PipelineToasts";
 const MODULES = [
   { id: "home", label: "Home", icon: "🏠", color: "var(--accent)" },
   { id: "management", label: "Management", icon: "📋", color: "var(--accent)" },
-  { id: "planner", label: "Planner", icon: "📅", color: "#f59e0b" },
-  { id: "clients", label: "Clients", icon: "🤝", color: "#10b981" },
   { id: "finance", label: "Finance", icon: "💰", color: "var(--agent-finance)" },
-  { id: "email", label: "Email", icon: "✉️", color: "#3b82f6" },
-  { id: "colab", label: "Colab", icon: "💻", color: "#8b5cf6" },
-  { id: "youtube", label: "YouTube", icon: "▶️", color: "#ef4444" },
-  { id: "knowledge", label: "Knowledge Base", icon: "🧠", color: "#ec4899" },
-  { id: "agents", label: "Agents", icon: "🤖", color: "#06b6d4" },
   { id: "architecture", label: "Ecosystem", icon: "🪐", color: "#00d4ff" },
   { id: "settings",  label: "Settings",  icon: "⚙️",  color: "var(--text-secondary)" },
 ];
@@ -31,14 +24,7 @@ const MODULES = [
 const moduleComponents = {
   home: lazy(() => import("@/components/modules/HomeModule")),
   management: lazy(() => import("@/components/modules/ManagementModule/ManagementDashboard")),
-  planner: lazy(() => import("@/components/modules/PlannerModule")),
-  clients: lazy(() => import("@/components/modules/ClientsModule")),
   finance: lazy(() => import("@/components/modules/FinanceModule")),
-  email: lazy(() => import("@/components/modules/EmailModule")),
-  colab: lazy(() => import("@/components/modules/ColabModule")),
-  youtube: lazy(() => import("@/components/modules/YouTubeModule")),
-  knowledge: lazy(() => import("@/components/modules/KnowledgeModule")),
-  agents: lazy(() => import("@/components/modules/AgentsModule")),
   architecture: lazy(() => import("@/components/modules/ArchitectureModule")),
   settings:  lazy(() => import("@/components/modules/SettingsModule")),
 };

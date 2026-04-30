@@ -5,6 +5,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import AgentTelemetry from "./AgentTelemetry";
+import HomeInbox from "./HomeModule/HomeInbox";
 
 
 /**
@@ -25,6 +26,9 @@ export default function HomeModule({ setActiveModule }) {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState("dashboard"); // "dashboard" | "inbox"
 
   // Activity Feed state
   const [activityFeed, setActivityFeed] = useState([]);
@@ -191,97 +195,109 @@ useEffect(() => {
   }
 
   return (
-    <div>
-      {/* Search Bar */}
-      <div style={{ position: "relative", marginBottom: "24px", zIndex: 100 }}>
-        <div style={{ position: "relative", width: "100%", maxWidth: "600px", margin: "0 auto" }}>
-          <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "18px", color: "var(--text-secondary)" }}>
-            🔍
-          </span>
-          <input
-            type="text"
-            className="input w-full"
-            placeholder="Search agents, docs, clients, or commands..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => {
-              if (searchQuery.length >= 2) setShowSearchDropdown(true);
-            }}
-            onBlur={() => {
-              // Delay hiding to allow clicks
-              setTimeout(() => setShowSearchDropdown(false), 200);
-            }}
-            style={{ paddingLeft: "40px", fontSize: "16px" }}
-          />
-        </div>
+    <div className="w-full h-full flex flex-col" style={{ padding: "8px 24px 24px 24px" }}>
+      {/* Top Navigation Tabs */}
+      <div className="flex gap-4 mb-6 border-b border-white/10 pb-2 shrink-0">
+        <button 
+          onClick={() => setActiveTab("dashboard")}
+          className={`px-4 py-2 text-lg font-medium transition-colors ${activeTab === "dashboard" ? "text-white border-b-2 border-blue-500" : "text-gray-400 hover:text-white"}`}
+        >
+          Dashboard
+        </button>
+        <button 
+          onClick={() => setActiveTab("inbox")}
+          className={`px-4 py-2 text-lg font-medium transition-colors flex items-center gap-2 ${activeTab === "inbox" ? "text-white border-b-2 border-blue-500" : "text-gray-400 hover:text-white"}`}
+        >
+          <span>Inbox</span>
+        </button>
+      </div>
 
-        {showSearchDropdown && (
-          <div className="card" style={{
-            position: "absolute",
-            top: "100%",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "100%",
-            maxWidth: "600px",
-            marginTop: "8px",
-            maxHeight: "400px",
-            overflowY: "auto",
-            zIndex: 1000,
-            padding: "8px 0"
-          }}>
-            {isSearching ? (
-              <div style={{ padding: "16px", textAlign: "center", color: "var(--text-secondary)" }}>
-                Searching...
-              </div>
-            ) : searchResults.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {searchResults.map((result, idx) => (
-                  <div
-                    key={`${result.action}-${idx}`}
-                    style={{
-                      padding: "12px 16px",
-                      display: "flex",
-                      gap: "12px",
-                      alignItems: "center",
-                      cursor: "pointer",
-                      borderBottom: idx < searchResults.length - 1 ? "1px solid var(--card-border)" : "none"
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--bg-secondary)"}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                    onClick={() => {
-                      setSearchQuery("");
-                      setShowSearchDropdown(false);
-                      // In a real app we'd use Next.js router or a context action,
-                      // but since we are relying on window location hash or top-level layout state,
-                      // let's simulate navigation via a hash change or a global event, or just simple href update
-                      // Looking at CommandPalette.js, it seems to take `setActiveModule` as a prop.
-                      // Since we don't have setActiveModule passed to HomeModule,
-                      // let's just trigger a hash change if Gravix uses it, or log a useful message for the user
-                      // that handles module switching.
-                      // Actually, let's just set window.location.hash = result.module
-                      if (setActiveModule && result.module) {
-                        setActiveModule(result.module);
-                      }
-                    }}
-                  >
-                    <span style={{ fontSize: "20px" }}>{result.icon}</span>
-                    <div>
-                      <div className="body-sm" style={{ fontWeight: 600 }}>{result.title}</div>
-                      <div className="caption" style={{ color: "var(--text-secondary)" }}>
-                        {result.type} • {result.description}
-                      </div>
-                    </div>
+      {activeTab === "inbox" ? (
+        <HomeInbox />
+      ) : (
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {/* Search Bar */}
+          <div style={{ position: "relative", marginBottom: "24px", zIndex: 100 }}>
+            <div style={{ position: "relative", width: "100%", maxWidth: "600px", margin: "0 auto" }}>
+              <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "18px", color: "var(--text-secondary)" }}>
+                🔍
+              </span>
+              <input
+                type="text"
+                className="input w-full"
+                placeholder="Search agents, docs, clients, or commands..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => {
+                  if (searchQuery.length >= 2) setShowSearchDropdown(true);
+                }}
+                onBlur={() => {
+                  // Delay hiding to allow clicks
+                  setTimeout(() => setShowSearchDropdown(false), 200);
+                }}
+                style={{ paddingLeft: "40px", fontSize: "16px" }}
+              />
+            </div>
+
+            {showSearchDropdown && (
+              <div className="card" style={{
+                position: "absolute",
+                top: "100%",
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: "100%",
+                maxWidth: "600px",
+                marginTop: "8px",
+                maxHeight: "400px",
+                overflowY: "auto",
+                zIndex: 1000,
+                padding: "8px 0"
+              }}>
+                {isSearching ? (
+                  <div style={{ padding: "16px", textAlign: "center", color: "var(--text-secondary)" }}>
+                    Searching...
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ padding: "16px", textAlign: "center", color: "var(--text-secondary)" }}>
-                No results found for &quot;{searchQuery}&quot;
+                ) : searchResults.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {searchResults.map((result, idx) => (
+                      <div
+                        key={`${result.action}-${idx}`}
+                        style={{
+                          padding: "12px 16px",
+                          display: "flex",
+                          gap: "12px",
+                          alignItems: "center",
+                          cursor: "pointer",
+                          borderBottom: idx < searchResults.length - 1 ? "1px solid var(--card-border)" : "none"
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--bg-secondary)"}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                        onClick={() => {
+                          setSearchQuery("");
+                          setShowSearchDropdown(false);
+                          if (setActiveModule && result.module) {
+                            setActiveModule(result.module);
+                          }
+                        }}
+                      >
+                        <span style={{ fontSize: "20px" }}>{result.icon}</span>
+                        <div>
+                          <div className="body-sm" style={{ fontWeight: 600 }}>{result.title}</div>
+                          <div className="caption" style={{ color: "var(--text-secondary)" }}>
+                            {result.type} • {result.description}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: "16px", textAlign: "center", color: "var(--text-secondary)" }}>
+                    No results found for &quot;{searchQuery}&quot;
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
 
       {/* Credit Gauges */}
       <div className="grid-3" style={{ marginBottom: 24 }}>
@@ -379,7 +395,7 @@ useEffect(() => {
             <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: "flex-start" }} onClick={() => setActiveModule && setActiveModule("agents")}>
               💬 Chat with Scholar
             </button>
-            <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: "flex-start" }} onClick={() => setActiveModule && setActiveModule("colab")}>
+            <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: "flex-start" }} onClick={() => setActiveModule && setActiveModule("knowledge")}>
               📊 Run Analysis Notebook
             </button>
             <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: "flex-start" }} onClick={() => setActiveModule && setActiveModule("agents")}>
@@ -635,6 +651,8 @@ useEffect(() => {
           </div>
         )}
       </div>
+        </div>
+      )}
     </div>
   );
 }

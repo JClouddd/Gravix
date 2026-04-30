@@ -108,7 +108,7 @@ function IncomeTrackerTab() {
  * Finance Module
  * Income tracker + Cost dashboard + Credit allocation
  */
-const TABS = ["Overview", "Out-of-Pocket Calc", "Income Tracker", "By Model", "By Agent"];
+const TABS = ["API & Cloud Costs", "Client Payments", "Banking (Plaid)"];
 
 export default function FinanceModule() {
   const [showExportDropdown, setShowExportDropdown] = useState(false);
@@ -202,24 +202,21 @@ export default function FinanceModule() {
         ))}
       </div>
 
-      {activeTab === "Overview" && (
-        <OverviewTab summary={summary} historyData={historyData} credits={credits} breakdown={breakdown} />
+      {activeTab === "API & Cloud Costs" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+          <OverviewTab summary={summary} historyData={historyData} credits={credits} breakdown={breakdown} />
+          <OutOfPocketTab summary={summary} credits={credits} breakdown={breakdown} />
+          <ByModelTab breakdown={breakdown} />
+          <ByAgentTab breakdown={breakdown} />
+        </div>
       )}
 
-      {activeTab === "Out-of-Pocket Calc" && (
-        <OutOfPocketTab summary={summary} credits={credits} breakdown={breakdown} />
-      )}
-
-      {activeTab === "Income Tracker" && (
+      {activeTab === "Client Payments" && (
         <IncomeTrackerTab />
       )}
 
-      {activeTab === "By Model" && (
-        <ByModelTab breakdown={breakdown} />
-      )}
-
-      {activeTab === "By Agent" && (
-        <ByAgentTab breakdown={breakdown} />
+      {activeTab === "Banking (Plaid)" && (
+        <BankingPlaidTab />
       )}
     </div>
   );
@@ -780,6 +777,73 @@ function OutOfPocketTab({ summary, credits }) {
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function BankingPlaidTab() {
+  const [delineation, setDelineation] = useState("personal"); // 'personal' or 'business'
+  const [isLinking, setIsLinking] = useState(false);
+
+  const handleConnectPlaid = async () => {
+    setIsLinking(true);
+    try {
+      // Simulate calling the backend to get a link token
+      const res = await fetch("/api/finance/plaid/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: "mock-user" })
+      });
+      const data = await res.json();
+      
+      // Simulate Plaid Link flow opening
+      setTimeout(() => {
+        alert(`Plaid Link Triggered (Env: ${data.data?.environment}). UI wiring pending.`);
+        setIsLinking(false);
+      }, 1000);
+    } catch (err) {
+      console.error(err);
+      setIsLinking(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Delineation Toggle */}
+      <div style={{ display: "flex", gap: 8, background: "var(--bg-tertiary)", padding: 4, borderRadius: "var(--radius-md)", alignSelf: "flex-start" }}>
+        <button 
+          className={`btn btn-sm ${delineation === 'personal' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setDelineation('personal')}
+        >
+          👤 Personal
+        </button>
+        <button 
+          className={`btn btn-sm ${delineation === 'business' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setDelineation('business')}
+        >
+          🏢 Business
+        </button>
+      </div>
+
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <div>
+            <h3 className="h4">{delineation === 'personal' ? 'Personal Banking' : 'Business Banking'}</h3>
+            <p className="caption">Manage your linked accounts and transaction feed.</p>
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={handleConnectPlaid} disabled={isLinking}>
+            {isLinking ? "Connecting..." : "+ Link Account (Plaid)"}
+          </button>
+        </div>
+
+        <div className="empty-state" style={{ marginTop: 24 }}>
+          <div className="empty-state-icon">🏦</div>
+          <p className="empty-state-title">No Accounts Linked</p>
+          <p className="empty-state-desc">
+            Connect your {delineation} bank accounts securely using Plaid to track balances and transactions in real-time.
+          </p>
+        </div>
       </div>
     </div>
   );

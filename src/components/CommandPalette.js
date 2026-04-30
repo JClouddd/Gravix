@@ -19,9 +19,9 @@ const COMMANDS = [
 
   // Actions
   { id: "act-email", type: "Action", label: "Compose Email", icon: "✏️", desc: "Draft a new email" },
-  { id: "act-task", type: "Action", label: "Create Task", icon: "✅", desc: "Add a new task to Planner" },
+  { id: "act-task", type: "Action", label: "Create Task", icon: "✅", desc: "Add a new task to Management" },
   { id: "act-client", type: "Action", label: "Create Client", icon: "➕", desc: "Add a new client profile" },
-  { id: "act-notebook", type: "Action", label: "Run Notebook", icon: "▶️", desc: "Execute a Colab notebook" },
+  { id: "act-notebook", type: "Action", label: "Run Notebook", icon: "▶️", desc: "Execute a data notebook" },
   { id: "act-search", type: "Action", label: "Search Knowledge", icon: "🔍", desc: "Search through ingested docs" },
   { id: "act-health", type: "Action", label: "Check Health", icon: "🩺", desc: "Run system diagnostics" },
   { id: "act-shortcuts", type: "Action", label: "Keyboard Shortcuts", icon: "⌨️", desc: "View all shortcuts" },
@@ -99,6 +99,8 @@ export default function CommandPalette({ setActiveModule }) {
       // Map actions to their target modules
       const actionModuleMap = {
         "act-health": "home",
+        "act-notebook": "knowledge",
+        "act-search": "knowledge",
       };
       const targetModule = actionModuleMap[cmd.id];
       if (targetModule) setActiveModule(targetModule);

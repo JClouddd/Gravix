@@ -235,7 +235,7 @@ export async function getCalendarEventsMulti(accessToken, calendarIds = ["primar
 export async function createCalendarEvent(accessToken, calendarId = "primary", event) {
   return googleApiRequest(
     accessToken,
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1`,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
     {
       method: "POST",
       body: JSON.stringify(event),
@@ -269,6 +269,23 @@ export async function updateTask(accessToken, taskListId, taskId, data) {
       body: JSON.stringify(data),
     }
   );
+}
+
+export async function patchTask(accessToken, taskListId, taskId, data) {
+  return googleApiRequest(
+    accessToken,
+    `https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks/${taskId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+export async function moveTask(accessToken, taskListId, taskId, previousId) {
+  let url = `https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks/${taskId}/move`;
+  if (previousId) url += `?previous=${previousId}`;
+  return googleApiRequest(accessToken, url, { method: "POST" });
 }
 
 export async function listContacts(accessToken, pageSize = 100) {
@@ -330,6 +347,8 @@ const defaultExport = {
   getTaskLists,
   getTasks,
   updateTask,
+  patchTask,
+  moveTask,
   listContacts,
   createContact,
   searchContacts,

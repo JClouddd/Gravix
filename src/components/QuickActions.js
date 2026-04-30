@@ -10,7 +10,7 @@ export default function QuickActions({ activeModule, setActiveModule }) {
   const actions = [
     { label: "Search Knowledge", icon: "🔍", action: "knowledge" },
     { label: "Ask AI", icon: "✨", action: "agents" },
-    { label: "Create Task", icon: "✅", action: "planner" },
+    { label: "Create Task", icon: "✅", action: "management" },
     { label: "Compose Email", icon: "✉️", action: "email" },
   ];
 

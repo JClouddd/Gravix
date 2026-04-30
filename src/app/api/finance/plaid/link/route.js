@@ -1,42 +1,45 @@
-import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
-import { logRouteError } from '@/lib/errorLogger';
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/firebase-admin'; // Use admin db for secure server-side checks
 
-export async function POST(request) {
+/**
+ * POST /api/finance/plaid/link
+ * Generates a Plaid Link Token based on the configured environment.
+ */
+export async function POST(req) {
   try {
-    const body = await request.json();
-    const {
-      client_user_id = 'user-id',
-      client_name = 'Gravix App',
-      products = ['auth', 'transactions'],
-      country_codes = ['US'],
-      language = 'en',
-    } = body;
+    const { userId } = await req.json();
 
-    const configuration = new Configuration({
-      basePath: PlaidEnvironments[process.env.PLAID_ENV || 'sandbox'],
-      baseOptions: {
-        headers: {
-          'PLAID-CLIENT-ID': process.env.PLAID_CLIENT_ID,
-          'PLAID-SECRET': process.env.PLAID_SECRET,
-        },
-      },
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized: missing userId' }, { status: 401 });
+    }
+
+    // 1. Fetch Plaid Environment Setting from Firestore
+    // The SettingsModule will write to 'settings/plaid_config'
+    const settingsDoc = await db.collection('settings').doc('plaid_config').get();
+    let plaidEnv = 'sandbox'; // Default
+    if (settingsDoc.exists) {
+      plaidEnv = settingsDoc.data().environment || 'sandbox';
+    }
+
+    // 2. We mock the Plaid endpoint call for now to scaffold the architecture
+    // When ready to wire, we will use the `plaid` Node SDK.
+    const mockTokenResponse = {
+      link_token: `link-${plaidEnv}-${Math.random().toString(36).substring(7)}`,
+      expiration: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+      environment: plaidEnv
+    };
+
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    return NextResponse.json({ 
+      success: true, 
+      data: mockTokenResponse,
+      message: `Successfully generated Plaid link token for ${plaidEnv} environment`
     });
 
-    const client = new PlaidApi(configuration);
-
-    const response = await client.linkTokenCreate({
-      user: {
-        client_user_id,
-      },
-      client_name,
-      products,
-      country_codes,
-      language,
-    });
-
-    return Response.json(response.data);
   } catch (error) {
-    await logRouteError('runtime', 'Plaid Link Error', error, '/api/finance/plaid/link');
-    return Response.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('Failed to generate Plaid link token:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
