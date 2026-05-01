@@ -5,7 +5,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import AgentTelemetry from "./AgentTelemetry";
-import HomeInbox from "./HomeModule/HomeInbox";
+
 
 
 /**
@@ -213,7 +213,11 @@ useEffect(() => {
       </div>
 
       {activeTab === "inbox" ? (
-        <HomeInbox />
+        <div className="card" style={{ padding: 40, textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>📥</div>
+          <h3 className="h4">Inbox</h3>
+          <p className="caption" style={{ color: "var(--text-secondary)" }}>Unified inbox coming soon</p>
+        </div>
       ) : (
         <div className="flex-1 overflow-y-auto min-h-0">
           {/* Search Bar */}
