@@ -13,6 +13,7 @@ export default function MeetingsView() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     fetchData();
   }, []);
 

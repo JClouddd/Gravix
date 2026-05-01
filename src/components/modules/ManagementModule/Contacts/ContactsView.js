@@ -25,6 +25,7 @@ export default function ContactsView() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     fetchContacts();
   }, []);
 

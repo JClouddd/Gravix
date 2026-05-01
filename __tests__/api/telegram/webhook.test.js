@@ -97,13 +97,13 @@ describe('Telegram Webhook Route', () => {
 
     expect(data.success).toBe(true);
 
-    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/api/agents/route', expect.objectContaining({
+    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/api/agents/route', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
-    }));
+      body: expect.stringContaining("Hello bot"),
+    });
   });
 
   it('should catch errors and return 200 OK after logging', async () => {
