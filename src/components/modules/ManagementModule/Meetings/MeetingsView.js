@@ -12,11 +12,6 @@ export default function MeetingsView() {
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    fetchData();
-  }, []);
-
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -31,6 +26,11 @@ export default function MeetingsView() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData();
+  }, []);
 
   const handleAudioUpload = async (e) => {
     const file = e.target.files?.[0];

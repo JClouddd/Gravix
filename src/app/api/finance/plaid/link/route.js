@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase-admin'; // Use admin db for secure server-side checks
+import { adminDb } from '@/lib/firebaseAdmin'; // Use admin db for secure server-side checks
 
 /**
  * POST /api/finance/plaid/link
@@ -15,7 +15,7 @@ export async function POST(req) {
 
     // 1. Fetch Plaid Environment Setting from Firestore
     // The SettingsModule will write to 'settings/plaid_config'
-    const settingsDoc = await db.collection('settings').doc('plaid_config').get();
+    const settingsDoc = await adminDb.collection('settings').doc('plaid_config').get();
     let plaidEnv = 'sandbox'; // Default
     if (settingsDoc.exists) {
       plaidEnv = settingsDoc.data().environment || 'sandbox';
