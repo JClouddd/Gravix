@@ -15,6 +15,21 @@ export default function YouTubeModule() {
   const [apiCaps, setApiCaps] = useState(null);
   const [authStatus, setAuthStatus] = useState("disconnected");
 
+  // Incubation Wizard State
+  const [showWizard, setShowWizard] = useState(false);
+  const [wizardNiche, setWizardNiche] = useState(null);
+  const [wizardConfig, setWizardConfig] = useState({
+    format: "funnel", // independent_shorts, independent_long, funnel
+    vibe: "",
+    revenue: {
+      adsense: true,
+      digitalProducts: false,
+      affiliates: false,
+      patreon: false
+    }
+  });
+  const [incubating, setIncubating] = useState(false);
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("auth") === "success") { setAuthStatus("connected"); window.history.replaceState({}, document.title, window.location.pathname + "?module=youtube"); }
@@ -53,6 +68,24 @@ export default function YouTubeModule() {
     return m[level] || m["Medium"];
   };
   const trendIcon = (t) => { if (!t) return "—"; const l = t.toLowerCase(); if (l.includes("grow") || l.includes("emerg")) return "📈"; if (l.includes("stable")) return "➡️"; if (l.includes("declin")) return "📉"; return "🔄"; };
+
+  const handleIncubate = async () => {
+    setIncubating(true);
+    try {
+      const res = await fetch("/api/agents/incubate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ niche: wizardNiche, config: wizardConfig })
+      });
+      // In a real flow, we would handle the response and switch to the Pipeline tab
+      setShowWizard(false);
+      setActiveTab("pipeline");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIncubating(false);
+    }
+  };
 
   const tabs = [
     { id: "intelligence", label: "Niche Intelligence", icon: "🧠" },
@@ -241,7 +274,7 @@ export default function YouTubeModule() {
                               )}
 
                               <div style={{ marginTop: "14px", display: "flex", gap: "10px" }}>
-                                <button style={{ background: "linear-gradient(135deg, rgba(168,85,247,0.15), rgba(236,72,153,0.15))", border: "1px solid rgba(168,85,247,0.3)", color: "#d8b4fe", padding: "8px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "500", fontSize: "0.85rem" }}>Incubate Channel</button>
+                                <button onClick={() => { setWizardNiche(item); setShowWizard(true); }} style={{ background: "linear-gradient(135deg, rgba(168,85,247,0.15), rgba(236,72,153,0.15))", border: "1px solid rgba(168,85,247,0.3)", color: "#d8b4fe", padding: "8px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "500", fontSize: "0.85rem" }}>Incubate Channel</button>
                                 <button style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "8px 18px", borderRadius: "6px", cursor: "pointer", fontSize: "0.85rem" }}>Deep Dive</button>
                               </div>
                             </td></tr>
@@ -266,14 +299,59 @@ export default function YouTubeModule() {
         </div>
       )}
 
-      {/* ═══ TAB: Analytics ═══ */}
+      {/* ═══ TAB: Analytics (Empire Dashboard) ═══ */}
       {activeTab === "analytics" && (
-        <div className="card-glass" style={{ padding: "40px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "300px" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "16px" }}>📊</div>
-          <h3 style={{ marginBottom: "8px" }}>Analytics Dashboard</h3>
-          <p style={{ color: "#94a3b8", textAlign: "center", maxWidth: "400px" }}>Connect a YouTube channel and begin publishing content to activate real-time analytics tracking via the YouTube Analytics API.</p>
-          <div style={{ marginTop: "16px", display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
-            {["estimatedRevenue","CPM","RPM","views","watchTime","subscribersGained"].map(m => <span key={m} style={{ background: "rgba(255,255,255,0.05)", padding: "4px 10px", borderRadius: "4px", fontSize: "0.75rem", color: "#64748b" }}>{m}</span>)}
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "16px", marginBottom: "24px" }}>
+            <div className="card-glass" style={{ padding: "24px" }}>
+              <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#a78bfa", letterSpacing: "0.05em", marginBottom: "8px" }}>Total Empire Revenue</div>
+              <div style={{ fontSize: "2.5rem", fontWeight: "bold", background: "linear-gradient(135deg, #a78bfa, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>$14,250.00</div>
+              <div style={{ color: "#4ade80", fontSize: "0.85rem", marginTop: "8px" }}>↑ +12.5% this month</div>
+            </div>
+            <div className="card-glass" style={{ padding: "24px" }}>
+              <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#60a5fa", letterSpacing: "0.05em", marginBottom: "8px" }}>Total Empire Views</div>
+              <div style={{ fontSize: "2.5rem", fontWeight: "bold", color: "#fff" }}>2.4M</div>
+              <div style={{ color: "#4ade80", fontSize: "0.85rem", marginTop: "8px" }}>↑ +8.2% this month</div>
+            </div>
+            <div className="card-glass" style={{ padding: "24px" }}>
+              <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#34d399", letterSpacing: "0.05em", marginBottom: "8px" }}>Total Subscribers</div>
+              <div style={{ fontSize: "2.5rem", fontWeight: "bold", color: "#fff" }}>142K</div>
+              <div style={{ color: "#4ade80", fontSize: "0.85rem", marginTop: "8px" }}>↑ +4.1% this month</div>
+            </div>
+          </div>
+          
+          <h3 style={{ fontSize: "1.1rem", marginBottom: "16px", color: "#e2e8f0" }}>Channel Portfolio</h3>
+          <div className="card-glass" style={{ padding: "0", overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8", fontSize: "0.75rem", textTransform: "uppercase" }}>
+                  <th style={{ padding: "16px 20px" }}>Channel Name</th>
+                  <th style={{ padding: "16px 20px" }}>Niche</th>
+                  <th style={{ padding: "16px 20px" }}>Status</th>
+                  <th style={{ padding: "16px 20px" }}>Monthly Rev</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <td style={{ padding: "16px 20px", fontWeight: "500" }}>AI Manga Tales</td>
+                  <td style={{ padding: "16px 20px", color: "#94a3b8", fontSize: "0.85rem" }}>Anime Automation</td>
+                  <td style={{ padding: "16px 20px" }}><span style={{ background: "rgba(34,197,94,0.1)", color: "#4ade80", padding: "4px 8px", borderRadius: "4px", fontSize: "0.75rem" }}>Monetized</span></td>
+                  <td style={{ padding: "16px 20px", fontWeight: "600", color: "#4ade80" }}>$4,120</td>
+                </tr>
+                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <td style={{ padding: "16px 20px", fontWeight: "500" }}>SaaS Builders</td>
+                  <td style={{ padding: "16px 20px", color: "#94a3b8", fontSize: "0.85rem" }}>B2B Tech</td>
+                  <td style={{ padding: "16px 20px" }}><span style={{ background: "rgba(34,197,94,0.1)", color: "#4ade80", padding: "4px 8px", borderRadius: "4px", fontSize: "0.75rem" }}>Monetized</span></td>
+                  <td style={{ padding: "16px 20px", fontWeight: "600", color: "#4ade80" }}>$10,130</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: "16px 20px", fontWeight: "500" }}>Silent Stoic</td>
+                  <td style={{ padding: "16px 20px", color: "#94a3b8", fontSize: "0.85rem" }}>Philosophy</td>
+                  <td style={{ padding: "16px 20px" }}><span style={{ background: "rgba(245,158,11,0.1)", color: "#fbbf24", padding: "4px 8px", borderRadius: "4px", fontSize: "0.75rem" }}>Incubating (40% to Goal)</span></td>
+                  <td style={{ padding: "16px 20px", fontWeight: "600", color: "#94a3b8" }}>$0</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -302,6 +380,70 @@ export default function YouTubeModule() {
           <div className="card-glass" style={{ padding: "24px", gridColumn: "1 / -1" }}>
             <h3 style={{ fontSize: "1rem", marginBottom: "12px" }}>Multi-Channel Routing</h3>
             <p style={{ color: "#94a3b8", fontSize: "0.85rem", lineHeight: "1.6" }}>Each channel uses a separate OAuth refresh token stored in Google Cloud Secret Manager. The system routes uploads to the correct channel by matching <code style={{ background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: "3px" }}>channel_id → refresh_token_secret_name</code> from the channels registry.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Incubation Wizard Modal ═══ */}
+      {showWizard && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="card-glass" style={{ width: "600px", maxWidth: "90vw", maxHeight: "90vh", overflowY: "auto", padding: "30px", borderTop: "2px solid #a78bfa" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <h2 style={{ fontSize: "1.5rem", margin: 0, background: "linear-gradient(to right, #a78bfa, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Channel Profile Manager</h2>
+              <button onClick={() => setShowWizard(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "1.5rem" }}>&times;</button>
+            </div>
+            
+            <p style={{ color: "#cbd5e1", fontSize: "0.9rem", marginBottom: "24px" }}>
+              Configure the deployment parameters for <strong style={{ color: "#fff" }}>{wizardNiche?.niche || "this channel"}</strong>.
+            </p>
+
+            {/* Format Selection */}
+            <div style={{ marginBottom: "24px" }}>
+              <label style={{ display: "block", color: "#94a3b8", fontSize: "0.75rem", textTransform: "uppercase", marginBottom: "10px", letterSpacing: "0.05em" }}>Content Format Strategy</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                {[
+                  { id: "independent_shorts", label: "Shorts Only", desc: "Stand-alone vertical" },
+                  { id: "independent_long", label: "Long Form Only", desc: "Stand-alone horizontal" },
+                  { id: "funnel", label: "Funnel Mode (Both)", desc: "Shorts hooked to Long" }
+                ].map(opt => (
+                  <div key={opt.id} onClick={() => setWizardConfig({...wizardConfig, format: opt.id})} style={{ padding: "14px", borderRadius: "8px", border: wizardConfig.format === opt.id ? "1px solid #a78bfa" : "1px solid rgba(255,255,255,0.1)", background: wizardConfig.format === opt.id ? "rgba(167,139,250,0.1)" : "rgba(255,255,255,0.03)", cursor: "pointer", transition: "all 0.2s" }}>
+                    <div style={{ fontWeight: "500", color: wizardConfig.format === opt.id ? "#a78bfa" : "#e2e8f0", fontSize: "0.85rem", marginBottom: "4px" }}>{opt.label}</div>
+                    <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>{opt.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Revenue Stack */}
+            <div style={{ marginBottom: "24px" }}>
+              <label style={{ display: "block", color: "#94a3b8", fontSize: "0.75rem", textTransform: "uppercase", marginBottom: "10px", letterSpacing: "0.05em" }}>Revenue Stack Toggles</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                {[
+                  { id: "adsense", label: "AdSense (Default)" },
+                  { id: "patreon", label: "Patreon / Memberships" },
+                  { id: "digitalProducts", label: "Digital Products" },
+                  { id: "affiliates", label: "Affiliate Links" }
+                ].map(opt => (
+                  <label key={opt.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px", cursor: "pointer", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <input type="checkbox" checked={wizardConfig.revenue[opt.id]} onChange={(e) => setWizardConfig({...wizardConfig, revenue: {...wizardConfig.revenue, [opt.id]: e.target.checked}})} style={{ accentColor: "#a78bfa", width: "16px", height: "16px" }} />
+                    <span style={{ fontSize: "0.85rem", color: "#cbd5e1" }}>{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Vibe Override */}
+            <div style={{ marginBottom: "30px" }}>
+              <label style={{ display: "block", color: "#94a3b8", fontSize: "0.75rem", textTransform: "uppercase", marginBottom: "10px", letterSpacing: "0.05em" }}>Target Audience Vibe (Optional)</label>
+              <textarea value={wizardConfig.vibe} onChange={(e) => setWizardConfig({...wizardConfig, vibe: e.target.value})} placeholder="e.g. 'Dark, gritty anime style' or 'Highly professional B2B SaaS tone'..." style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "12px", color: "#e2e8f0", outline: "none", minHeight: "80px", resize: "vertical", fontFamily: "inherit", fontSize: "0.85rem" }} />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
+              <button onClick={() => setShowWizard(false)} style={{ padding: "10px 20px", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", borderRadius: "6px", cursor: "pointer", fontWeight: "500" }}>Cancel</button>
+              <button onClick={handleIncubate} disabled={incubating} style={{ padding: "10px 24px", background: incubating ? "rgba(167,139,250,0.5)" : "linear-gradient(135deg, #a78bfa, #ec4899)", border: "none", color: "#fff", borderRadius: "6px", cursor: incubating ? "wait" : "pointer", fontWeight: "600", display: "flex", alignItems: "center", gap: "8px" }}>
+                {incubating ? "🚀 Handing off to Swarm..." : "🚀 Confirm & Incubate"}
+              </button>
+            </div>
           </div>
         </div>
       )}
