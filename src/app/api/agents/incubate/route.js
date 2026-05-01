@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateObject } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { db } from '@/lib/firebaseAdmin';
+import { adminDb as db } from '@/lib/firebaseAdmin';
 
 const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
 
