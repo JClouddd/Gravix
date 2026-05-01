@@ -15,6 +15,7 @@
     "@google-cloud/bigquery-storage": "^5.1.0",
     "@google-cloud/discoveryengine": "^2.6.0",
     "@google-cloud/pubsub": "^5.3.0",
+    "@google-cloud/secret-manager": "^6.1.1",
     "@google/genai": "^1.51.0",
     "@google/generative-ai": "^0.24.1",
     "date-fns": "^4.1.0",
