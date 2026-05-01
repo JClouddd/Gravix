@@ -88,10 +88,11 @@ export default function YouTubeModule() {
   };
 
   const tabs = [
-    { id: "intelligence", label: "Niche Intelligence", icon: "🧠" },
-    { id: "pipeline", label: "Channel Pipeline", icon: "🚀" },
-    { id: "analytics", label: "Analytics", icon: "📊" },
-    { id: "quota", label: "Quota & API", icon: "⚡" },
+    { id: "intelligence", label: "Intelligence Engine", icon: "🧠" },
+    { id: "dashboard", label: "Empire Dashboard", icon: "📊" },
+    { id: "portfolio", label: "Channel Portfolio", icon: "🗂️" },
+    { id: "pipeline", label: "Swarm Pipeline", icon: "🚀" },
+    { id: "quota", label: "Infrastructure & API", icon: "⚡" },
   ];
 
   return (
@@ -118,7 +119,7 @@ export default function YouTubeModule() {
         ))}
       </div>
 
-      {/* ═══ TAB: Niche Intelligence ═══ */}
+      {/* ═══ TAB: Intelligence Engine ═══ */}
       {activeTab === "intelligence" && (
         <>
           {/* Metric Cards */}
@@ -290,7 +291,7 @@ export default function YouTubeModule() {
         </>
       )}
 
-      {/* ═══ TAB: Channel Pipeline ═══ */}
+      {/* ═══ TAB: Swarm Pipeline ═══ */}
       {activeTab === "pipeline" && (
         <div className="card-glass" style={{ padding: "40px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "300px" }}>
           <div style={{ fontSize: "3rem", marginBottom: "16px" }}>🚀</div>
@@ -299,9 +300,10 @@ export default function YouTubeModule() {
         </div>
       )}
 
-      {/* ═══ TAB: Analytics (Empire Dashboard) ═══ */}
-      {activeTab === "analytics" && (
+      {/* ═══ TAB: Empire Dashboard ═══ */}
+      {activeTab === "dashboard" && (
         <div>
+          <h2 style={{ fontSize: "1.25rem", marginBottom: "20px", color: "#fff", fontWeight: "600" }}>Empire Net Worth</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "16px", marginBottom: "24px" }}>
             <div className="card-glass" style={{ padding: "24px" }}>
               <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#a78bfa", letterSpacing: "0.05em", marginBottom: "8px" }}>Total Empire Revenue</div>
@@ -319,8 +321,16 @@ export default function YouTubeModule() {
               <div style={{ color: "#4ade80", fontSize: "0.85rem", marginTop: "8px" }}>↑ +4.1% this month</div>
             </div>
           </div>
-          
-          <h3 style={{ fontSize: "1.1rem", marginBottom: "16px", color: "#e2e8f0" }}>Channel Portfolio</h3>
+        </div>
+      )}
+
+      {/* ═══ TAB: Channel Portfolio ═══ */}
+      {activeTab === "portfolio" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <h3 style={{ fontSize: "1.1rem", color: "#e2e8f0", margin: 0 }}>Channel Portfolio</h3>
+            <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>Click a channel to manage its Global Lore and Pipeline</span>
+          </div>
           <div className="card-glass" style={{ padding: "0", overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
               <thead>
@@ -332,19 +342,19 @@ export default function YouTubeModule() {
                 </tr>
               </thead>
               <tbody>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                   <td style={{ padding: "16px 20px", fontWeight: "500" }}>AI Manga Tales</td>
                   <td style={{ padding: "16px 20px", color: "#94a3b8", fontSize: "0.85rem" }}>Anime Automation</td>
                   <td style={{ padding: "16px 20px" }}><span style={{ background: "rgba(34,197,94,0.1)", color: "#4ade80", padding: "4px 8px", borderRadius: "4px", fontSize: "0.75rem" }}>Monetized</span></td>
                   <td style={{ padding: "16px 20px", fontWeight: "600", color: "#4ade80" }}>$4,120</td>
                 </tr>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                   <td style={{ padding: "16px 20px", fontWeight: "500" }}>SaaS Builders</td>
                   <td style={{ padding: "16px 20px", color: "#94a3b8", fontSize: "0.85rem" }}>B2B Tech</td>
                   <td style={{ padding: "16px 20px" }}><span style={{ background: "rgba(34,197,94,0.1)", color: "#4ade80", padding: "4px 8px", borderRadius: "4px", fontSize: "0.75rem" }}>Monetized</span></td>
                   <td style={{ padding: "16px 20px", fontWeight: "600", color: "#4ade80" }}>$10,130</td>
                 </tr>
-                <tr>
+                <tr style={{ cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                   <td style={{ padding: "16px 20px", fontWeight: "500" }}>Silent Stoic</td>
                   <td style={{ padding: "16px 20px", color: "#94a3b8", fontSize: "0.85rem" }}>Philosophy</td>
                   <td style={{ padding: "16px 20px" }}><span style={{ background: "rgba(245,158,11,0.1)", color: "#fbbf24", padding: "4px 8px", borderRadius: "4px", fontSize: "0.75rem" }}>Incubating (40% to Goal)</span></td>
@@ -356,7 +366,7 @@ export default function YouTubeModule() {
         </div>
       )}
 
-      {/* ═══ TAB: Quota & API ═══ */}
+      {/* ═══ TAB: Infrastructure & API ═══ */}
       {activeTab === "quota" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
           <div className="card-glass" style={{ padding: "24px" }}>
