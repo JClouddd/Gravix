@@ -1,4 +1,4 @@
-import { generate } from "@/lib/geminiClient";
+import { structuredGenerate } from "@/lib/geminiClient";
 
 /**
  * Generates a master script for a YouTube video based on a topic and target audience.
@@ -42,11 +42,11 @@ Format the response as JSON.`;
     required: ["titles", "keywords", "outline", "talkingPoints", "estimatedLength"]
   };
 
-  const response = await generate({
+  const response = await structuredGenerate({
     prompt,
     systemPrompt: "You are an expert YouTube strategist and scriptwriter. You help creators brainstorm, structure, and write high-performing video scripts.",
     complexity: "pro",
-    jsonSchema: schema
+    schema
   });
 
   try {

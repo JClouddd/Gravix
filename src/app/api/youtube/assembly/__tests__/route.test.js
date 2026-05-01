@@ -5,6 +5,14 @@ vi.mock("@/lib/errorLogger", () => ({
   logRouteError: vi.fn(),
 }));
 
+vi.mock("@/lib/workers/ffmpegWorker", () => ({
+  stitchVideos: vi.fn().mockResolvedValue("/tmp/mock.mp4"),
+}));
+
+vi.mock("next/server", () => ({
+  after: vi.fn((fn) => fn()),
+}));
+
 describe("/api/youtube/assembly", () => {
   it("should return an error if assets is missing", async () => {
     const request = new Request("http://localhost/api/youtube/assembly", {
