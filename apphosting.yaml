@@ -38,6 +38,16 @@ env:
   - variable: GITHUB_TOKEN
     secret: GITHUB_TOKEN
 
+  # Tavily (AI web search — niche research)
+  - variable: TAVILY_API_KEY
+    secret: TAVILY_API_KEY
+
+  # YouTube (reuses Google OAuth credentials + scopes)
+  - variable: YOUTUBE_CLIENT_ID
+    secret: GOOGLE_OAUTH_CLIENT_ID
+  - variable: YOUTUBE_CLIENT_SECRET
+    secret: GOOGLE_OAUTH_CLIENT_SECRET
+
   # App
   - variable: NEXT_PUBLIC_BASE_URL
     value: https://gravix--antigravity-hub-jcloud.us-east4.hosted.app
