@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
-import { trackCost } from './costTracker';
+import { logUsage } from './costTracker';
 
 const secretManager = new SecretManagerServiceClient();
 
@@ -58,7 +58,7 @@ export async function getYouTubeClient() {
 export async function trackYouTubeQuota(operation, quotaUnits) {
   try {
     // We treat 'quota units' as a metric similar to tokens for tracking burn rates
-    await trackCost({
+    await logUsage({
       service: 'youtube_api',
       operation: operation,
       model: 'quota_unit',

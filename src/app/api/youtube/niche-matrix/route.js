@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { BigQuery } from '@google-cloud/bigquery';
 import { tavilySearch } from '@/lib/tavilyClient';
 import { getModelForTask, getThinkingBudget } from '@/lib/modelRouter';
-import { trackCost } from '@/lib/costTracker';
-import { db } from '@/lib/firebaseAdmin';
+import { logUsage } from '@/lib/costTracker';
+import { adminDb as db } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -318,7 +318,7 @@ Generate at least 8 niches${includeSubNiches ? ', each with 2-4 sub-niches' : ''
     });
 
     const usage = result.usageMetadata || {};
-    await trackCost({
+    await logUsage({
       service: 'gemini_api',
       operation: 'niche_matrix_hybrid',
       model: modelName,
