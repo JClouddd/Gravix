@@ -36,7 +36,7 @@ const TASK_ROUTES = {
   grounded_search: "gemini-2.5-flash",
 
   // Pro tasks (complex multi-factor reasoning)
-  niche_analysis: "gemini-2.5-pro",
+  niche_analysis: "gemini-2.5-flash", // Downgraded to flash to avoid 503 High Demand errors
   strategy_planning: "gemini-2.5-pro",
   competitor_analysis: "gemini-2.5-pro",
   content_script: "gemini-2.5-pro",
