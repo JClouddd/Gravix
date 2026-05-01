@@ -107,7 +107,14 @@ function SchemaRenderer({ node, keyPrefix = "root" }) {
           onClick={async () => {
             if (node.action === "API_CALL" && node.endpoint) {
               try {
-                const res = await fetch(node.endpoint, { method: node.method || "POST" });
+                const fetchOptions = {
+                  method: node.method || "POST",
+                  headers: { "Content-Type": "application/json" }
+                };
+                if (node.payload) {
+                  fetchOptions.body = JSON.stringify(node.payload);
+                }
+                const res = await fetch(node.endpoint, fetchOptions);
                 if (res.ok && node.successMessage) alert(node.successMessage);
               } catch (e) {
                 console.error("Dynamic action failed:", e);
