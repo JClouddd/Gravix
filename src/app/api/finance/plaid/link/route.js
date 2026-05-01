@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase-admin'; // Use admin db for secure server-side checks
+import { adminDb as db } from '@/lib/firebaseAdmin';
 
 /**
  * POST /api/finance/plaid/link

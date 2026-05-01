@@ -6,9 +6,6 @@ import ProjectsView from './Projects/ProjectsView';
 import TagsView from './Tags/TagsView';
 import CalendarView from './Calendar/CalendarView';
 import ReportsView from './Reports/ReportsView';
-import ContactsView from './Contacts/ContactsView';
-import MeetingsView from './Meetings/MeetingsView';
-import ApprovalQueueView from './Swarm/ApprovalQueueView';
 import HelpTooltip from "@/components/HelpTooltip";
 
 export default function ManagementDashboard() {
@@ -22,7 +19,6 @@ export default function ManagementDashboard() {
     { id: 'meetings', label: 'Meetings', icon: '🎙️' },
     { id: 'reports', label: 'Reports', icon: '📊' },
     { id: 'tags', label: 'Tags', icon: '🏷️' },
-    { id: 'swarm', label: 'Swarm Queue', icon: '🐝' },
   ];
 
   return (
@@ -55,11 +51,8 @@ export default function ManagementDashboard() {
         {activeTab === 'calendar' && <CalendarView />}
         {activeTab === 'tasks' && <TasksView />}
         {activeTab === 'projects' && <ProjectsView />}
-        { activeTab === 'contacts' && <ContactsView /> }
-        { activeTab === 'meetings' && <MeetingsView /> }
         { activeTab === 'reports' && <ReportsView /> }
         { activeTab === 'tags' && <TagsView /> }
-        { activeTab === 'swarm' && <div style={{ padding: 20 }}><ApprovalQueueView /></div> }
       </div>
     </div>
   );
