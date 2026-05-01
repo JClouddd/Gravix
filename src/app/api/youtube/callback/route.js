@@ -68,11 +68,18 @@ export async function GET(request) {
       console.warn('OAuth flow completed but no refresh token was returned. The user may need to revoke access and try again.');
     }
 
+    const baseUrl = process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:3000'
+      : 'https://gravix--antigravity-hub-jcloud.us-east4.hosted.app';
+
     // Redirect back to the YouTube Factory UI module with a success flag
-    return NextResponse.redirect(new URL('/?module=youtube&auth=success', request.url));
+    return NextResponse.redirect(`${baseUrl}/?module=youtube&auth=success`);
 
   } catch (error) {
     console.error('Error during YouTube OAuth callback:', error);
-    return NextResponse.redirect(new URL('/?module=youtube&auth=error', request.url));
+    const baseUrl = process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:3000'
+      : 'https://gravix--antigravity-hub-jcloud.us-east4.hosted.app';
+    return NextResponse.redirect(`${baseUrl}/?module=youtube&auth=error`);
   }
 }
