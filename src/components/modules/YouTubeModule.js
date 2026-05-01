@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import DynamicRenderer from "@/components/DynamicRenderer";
 
 export default function YouTubeModule() {
   const [matrixData, setMatrixData] = useState(null);
@@ -15,12 +16,6 @@ export default function YouTubeModule() {
   const [apiCaps, setApiCaps] = useState(null);
   const [authStatus, setAuthStatus] = useState("disconnected");
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("auth") === "success") { setAuthStatus("connected"); window.history.replaceState({}, document.title, window.location.pathname + "?module=youtube"); }
-    loadCachedMatrix();
-  }, []);
-
   const loadCachedMatrix = async () => {
     try {
       const res = await fetch("/api/youtube/niche-matrix");
@@ -34,6 +29,17 @@ export default function YouTubeModule() {
       }
     } catch (e) {} finally { setLoadingCached(false); }
   };
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("auth") === "success") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAuthStatus("connected");
+      window.history.replaceState({}, document.title, window.location.pathname + "?module=youtube");
+    }
+
+    loadCachedMatrix();
+  }, []);
 
   const generateNicheMatrix = async () => {
     setLoading(true); setError(null);
@@ -123,7 +129,7 @@ export default function YouTubeModule() {
           {!matrixData && !loading && !error && !loadingCached && (
             <div className="card-glass" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "220px", color: "#64748b" }}>
               <div style={{ fontSize: "3rem", marginBottom: "12px" }}>🌐</div>
-              <p>Click "Run Deep Research" to scan global YouTube markets.</p>
+              <p>Click &quot;Run Deep Research&quot; to scan global YouTube markets.</p>
             </div>
           )}
 
@@ -241,7 +247,7 @@ export default function YouTubeModule() {
                               )}
 
                               <div style={{ marginTop: "14px", display: "flex", gap: "10px" }}>
-                                <button style={{ background: "linear-gradient(135deg, rgba(168,85,247,0.15), rgba(236,72,153,0.15))", border: "1px solid rgba(168,85,247,0.3)", color: "#d8b4fe", padding: "8px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "500", fontSize: "0.85rem" }}>Incubate Channel</button>
+                                <button onClick={() => setActiveTab("pipeline")} style={{ background: "linear-gradient(135deg, rgba(168,85,247,0.15), rgba(236,72,153,0.15))", border: "1px solid rgba(168,85,247,0.3)", color: "#d8b4fe", padding: "8px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "500", fontSize: "0.85rem" }}>Incubate Channel</button>
                                 <button style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "8px 18px", borderRadius: "6px", cursor: "pointer", fontSize: "0.85rem" }}>Deep Dive</button>
                               </div>
                             </td></tr>
@@ -259,22 +265,15 @@ export default function YouTubeModule() {
 
       {/* ═══ TAB: Channel Pipeline ═══ */}
       {activeTab === "pipeline" && (
-        <div className="card-glass" style={{ padding: "40px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "300px" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "16px" }}>🚀</div>
-          <h3 style={{ marginBottom: "8px" }}>Channel Incubation Pipeline</h3>
-          <p style={{ color: "#94a3b8", textAlign: "center", maxWidth: "400px" }}>Select a niche from the Intelligence tab and click "Incubate Channel" to start the AI-powered channel creation workflow.</p>
+        <div style={{ minHeight: "300px" }}>
+          <DynamicRenderer schemaId="youtube_incubation_modal" />
         </div>
       )}
 
       {/* ═══ TAB: Analytics ═══ */}
       {activeTab === "analytics" && (
-        <div className="card-glass" style={{ padding: "40px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "300px" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "16px" }}>📊</div>
-          <h3 style={{ marginBottom: "8px" }}>Analytics Dashboard</h3>
-          <p style={{ color: "#94a3b8", textAlign: "center", maxWidth: "400px" }}>Connect a YouTube channel and begin publishing content to activate real-time analytics tracking via the YouTube Analytics API.</p>
-          <div style={{ marginTop: "16px", display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
-            {["estimatedRevenue","CPM","RPM","views","watchTime","subscribersGained"].map(m => <span key={m} style={{ background: "rgba(255,255,255,0.05)", padding: "4px 10px", borderRadius: "4px", fontSize: "0.75rem", color: "#64748b" }}>{m}</span>)}
-          </div>
+        <div style={{ minHeight: "300px" }}>
+          <DynamicRenderer schemaId="youtube_analytics_dashboard" />
         </div>
       )}
 
