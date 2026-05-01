@@ -30,6 +30,76 @@ export default function YouTubeModule() {
   });
   const [incubating, setIncubating] = useState(false);
 
+  // MOCK DATA for Phase 4 UI Build
+  const [selectedChannel, setSelectedChannel] = useState(null);
+  
+  const mockChannels = [
+    { id: "c1", name: "AI Manga Tales", niche: "Anime Automation", status: "Monetized", rev: "$4,120", progress: 100, format: "funnel" },
+    { id: "c2", name: "SaaS Builders", niche: "B2B Tech", status: "Monetized", rev: "$10,130", progress: 100, format: "independent_long" },
+    { id: "c3", name: "Silent Stoic", niche: "Philosophy", status: "Incubating", rev: "$0", progress: 40, format: "independent_shorts" }
+  ];
+
+  const mockPipelineTasks = [
+    {
+      id: "v1", channelId: "c1", channelName: "AI Manga Tales", topic: "Episode 14: The Demon King's Fall", status: "in_progress",
+      stages: {
+        script: { status: "completed", progress: 100, label: "Level 4 Script" },
+        audio: { status: "in_progress", progress: 33, label: "Voiceover & SFX (1/3)" },
+        visuals: { status: "queued", progress: 0, label: "Midjourney Scenes (0/45)" },
+        assembly: { status: "queued", progress: 0, label: "Timeline Sync" }
+      },
+      overallProgress: 25
+    },
+    {
+      id: "v2", channelId: "c2", channelName: "SaaS Builders", topic: "How to Build a CRM in Next.js", status: "in_progress",
+      stages: {
+        script: { status: "completed", progress: 100, label: "Level 4 Script" },
+        audio: { status: "completed", progress: 100, label: "Voiceover (1/1)" },
+        visuals: { status: "in_progress", progress: 66, label: "Screen Caps (8/12)" },
+        assembly: { status: "in_progress", progress: 20, label: "Timeline Sync" }
+      },
+      overallProgress: 70
+    }
+  ];
+
+  const renderPipelineTask = (task) => (
+    <div key={task.id} style={{ background: "rgba(255,255,255,0.03)", borderRadius: "8px", padding: "16px", marginBottom: "12px", border: "1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+        <div>
+          <div style={{ fontSize: "0.75rem", color: "#a78bfa", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>{task.channelName}</div>
+          <h4 style={{ margin: 0, fontSize: "1.1rem", color: "#fff" }}>{task.topic}</h4>
+        </div>
+        <div style={{ fontSize: "1.2rem", fontWeight: "bold", color: "#4ade80" }}>{task.overallProgress}%</div>
+      </div>
+      
+      {/* Overall Progress Bar */}
+      <div style={{ width: "100%", background: "rgba(255,255,255,0.08)", height: "6px", borderRadius: "3px", marginBottom: "16px", overflow: "hidden" }}>
+        <div style={{ width: `${task.overallProgress}%`, background: "linear-gradient(90deg, #a78bfa, #ec4899)", height: "100%" }} />
+      </div>
+
+      {/* Granular Stages */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px" }}>
+        {Object.entries(task.stages).map(([stageKey, stageData]) => {
+          const isDone = stageData.progress === 100;
+          const isDoing = stageData.progress > 0 && stageData.progress < 100;
+          const color = isDone ? "#4ade80" : isDoing ? "#fbbf24" : "#64748b";
+          return (
+            <div key={stageKey}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.7rem", color: color, marginBottom: "4px", textTransform: "uppercase" }}>
+                <span>{stageKey}</span>
+                <span>{stageData.progress}%</span>
+              </div>
+              <div style={{ width: "100%", background: "rgba(255,255,255,0.08)", height: "4px", borderRadius: "2px", overflow: "hidden", marginBottom: "4px" }}>
+                <div style={{ width: `${stageData.progress}%`, background: color, height: "100%" }} />
+              </div>
+              <div style={{ fontSize: "0.65rem", color: "#94a3b8" }}>{stageData.label}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("auth") === "success") { setAuthStatus("connected"); window.history.replaceState({}, document.title, window.location.pathname + "?module=youtube"); }
@@ -293,10 +363,16 @@ export default function YouTubeModule() {
 
       {/* ═══ TAB: Swarm Pipeline ═══ */}
       {activeTab === "pipeline" && (
-        <div className="card-glass" style={{ padding: "40px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "300px" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "16px" }}>🚀</div>
-          <h3 style={{ marginBottom: "8px" }}>Channel Incubation Pipeline</h3>
-          <p style={{ color: "#94a3b8", textAlign: "center", maxWidth: "400px" }}>Select a niche from the Intelligence tab and click "Incubate Channel" to start the AI-powered channel creation workflow.</p>
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+            <h2 style={{ fontSize: "1.25rem", color: "#fff", fontWeight: "600", margin: 0 }}>Global Swarm Pipeline</h2>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <span style={{ fontSize: "0.85rem", color: "#94a3b8", background: "rgba(255,255,255,0.05)", padding: "4px 10px", borderRadius: "4px" }}>{mockPipelineTasks.length} Active Tasks</span>
+            </div>
+          </div>
+          <div className="card-glass" style={{ padding: "20px" }}>
+            {mockPipelineTasks.map(task => renderPipelineTask(task))}
+          </div>
         </div>
       )}
 
@@ -327,42 +403,102 @@ export default function YouTubeModule() {
       {/* ═══ TAB: Channel Portfolio ═══ */}
       {activeTab === "portfolio" && (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-            <h3 style={{ fontSize: "1.1rem", color: "#e2e8f0", margin: 0 }}>Channel Portfolio</h3>
-            <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>Click a channel to manage its Global Lore and Pipeline</span>
-          </div>
-          <div className="card-glass" style={{ padding: "0", overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8", fontSize: "0.75rem", textTransform: "uppercase" }}>
-                  <th style={{ padding: "16px 20px" }}>Channel Name</th>
-                  <th style={{ padding: "16px 20px" }}>Niche</th>
-                  <th style={{ padding: "16px 20px" }}>Status</th>
-                  <th style={{ padding: "16px 20px" }}>Monthly Rev</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                  <td style={{ padding: "16px 20px", fontWeight: "500" }}>AI Manga Tales</td>
-                  <td style={{ padding: "16px 20px", color: "#94a3b8", fontSize: "0.85rem" }}>Anime Automation</td>
-                  <td style={{ padding: "16px 20px" }}><span style={{ background: "rgba(34,197,94,0.1)", color: "#4ade80", padding: "4px 8px", borderRadius: "4px", fontSize: "0.75rem" }}>Monetized</span></td>
-                  <td style={{ padding: "16px 20px", fontWeight: "600", color: "#4ade80" }}>$4,120</td>
-                </tr>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                  <td style={{ padding: "16px 20px", fontWeight: "500" }}>SaaS Builders</td>
-                  <td style={{ padding: "16px 20px", color: "#94a3b8", fontSize: "0.85rem" }}>B2B Tech</td>
-                  <td style={{ padding: "16px 20px" }}><span style={{ background: "rgba(34,197,94,0.1)", color: "#4ade80", padding: "4px 8px", borderRadius: "4px", fontSize: "0.75rem" }}>Monetized</span></td>
-                  <td style={{ padding: "16px 20px", fontWeight: "600", color: "#4ade80" }}>$10,130</td>
-                </tr>
-                <tr style={{ cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                  <td style={{ padding: "16px 20px", fontWeight: "500" }}>Silent Stoic</td>
-                  <td style={{ padding: "16px 20px", color: "#94a3b8", fontSize: "0.85rem" }}>Philosophy</td>
-                  <td style={{ padding: "16px 20px" }}><span style={{ background: "rgba(245,158,11,0.1)", color: "#fbbf24", padding: "4px 8px", borderRadius: "4px", fontSize: "0.75rem" }}>Incubating (40% to Goal)</span></td>
-                  <td style={{ padding: "16px 20px", fontWeight: "600", color: "#94a3b8" }}>$0</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {!selectedChannel ? (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                <h3 style={{ fontSize: "1.1rem", color: "#e2e8f0", margin: 0 }}>Channel Portfolio</h3>
+                <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>Click a channel to manage its Global Lore and Pipeline</span>
+              </div>
+              <div className="card-glass" style={{ padding: "0", overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8", fontSize: "0.75rem", textTransform: "uppercase" }}>
+                      <th style={{ padding: "16px 20px" }}>Channel Name</th>
+                      <th style={{ padding: "16px 20px" }}>Niche</th>
+                      <th style={{ padding: "16px 20px" }}>Status</th>
+                      <th style={{ padding: "16px 20px" }}>Monthly Rev</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mockChannels.map(c => (
+                      <tr key={c.id} onClick={() => setSelectedChannel(c)} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                        <td style={{ padding: "16px 20px", fontWeight: "500", color: "#fff" }}>{c.name}</td>
+                        <td style={{ padding: "16px 20px", color: "#94a3b8", fontSize: "0.85rem" }}>{c.niche}</td>
+                        <td style={{ padding: "16px 20px" }}>
+                          <span style={{ background: c.progress === 100 ? "rgba(34,197,94,0.1)" : "rgba(245,158,11,0.1)", color: c.progress === 100 ? "#4ade80" : "#fbbf24", padding: "4px 8px", borderRadius: "4px", fontSize: "0.75rem" }}>
+                            {c.status} {c.progress < 100 && `(${c.progress}%)`}
+                          </span>
+                        </td>
+                        <td style={{ padding: "16px 20px", fontWeight: "600", color: c.progress === 100 ? "#4ade80" : "#94a3b8" }}>{c.rev}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            // Individual Channel Drill-Down
+            <div>
+              <button onClick={() => setSelectedChannel(null)} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "0.8rem", marginBottom: "20px", display: "flex", alignItems: "center", gap: "6px" }}>
+                <span>←</span> Back to Portfolio
+              </button>
+              
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "24px" }}>
+                <div>
+                  <h2 style={{ fontSize: "1.8rem", color: "#fff", margin: "0 0 4px 0", background: "linear-gradient(to right, #a78bfa, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{selectedChannel.name}</h2>
+                  <div style={{ color: "#94a3b8", fontSize: "0.9rem" }}>{selectedChannel.niche} • {selectedChannel.format.replace("_", " ").toUpperCase()}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "0.75rem", color: "#a78bfa", textTransform: "uppercase", marginBottom: "4px" }}>Monthly Revenue</div>
+                  <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#4ade80" }}>{selectedChannel.rev}</div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px" }}>
+                {/* Left Col: Features & Stats */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                  <div className="card-glass" style={{ padding: "20px" }}>
+                    <h3 style={{ fontSize: "1rem", color: "#e2e8f0", marginBottom: "16px", marginTop: 0 }}>Monetization Progress</h3>
+                    <div style={{ marginBottom: "12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "#94a3b8", marginBottom: "4px" }}><span>Subscribers</span><span>1,000 / 1,000</span></div>
+                      <div style={{ width: "100%", background: "rgba(255,255,255,0.08)", height: "6px", borderRadius: "3px" }}><div style={{ width: "100%", background: "#4ade80", height: "100%" }} /></div>
+                    </div>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "#94a3b8", marginBottom: "4px" }}><span>Watch Hours</span><span>{4000 * (selectedChannel.progress/100)} / 4,000</span></div>
+                      <div style={{ width: "100%", background: "rgba(255,255,255,0.08)", height: "6px", borderRadius: "3px" }}><div style={{ width: `${selectedChannel.progress}%`, background: selectedChannel.progress === 100 ? "#4ade80" : "#fbbf24", height: "100%" }} /></div>
+                    </div>
+                  </div>
+
+                  <div className="card-glass" style={{ padding: "20px" }}>
+                    <h3 style={{ fontSize: "1rem", color: "#e2e8f0", marginBottom: "16px", marginTop: 0 }}>Active Features</h3>
+                    {["AdSense", "Digital Products", "Patreon"].map(f => (
+                      <div key={f} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <span style={{ fontSize: "0.85rem", color: "#cbd5e1" }}>{f}</span>
+                        <div style={{ width: "36px", height: "20px", background: f === "AdSense" ? "#a78bfa" : "rgba(255,255,255,0.1)", borderRadius: "10px", position: "relative", cursor: "pointer" }}>
+                          <div style={{ width: "16px", height: "16px", background: "#fff", borderRadius: "50%", position: "absolute", top: "2px", left: f === "AdSense" ? "18px" : "2px", transition: "all 0.2s" }} />
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: "12px", fontStyle: "italic" }}>Toggle features to update the Global Lore for future scripts.</div>
+                  </div>
+                </div>
+
+                {/* Right Col: Local Pipeline */}
+                <div className="card-glass" style={{ padding: "20px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                    <h3 style={{ fontSize: "1rem", color: "#e2e8f0", margin: 0 }}>Local Production Pipeline</h3>
+                    <button style={{ background: "linear-gradient(135deg, rgba(167,139,250,0.2), rgba(236,72,153,0.2))", border: "1px solid rgba(167,139,250,0.3)", color: "#d8b4fe", padding: "6px 12px", borderRadius: "6px", fontSize: "0.8rem", cursor: "pointer" }}>+ Request Video</button>
+                  </div>
+                  
+                  {mockPipelineTasks.filter(t => t.channelId === selectedChannel.id).length === 0 ? (
+                    <div style={{ padding: "40px 20px", textAlign: "center", color: "#64748b", fontSize: "0.9rem" }}>No active video tasks for this channel.</div>
+                  ) : (
+                    mockPipelineTasks.filter(t => t.channelId === selectedChannel.id).map(task => renderPipelineTask(task))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
