@@ -88,9 +88,43 @@ Generate a structured JSON output defining Level 3 (Video Concept) and Level 4 (
       script: object
     });
 
+    // Automatically initialize the Pipeline Task for the Swarm Pipeline UI
+    const totalScenes = object.level_4_scene_execution.length;
+    
+    const pipelineTaskRef = await db.collection("pipeline_tasks").add({
+      channelId: channelId,
+      scriptId: scriptRef.id,
+      topic: videoTopic,
+      globalStatus: "in_progress",
+      overallProgress: 25, // Script is done
+      stages: {
+        script: { status: "completed", progress: 100, label: "Level 4 Script Generated" },
+        audio: { 
+          status: "queued", 
+          progress: 0, 
+          label: `Voiceover & SFX (0/${totalScenes})`,
+          items: Array.from({ length: totalScenes }).map((_, i) => ({ scene: i + 1, done: false }))
+        },
+        visuals: { 
+          status: "queued", 
+          progress: 0, 
+          label: `Midjourney Scenes (0/${totalScenes})`,
+          items: Array.from({ length: totalScenes }).map((_, i) => ({ scene: i + 1, done: false }))
+        },
+        assembly: { 
+          status: "queued", 
+          progress: 0, 
+          label: "Timeline Sync Awaiting Assets",
+          items: [{ name: "Final Render", done: false }]
+        }
+      },
+      createdAt: new Date().toISOString()
+    });
+
     return NextResponse.json({ 
       success: true, 
       scriptId: scriptRef.id,
+      pipelineTaskId: pipelineTaskRef.id,
       data: object 
     });
 
