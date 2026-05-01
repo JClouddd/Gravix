@@ -16,6 +16,12 @@ export default function YouTubeModule() {
   const [apiCaps, setApiCaps] = useState(null);
   const [authStatus, setAuthStatus] = useState("disconnected");
 
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("auth") === "success") { setAuthStatus("connected"); window.history.replaceState({}, document.title, window.location.pathname + "?module=youtube"); }
+    loadCachedMatrix();
+  }, []);
+
   const loadCachedMatrix = async () => {
     try {
       const res = await fetch("/api/youtube/niche-matrix");
@@ -29,17 +35,6 @@ export default function YouTubeModule() {
       }
     } catch (e) {} finally { setLoadingCached(false); }
   };
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("auth") === "success") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setAuthStatus("connected");
-      window.history.replaceState({}, document.title, window.location.pathname + "?module=youtube");
-    }
-
-    loadCachedMatrix();
-  }, []);
 
   const generateNicheMatrix = async () => {
     setLoading(true); setError(null);
@@ -129,7 +124,7 @@ export default function YouTubeModule() {
           {!matrixData && !loading && !error && !loadingCached && (
             <div className="card-glass" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "220px", color: "#64748b" }}>
               <div style={{ fontSize: "3rem", marginBottom: "12px" }}>🌐</div>
-              <p>Click &quot;Run Deep Research&quot; to scan global YouTube markets.</p>
+              <p>Click "Run Deep Research" to scan global YouTube markets.</p>
             </div>
           )}
 
