@@ -24,7 +24,8 @@ export default function TasksView() {
 
   // Fetch tasks when activeListId changes
   useEffect(() => {
-    setLoading(true);
+    let isMounted = true;
+    // setLoading(true);
     fetch(`/api/management/tasks?taskListId=${activeListId}`)
       .then(res => res.json())
       .then(data => {
