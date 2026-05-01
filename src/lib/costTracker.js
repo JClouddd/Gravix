@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebaseAdmin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { BigQuery } from "@google-cloud/bigquery";
 
 /**
  * Safely coerce a cost value to a number.
@@ -21,6 +22,8 @@ function toNumericCost(val) {
   return 0;
 }
 
+const bq = new BigQuery({ projectId: "antigravity-hub-jcloud" });
+
 export async function logUsage({
   route,
   model,
@@ -31,28 +34,64 @@ export async function logUsage({
   modelTier,
   inputTokens,
   outputTokens,
-  totalTokens
+  totalTokens,
+  // Phase 1.7 fields
+  operation,
+  thinkingLevel,
+  channelId,
+  videoId,
+  metadata,
 }) {
   try {
     let input = inputTokens !== undefined ? inputTokens : (tokens?.input || tokens?.inputTokens || 0);
     let output = outputTokens !== undefined ? outputTokens : (tokens?.output || tokens?.outputTokens || 0);
+    const resolvedCost = toNumericCost(cost);
+    const resolvedModel = model || modelTier || "unknown";
 
+    // --- Firestore write (real-time UI) ---
     const data = {
       route: route || "unknown",
-      model: model || modelTier || "unknown",
+      model: resolvedModel,
       inputTokens: input,
       outputTokens: output,
-      cost: toNumericCost(cost),
+      cost: resolvedCost,
       timestamp: FieldValue.serverTimestamp()
     };
     if (agent) {
       data.agent = agent;
     }
-    // backwards compatibility for old fields if any code still sends them
     if (modelTier) data.modelTier = modelTier;
     if (totalTokens !== undefined) data.totalTokens = totalTokens;
 
     const docRef = await adminDb.collection("api_usage").add(data);
+
+    // --- BigQuery dual-write (async, non-blocking) ---
+    try {
+      const bqRow = {
+        id: docRef.id,
+        timestamp: new Date().toISOString(),
+        service: resolvedModel.includes("gemini") ? "gemini_api" : "other",
+        operation: operation || route || "unknown",
+        model: resolvedModel,
+        thinking_level: thinkingLevel || null,
+        input_tokens: input,
+        output_tokens: output,
+        total_tokens: input + output,
+        estimated_cost_usd: resolvedCost,
+        channel_id: channelId || null,
+        video_id: videoId || null,
+        agent_id: agent || null,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+        source: "api_middleware",
+        tags: [route, agent, resolvedModel].filter(Boolean),
+      };
+      // Fire-and-forget — don't block the API response
+      bq.dataset("antigravity_lake").table("cost_ledger").insert([bqRow])
+        .catch((e) => console.warn(`[CostTracker] BQ write failed: ${e.message}`));
+    } catch (bqErr) {
+      console.warn(`[CostTracker] BQ setup error: ${bqErr.message}`);
+    }
+
     return docRef.id;
   } catch (error) {
     console.error("Error logging API usage: ", error);
