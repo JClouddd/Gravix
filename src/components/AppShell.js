@@ -14,6 +14,9 @@ import PipelineToasts from "@/components/PipelineToasts";
 /* ── Module Registry ─────────────────────────────────────────── */
 const MODULES = [
   { id: "home", label: "Home", icon: "🏠", color: "var(--accent)" },
+  { id: "youtube", label: "YouTube", icon: "▶️", color: "#ef4444" },
+  { id: "agents", label: "Agents", icon: "🤖", color: "#a855f7" },
+  { id: "knowledge", label: "Vault", icon: "🧠", color: "#10b981" },
   { id: "management", label: "Management", icon: "📋", color: "var(--accent)" },
   { id: "finance", label: "Finance", icon: "💰", color: "var(--agent-finance)" },
   { id: "architecture", label: "Ecosystem", icon: "🪐", color: "#00d4ff" },
@@ -23,6 +26,9 @@ const MODULES = [
 /* ── Lazy Module Loading ─────────────────────────────────────── */
 const moduleComponents = {
   home: lazy(() => import("@/components/modules/HomeModule")),
+  youtube: lazy(() => import("@/components/modules/YouTubeModule")),
+  agents: lazy(() => import("@/components/modules/AgentsModule")),
+  knowledge: lazy(() => import("@/components/modules/KnowledgeModule")),
   management: lazy(() => import("@/components/modules/ManagementModule/ManagementDashboard")),
   finance: lazy(() => import("@/components/modules/FinanceModule")),
   architecture: lazy(() => import("@/components/modules/ArchitectureModule")),
