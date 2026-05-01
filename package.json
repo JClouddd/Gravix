@@ -3,17 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "prepare": "husky"
+    "lint": "next lint",
+    "test": "jest --watchAll=false"
   },
   "dependencies": {
     "@e2b/code-interpreter": "^2.4.0",
     "@google-cloud/bigquery": "^7.9.0",
+    "@google-cloud/bigquery-storage": "^5.1.0",
     "@google-cloud/discoveryengine": "^2.6.0",
     "@google-cloud/pubsub": "^5.3.0",
+    "@google/genai": "^1.51.0",
     "@google/generative-ai": "^0.24.1",
     "date-fns": "^4.1.0",
     "firebase": "^12.12.0",
@@ -38,11 +40,5 @@
     "jsdom": "^29.0.2",
     "lint-staged": "^16.4.0",
     "vitest": "^4.1.4"
-  },
-  "lint-staged": {
-    "*.{js,jsx}": [
-      "eslint --fix",
-      "git add"
-    ]
   }
 }
