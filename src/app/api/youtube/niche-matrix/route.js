@@ -133,12 +133,14 @@ export async function POST(request) {
       'YouTube niche competition analysis low competition high CPM',
       'YouTube sub-niche opportunities underserved audience 2026',
       'YouTube CPM rates by country 2026 US UK Germany Australia India Brazil',
-      'YouTube CPM long form vs shorts vs tutorials vs listicles content format rates'
+      'YouTube CPM long form vs shorts vs tutorials vs listicles content format rates',
+      'Google Trends YouTube search volume data highest traffic topics 2026'
     ];
     
     if (focusArea) {
       tavilyQueries.push(`${focusArea} YouTube niche CPM revenue potential 2026`);
       tavilyQueries.push(`${focusArea} sub-niches underserved YouTube opportunities`);
+      tavilyQueries.push(`${focusArea} Google Trends search volume YouTube traffic`);
     }
 
     const tavilyResults = await Promise.all(
@@ -223,6 +225,8 @@ CRITICAL RULES:
 - Include revenue stacking potential (AdSense + affiliates + products + sponsorships)
 - Evaluate AI automation viability with specific tools (Veo 3.1, Imagen 4, ElevenLabs, LLMs)
 - Consider the YouTube API quota constraint: max ~6 uploads/day with default quota
+- Incorporate Google/YouTube SEARCH TRENDS and volume metrics into the trend analysis where possible
+- For EACH niche, generate a highly specific \`targetAudienceVibe\` that outlines the exact pacing, tone, and demographic profile needed
 - For EACH niche, provide geographic CPM breakdowns by country tier (Tier 1: US/UK/CA/AU/DE, Tier 2: FR/JP/KR/NL, Tier 3: BR/MX/IN/PH)
 - For EACH niche, provide CPM/RPM rates broken down by content FORMAT (long-form 10+min, short-form <60s, tutorials, listicles, documentary, commentary)`;
 
@@ -230,7 +234,7 @@ CRITICAL RULES:
 ${focusArea ? `\nFOCUS AREA: Prioritize "${focusArea}" but include other opportunities.\n` : ''}
 ${vaultContext}
 
-LIVE RESEARCH DATA:
+LIVE RESEARCH DATA & SEARCH TRENDS:
 ${tavilyContext}
 
 Return STRICTLY valid JSON (no markdown) in this format:
@@ -253,7 +257,8 @@ Return STRICTLY valid JSON (no markdown) in this format:
       "facelessViability": "High|Medium|Low",
       "facelessRisk": "Specific risk if applicable",
       "trendDirection": "Growing",
-      "trendDetails": "Specific data",
+      "trendDetails": "Specific data incorporating search volumes and Google Trends",
+      "targetAudienceVibe": "Dark, gritty, fast-paced hook-heavy style for 18-24yo males",
       "audience": { "age": "25-54", "gender": "Mixed", "topCountries": ["US", "UK", "DE"] },
       "contentFormat": "Recommended primary format",
       "estimatedViewsPerVideo": "10K-50K",

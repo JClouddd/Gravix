@@ -19,7 +19,7 @@ export default function YouTubeModule() {
   const [showWizard, setShowWizard] = useState(false);
   const [wizardNiche, setWizardNiche] = useState(null);
   const [wizardConfig, setWizardConfig] = useState({
-    format: "funnel", // independent_shorts, independent_long, funnel
+    schedules: { shorts: "0", long_form: "0" },
     vibe: "",
     revenue: {
       adsense: true,
@@ -32,6 +32,8 @@ export default function YouTubeModule() {
 
   // MOCK DATA for Phase 4 UI Build
   const [selectedChannel, setSelectedChannel] = useState(null);
+  const [activeChannelTab, setActiveChannelTab] = useState("performance"); // performance, pipeline, orchestration
+  const [learningMode, setLearningMode] = useState("manual_approval"); // For orchestration tab mock
   
   const mockChannels = [
     { id: "c1", name: "AI Manga Tales", niche: "Anime Automation", status: "Monetized", rev: "$4,120", progress: 100, format: "funnel" },
@@ -147,9 +149,21 @@ export default function YouTubeModule() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ niche: wizardNiche, config: wizardConfig })
       });
-      // In a real flow, we would handle the response and switch to the Pipeline tab
+      // In a real flow, we would handle the response and switch to the Pipeline or Dashboard tab
       setShowWizard(false);
-      setActiveTab("pipeline");
+      
+      // Auto-transition to Portfolio drill-down and prime the UI for orchestration
+      setSelectedChannel({
+        id: "new_channel_tmp",
+        name: wizardNiche?.niche || "Incubating Channel...",
+        niche: wizardNiche?.niche,
+        status: "Incubating",
+        rev: "$0",
+        progress: 0,
+        schedules: wizardConfig.schedules
+      });
+      setActiveChannelTab("pipeline");
+      setActiveTab("portfolio");
     } catch (e) {
       console.error(e);
     } finally {
@@ -345,7 +359,7 @@ export default function YouTubeModule() {
                               )}
 
                               <div style={{ marginTop: "14px", display: "flex", gap: "10px" }}>
-                                <button onClick={() => { setWizardNiche(item); setShowWizard(true); }} style={{ background: "linear-gradient(135deg, rgba(168,85,247,0.15), rgba(236,72,153,0.15))", border: "1px solid rgba(168,85,247,0.3)", color: "#d8b4fe", padding: "8px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "500", fontSize: "0.85rem" }}>Incubate Channel</button>
+                                <button onClick={() => { setWizardNiche(item); setWizardConfig(prev => ({...prev, vibe: item.targetAudienceVibe || ""})); setShowWizard(true); }} style={{ background: "linear-gradient(135deg, rgba(168,85,247,0.15), rgba(236,72,153,0.15))", border: "1px solid rgba(168,85,247,0.3)", color: "#d8b4fe", padding: "8px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "500", fontSize: "0.85rem" }}>Incubate Channel</button>
                                 <button style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "8px 18px", borderRadius: "6px", cursor: "pointer", fontSize: "0.85rem" }}>Deep Dive</button>
                               </div>
                             </td></tr>
@@ -443,10 +457,10 @@ export default function YouTubeModule() {
                 <span>←</span> Back to Portfolio
               </button>
               
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "24px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "16px" }}>
                 <div>
                   <h2 style={{ fontSize: "1.8rem", color: "#fff", margin: "0 0 4px 0", background: "linear-gradient(to right, #a78bfa, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{selectedChannel.name}</h2>
-                  <div style={{ color: "#94a3b8", fontSize: "0.9rem" }}>{selectedChannel.niche} • {selectedChannel.format.replace("_", " ").toUpperCase()}</div>
+                  <div style={{ color: "#94a3b8", fontSize: "0.9rem" }}>{selectedChannel.niche}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: "0.75rem", color: "#a78bfa", textTransform: "uppercase", marginBottom: "4px" }}>Monthly Revenue</div>
@@ -454,9 +468,21 @@ export default function YouTubeModule() {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px" }}>
-                {/* Left Col: Features & Stats */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {/* Sub-Tabs for Channel Drill-Down */}
+              <div style={{ display: "flex", gap: "4px", marginBottom: "20px", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0" }}>
+                {[
+                  { id: "performance", label: "Performance Metrics" },
+                  { id: "pipeline", label: "Local Pipeline" },
+                  { id: "orchestration", label: "Control Center" }
+                ].map(t => (
+                  <button key={t.id} onClick={() => setActiveChannelTab(t.id)} style={{ padding: "8px 16px", background: activeChannelTab === t.id ? "rgba(255,255,255,0.06)" : "transparent", border: "none", borderBottom: activeChannelTab === t.id ? "2px solid #ec4899" : "2px solid transparent", color: activeChannelTab === t.id ? "#e2e8f0" : "#64748b", cursor: "pointer", fontSize: "0.8rem", fontWeight: "500", transition: "all 0.2s" }}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {activeChannelTab === "performance" && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
                   <div className="card-glass" style={{ padding: "20px" }}>
                     <h3 style={{ fontSize: "1rem", color: "#e2e8f0", marginBottom: "16px", marginTop: 0 }}>Monetization Progress</h3>
                     <div style={{ marginBottom: "12px" }}>
@@ -479,11 +505,12 @@ export default function YouTubeModule() {
                         </div>
                       </div>
                     ))}
-                    <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: "12px", fontStyle: "italic" }}>Toggle features to update the Global Lore for future scripts.</div>
+                    <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: "12px", fontStyle: "italic" }}>Toggle features to update the Global Lore.</div>
                   </div>
                 </div>
+              )}
 
-                {/* Right Col: Local Pipeline */}
+              {activeChannelTab === "pipeline" && (
                 <div className="card-glass" style={{ padding: "20px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                     <h3 style={{ fontSize: "1rem", color: "#e2e8f0", margin: 0 }}>Local Production Pipeline</h3>
@@ -496,7 +523,60 @@ export default function YouTubeModule() {
                     mockPipelineTasks.filter(t => t.channelId === selectedChannel.id).map(task => renderPipelineTask(task))
                   )}
                 </div>
-              </div>
+              )}
+
+              {activeChannelTab === "orchestration" && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                  {/* Left Col: Control Chat */}
+                  <div className="card-glass" style={{ padding: "20px", display: "flex", flexDirection: "column", height: "450px" }}>
+                    <h3 style={{ fontSize: "1rem", color: "#e2e8f0", margin: "0 0 16px 0", display: "flex", alignItems: "center", gap: "8px" }}>
+                      ✨ Gemini Orchestrator
+                    </h3>
+                    <div style={{ flex: 1, background: "rgba(0,0,0,0.2)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)", padding: "16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
+                      <div style={{ background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.2)", padding: "12px", borderRadius: "8px", alignSelf: "flex-start", maxWidth: "85%" }}>
+                        <p style={{ margin: 0, fontSize: "0.85rem", color: "#e2e8f0", lineHeight: "1.5" }}>I am locked into the Global Lore for <strong>{selectedChannel.name}</strong>. How should we steer the next batch of scripts?</p>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input type="text" placeholder="Prompt the Swarm Engine..." style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "10px 14px", color: "#e2e8f0", outline: "none", fontSize: "0.85rem" }} />
+                      <button style={{ background: "linear-gradient(135deg, #a78bfa, #ec4899)", border: "none", color: "#fff", padding: "0 20px", borderRadius: "6px", cursor: "pointer", fontWeight: "600" }}>Send</button>
+                    </div>
+                  </div>
+
+                  {/* Right Col: Self-Learning Ledger */}
+                  <div className="card-glass" style={{ padding: "20px", display: "flex", flexDirection: "column", height: "450px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                      <h3 style={{ fontSize: "1rem", color: "#e2e8f0", margin: 0 }}>Learning Ledger</h3>
+                      <select value={learningMode} onChange={(e) => setLearningMode(e.target.value)} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", borderRadius: "4px", padding: "4px 8px", fontSize: "0.75rem", outline: "none" }}>
+                        <option value="autonomous">Auto-Learn</option>
+                        <option value="manual_approval">Manual Approval</option>
+                        <option value="off">Off</option>
+                      </select>
+                    </div>
+                    
+                    <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" }}>
+                      <div style={{ background: "rgba(255,255,255,0.03)", padding: "12px", borderRadius: "6px", borderLeft: "2px solid #4ade80" }}>
+                        <div style={{ fontSize: "0.7rem", color: "#4ade80", textTransform: "uppercase", marginBottom: "4px", fontWeight: "600" }}>Active Insight</div>
+                        <div style={{ fontSize: "0.8rem", color: "#cbd5e1", lineHeight: "1.4" }}>Fast-paced hooks increase retention by 14%. Enforce sub-5-second intros.</div>
+                      </div>
+
+                      {learningMode === "manual_approval" && (
+                        <div style={{ background: "rgba(245,158,11,0.05)", padding: "12px", borderRadius: "6px", borderLeft: "2px solid #fbbf24", border: "1px solid rgba(245,158,11,0.2)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                            <span style={{ fontSize: "0.7rem", color: "#fbbf24", textTransform: "uppercase", fontWeight: "600" }}>Proposal Inbox</span>
+                            <span style={{ fontSize: "0.6rem", background: "rgba(245,158,11,0.1)", color: "#fcd34d", padding: "2px 6px", borderRadius: "3px" }}>AWAITING REVIEW</span>
+                          </div>
+                          <div style={{ fontSize: "0.8rem", color: "#e2e8f0", lineHeight: "1.4", marginBottom: "10px" }}>Data shows viewers drop when discussing theory. Suggest rule: "Keep abstract theory under 10% of runtime."</div>
+                          <div style={{ display: "flex", gap: "8px" }}>
+                            <button style={{ flex: 1, background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#86efac", padding: "6px", borderRadius: "4px", fontSize: "0.75rem", cursor: "pointer" }}>Approve</button>
+                            <button style={{ flex: 1, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", padding: "6px", borderRadius: "4px", fontSize: "0.75rem", cursor: "pointer" }}>Reject</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -543,20 +623,34 @@ export default function YouTubeModule() {
               Configure the deployment parameters for <strong style={{ color: "#fff" }}>{wizardNiche?.niche || "this channel"}</strong>.
             </p>
 
-            {/* Format Selection */}
+            {/* Pipeline Scheduler */}
             <div style={{ marginBottom: "24px" }}>
-              <label style={{ display: "block", color: "#94a3b8", fontSize: "0.75rem", textTransform: "uppercase", marginBottom: "10px", letterSpacing: "0.05em" }}>Content Format Strategy</label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
-                {[
-                  { id: "independent_shorts", label: "Shorts Only", desc: "Stand-alone vertical" },
-                  { id: "independent_long", label: "Long Form Only", desc: "Stand-alone horizontal" },
-                  { id: "funnel", label: "Funnel Mode (Both)", desc: "Shorts hooked to Long" }
-                ].map(opt => (
-                  <div key={opt.id} onClick={() => setWizardConfig({...wizardConfig, format: opt.id})} style={{ padding: "14px", borderRadius: "8px", border: wizardConfig.format === opt.id ? "1px solid #a78bfa" : "1px solid rgba(255,255,255,0.1)", background: wizardConfig.format === opt.id ? "rgba(167,139,250,0.1)" : "rgba(255,255,255,0.03)", cursor: "pointer", transition: "all 0.2s" }}>
-                    <div style={{ fontWeight: "500", color: wizardConfig.format === opt.id ? "#a78bfa" : "#e2e8f0", fontSize: "0.85rem", marginBottom: "4px" }}>{opt.label}</div>
-                    <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>{opt.desc}</div>
+              <label style={{ display: "block", color: "#94a3b8", fontSize: "0.75rem", textTransform: "uppercase", marginBottom: "10px", letterSpacing: "0.05em" }}>Content Pipeline Rules</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div style={{ padding: "14px", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                    <span style={{ fontWeight: "500", color: "#e2e8f0", fontSize: "0.85rem" }}>Shorts Frequency</span>
+                    <span style={{ fontSize: "0.7rem", color: "#a78bfa" }}>per week</span>
                   </div>
-                ))}
+                  <select value={wizardConfig.schedules.shorts} onChange={(e) => setWizardConfig({...wizardConfig, schedules: {...wizardConfig.schedules, shorts: e.target.value}})} style={{ width: "100%", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", padding: "8px", color: "#fff", outline: "none" }}>
+                    <option value="0">0 (Off)</option>
+                    <option value="1">1 Short</option>
+                    <option value="3">3 Shorts</option>
+                    <option value="7">7 Shorts (Daily)</option>
+                  </select>
+                </div>
+                <div style={{ padding: "14px", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                    <span style={{ fontWeight: "500", color: "#e2e8f0", fontSize: "0.85rem" }}>Long-Form Frequency</span>
+                    <span style={{ fontSize: "0.7rem", color: "#a78bfa" }}>per week</span>
+                  </div>
+                  <select value={wizardConfig.schedules.long_form} onChange={(e) => setWizardConfig({...wizardConfig, schedules: {...wizardConfig.schedules, long_form: e.target.value}})} style={{ width: "100%", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", padding: "8px", color: "#fff", outline: "none" }}>
+                    <option value="0">0 (Off)</option>
+                    <option value="1">1 Video</option>
+                    <option value="2">2 Videos</option>
+                    <option value="3">3 Videos</option>
+                  </select>
+                </div>
               </div>
             </div>
 
