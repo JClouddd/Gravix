@@ -34,6 +34,15 @@ export default function YouTubeModule() {
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [activeChannelTab, setActiveChannelTab] = useState("performance"); // performance, pipeline, orchestration
   const [learningMode, setLearningMode] = useState("manual_approval"); // For orchestration tab mock
+  const [compiling, setCompiling] = useState(false);
+  
+  // Real-time state for the selected channel's learning ledger
+  const [learningLedger, setLearningLedger] = useState([
+    { id: "L1", insight: "Fast-paced hooks increase retention by 14%. Enforce sub-5-second intros.", actionableRule: "Rule: Ensure the first 5 seconds feature rapid visual cuts and a strong hook.", targetAgent: "visuals" }
+  ]);
+  const [proposalInbox, setProposalInbox] = useState([
+    { id: "P1", insight: "Data shows viewers drop when discussing abstract theory for too long.", reasoning: "Average View Duration drops by 40% when screen is static and script explains theory.", actionableRule: "Rule: Keep abstract theory under 10% of runtime and use on-screen text to break up pacing.", targetAgent: "script" }
+  ]);
   
   const mockChannels = [
     { id: "c1", name: "AI Manga Tales", niche: "Anime Automation", status: "Monetized", rev: "$4,120", progress: 100, format: "funnel" },
@@ -169,6 +178,44 @@ export default function YouTubeModule() {
     } finally {
       setIncubating(false);
     }
+  };
+
+  const runMetaCompiler = async () => {
+    if (!selectedChannel) return;
+    setCompiling(true);
+    try {
+      const res = await fetch("/api/agents/meta-compiler", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channelId: selectedChannel.id })
+      });
+      const result = await res.json();
+      if (result.success && result.insight) {
+        const newInsight = {
+          id: "I" + Date.now(),
+          ...result.insight
+        };
+        
+        if (learningMode === "autonomous") {
+          setLearningLedger(prev => [newInsight, ...prev]);
+        } else if (learningMode === "manual_approval") {
+          setProposalInbox(prev => [newInsight, ...prev]);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCompiling(false);
+    }
+  };
+
+  const approveProposal = (proposal) => {
+    setLearningLedger(prev => [proposal, ...prev]);
+    setProposalInbox(prev => prev.filter(p => p.id !== proposal.id));
+  };
+
+  const rejectProposal = (proposalId) => {
+    setProposalInbox(prev => prev.filter(p => p.id !== proposalId));
   };
 
   const tabs = [
@@ -547,33 +594,48 @@ export default function YouTubeModule() {
                   <div className="card-glass" style={{ padding: "20px", display: "flex", flexDirection: "column", height: "450px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                       <h3 style={{ fontSize: "1rem", color: "#e2e8f0", margin: 0 }}>Learning Ledger</h3>
-                      <select value={learningMode} onChange={(e) => setLearningMode(e.target.value)} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", borderRadius: "4px", padding: "4px 8px", fontSize: "0.75rem", outline: "none" }}>
-                        <option value="autonomous">Auto-Learn</option>
-                        <option value="manual_approval">Manual Approval</option>
-                        <option value="off">Off</option>
-                      </select>
+                      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                        <button onClick={runMetaCompiler} disabled={compiling || learningMode === "off"} style={{ background: compiling ? "rgba(255,255,255,0.05)" : "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)", color: compiling ? "#94a3b8" : "#4ade80", padding: "4px 8px", borderRadius: "4px", fontSize: "0.7rem", cursor: compiling || learningMode === "off" ? "not-allowed" : "pointer" }}>
+                           {compiling ? "⏳ Compiling..." : "⚡ Run Compiler Analysis"}
+                        </button>
+                        <select value={learningMode} onChange={(e) => setLearningMode(e.target.value)} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", borderRadius: "4px", padding: "4px 8px", fontSize: "0.75rem", outline: "none" }}>
+                          <option value="autonomous">Auto-Learn</option>
+                          <option value="manual_approval">Manual Approval</option>
+                          <option value="off">Off</option>
+                        </select>
+                      </div>
                     </div>
                     
                     <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" }}>
-                      <div style={{ background: "rgba(255,255,255,0.03)", padding: "12px", borderRadius: "6px", borderLeft: "2px solid #4ade80" }}>
-                        <div style={{ fontSize: "0.7rem", color: "#4ade80", textTransform: "uppercase", marginBottom: "4px", fontWeight: "600" }}>Active Insight</div>
-                        <div style={{ fontSize: "0.8rem", color: "#cbd5e1", lineHeight: "1.4" }}>Fast-paced hooks increase retention by 14%. Enforce sub-5-second intros.</div>
-                      </div>
+                      {learningLedger.length === 0 && proposalInbox.length === 0 && (
+                        <div style={{ textAlign: "center", color: "#64748b", fontSize: "0.85rem", marginTop: "40px" }}>No insights or proposals yet.</div>
+                      )}
 
-                      {learningMode === "manual_approval" && (
-                        <div style={{ background: "rgba(245,158,11,0.05)", padding: "12px", borderRadius: "6px", borderLeft: "2px solid #fbbf24", border: "1px solid rgba(245,158,11,0.2)" }}>
+                      {learningLedger.map(item => (
+                        <div key={item.id} style={{ background: "rgba(255,255,255,0.03)", padding: "12px", borderRadius: "6px", borderLeft: "2px solid #4ade80" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                            <div style={{ fontSize: "0.7rem", color: "#4ade80", textTransform: "uppercase", fontWeight: "600" }}>Active Insight</div>
+                            <span style={{ fontSize: "0.6rem", background: "rgba(255,255,255,0.1)", color: "#cbd5e1", padding: "2px 5px", borderRadius: "3px" }}>TARGET: {item.targetAgent?.toUpperCase() || "GLOBAL"}</span>
+                          </div>
+                          <div style={{ fontSize: "0.8rem", color: "#cbd5e1", lineHeight: "1.4" }}>{item.actionableRule || item.insight}</div>
+                        </div>
+                      ))}
+
+                      {learningMode === "manual_approval" && proposalInbox.map(proposal => (
+                        <div key={proposal.id} style={{ background: "rgba(245,158,11,0.05)", padding: "12px", borderRadius: "6px", borderLeft: "2px solid #fbbf24", border: "1px solid rgba(245,158,11,0.2)" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                             <span style={{ fontSize: "0.7rem", color: "#fbbf24", textTransform: "uppercase", fontWeight: "600" }}>Proposal Inbox</span>
                             <span style={{ fontSize: "0.6rem", background: "rgba(245,158,11,0.1)", color: "#fcd34d", padding: "2px 6px", borderRadius: "3px" }}>AWAITING REVIEW</span>
                           </div>
-                          <div style={{ fontSize: "0.8rem", color: "#e2e8f0", lineHeight: "1.4", marginBottom: "10px" }}>Data shows viewers drop when discussing theory. Suggest rule: "Keep abstract theory under 10% of runtime."</div>
+                          <div style={{ fontSize: "0.8rem", color: "#e2e8f0", lineHeight: "1.4", marginBottom: "4px" }}><strong>Insight:</strong> {proposal.insight}</div>
+                          <div style={{ fontSize: "0.75rem", color: "#94a3b8", lineHeight: "1.4", marginBottom: "10px" }}><em>Reasoning:</em> {proposal.reasoning}</div>
+                          <div style={{ fontSize: "0.8rem", color: "#4ade80", lineHeight: "1.4", marginBottom: "10px", background: "rgba(34,197,94,0.1)", padding: "6px", borderRadius: "4px" }}><strong>Rule:</strong> {proposal.actionableRule}</div>
                           <div style={{ display: "flex", gap: "8px" }}>
-                            <button style={{ flex: 1, background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#86efac", padding: "6px", borderRadius: "4px", fontSize: "0.75rem", cursor: "pointer" }}>Approve</button>
-                            <button style={{ flex: 1, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", padding: "6px", borderRadius: "4px", fontSize: "0.75rem", cursor: "pointer" }}>Reject</button>
+                            <button onClick={() => approveProposal(proposal)} style={{ flex: 1, background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#86efac", padding: "6px", borderRadius: "4px", fontSize: "0.75rem", cursor: "pointer" }}>Approve</button>
+                            <button onClick={() => rejectProposal(proposal.id)} style={{ flex: 1, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", padding: "6px", borderRadius: "4px", fontSize: "0.75rem", cursor: "pointer" }}>Reject</button>
                           </div>
                         </div>
-                      )}
-                    </div>
+                      ))}
                   </div>
                 </div>
               )}
