@@ -10,6 +10,7 @@ import NotificationCenter from "@/components/NotificationCenter";
 import { registerShortcuts } from "@/lib/keyboardShortcuts";
 import QuickActions from "@/components/QuickActions";
 import PipelineToasts from "@/components/PipelineToasts";
+import GravixCopilotWidget from "@/components/ui/GravixCopilotWidget";
 
 /* ── Module Registry ─────────────────────────────────────────── */
 const MODULES = [
@@ -208,6 +209,7 @@ export default function AppShell() {
           top: 0,
           zIndex: 'var(--z-header)'
         }}>
+          <GravixCopilotWidget />
           <NotificationCenter />
           <button
             className="btn btn-icon btn-ghost"

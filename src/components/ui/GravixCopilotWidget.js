@@ -10,6 +10,10 @@ export default function GravixCopilotWidget() {
   const [isTyping, setIsTyping] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   
+  // Drag to resize state
+  const [width, setWidth] = useState(400);
+  const [isDragging, setIsDragging] = useState(false);
+  
   const pathname = usePathname();
   const messagesEndRef = useRef(null);
 
@@ -21,6 +25,35 @@ export default function GravixCopilotWidget() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging) return;
+      // Calculate new width based on window width minus mouse X position
+      // because the panel is anchored to the right side of the screen.
+      const newWidth = window.innerWidth - e.clientX;
+      // Enforce min and max widths
+      if (newWidth > 300 && newWidth < 800) {
+        setWidth(newWidth);
+      }
+    };
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      // Disable text selection while dragging
+      document.body.style.userSelect = 'none';
+    } else {
+      document.body.style.userSelect = 'auto';
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -107,34 +140,40 @@ export default function GravixCopilotWidget() {
         </div>
       )}
 
-      {/* The Floating Orb Button */}
-      <div className="fixed bottom-6 right-6 z-[60]">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={`relative flex items-center justify-center w-14 h-14 rounded-full shadow-2xl transition-all duration-300 ease-in-out
-            ${isOpen ? 'bg-red-500/80 hover:bg-red-500 shadow-red-500/50' : 'bg-gradient-to-tr from-indigo-600 to-purple-500 hover:scale-105 hover:shadow-indigo-500/50'}`}
-        >
-          {isOpen ? (
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          ) : (
-            <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          )}
-        </button>
-      </div>
+      {/* The Inline Header Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`btn btn-icon btn-ghost ${isOpen ? 'text-indigo-400 bg-white/5' : 'text-gray-400 hover:text-white'}`}
+        title="Toggle Copilot"
+        aria-label="Toggle Copilot"
+      >
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </button>
 
       {/* The Glassmorphic Side Panel */}
       <div
-        className={`fixed top-0 right-0 h-screen w-[340px] flex flex-col border-l border-white/10 shadow-2xl bg-[#0f111a]/80 backdrop-blur-2xl transition-transform duration-300 ease-in-out z-50
+        className={`fixed top-0 right-0 h-screen flex flex-col border-l border-white/10 shadow-2xl bg-[#0f111a]/95 backdrop-blur-3xl transition-transform duration-300 ease-in-out z-50
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        style={{ width: \`\${width}px\` }}
       >
+        {/* Resize Handle */}
+        <div 
+          className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-indigo-500/50 transition-colors z-50 group"
+          onMouseDown={() => setIsDragging(true)}
+        >
+          <div className="absolute top-1/2 -translate-y-1/2 left-0 w-full h-12 flex flex-col justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="w-0.5 h-1 bg-white/40 mb-0.5 rounded"></div>
+            <div className="w-0.5 h-1 bg-white/40 mb-0.5 rounded"></div>
+            <div className="w-0.5 h-1 bg-white/40 rounded"></div>
+          </div>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-6 border-b border-white/10 bg-white/5">
           <div className="flex items-center space-x-3">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-lg shadow-indigo-500/20">
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
@@ -144,6 +183,11 @@ export default function GravixCopilotWidget() {
               <p className="text-[10px] text-emerald-400 font-mono tracking-widest uppercase">Gemma 4 // Active</p>
             </div>
           </div>
+          <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white p-1 rounded-md transition-colors">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Chat Messages Area */}
@@ -187,19 +231,19 @@ export default function GravixCopilotWidget() {
         </div>
 
         {/* Input Area */}
-        <div className="p-3 border-t border-white/10 bg-white/5 absolute bottom-0 left-0 w-full h-20">
-          <form onSubmit={handleSend} className="relative flex items-center h-full pb-2">
+        <div className="p-4 border-t border-white/10 bg-white/5 absolute bottom-0 left-0 w-full">
+          <form onSubmit={handleSend} className="relative flex items-center">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Command the system..."
-              className="w-full bg-[#0a0c14] border border-white/10 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+              className="w-full bg-[#0a0c14]/50 border border-white/10 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors backdrop-blur-md shadow-inner"
             />
             <button
               type="submit"
               disabled={!input.trim() || isTyping}
-              className="absolute right-2 top-1/2 -translate-y-[60%] p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
