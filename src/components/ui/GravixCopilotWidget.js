@@ -156,7 +156,7 @@ export default function GravixCopilotWidget() {
       <div
         className={`fixed top-0 right-0 h-screen flex flex-col border-l border-white/10 shadow-2xl bg-[#0f111a]/95 backdrop-blur-3xl transition-transform duration-300 ease-in-out z-50
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
-        style={{ width: \`\${width}px\` }}
+        style={{ width: `${width}px` }}
       >
         {/* Resize Handle */}
         <div 
