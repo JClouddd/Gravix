@@ -108,10 +108,10 @@ export default function GravixCopilotWidget() {
       )}
 
       {/* The Floating Orb Button */}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-6 right-6 z-[60]">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className={`relative flex items-center justify-center w-14 h-14 rounded-full shadow-2xl transition-all duration-300 ease-in-out z-50
+          className={`relative flex items-center justify-center w-14 h-14 rounded-full shadow-2xl transition-all duration-300 ease-in-out
             ${isOpen ? 'bg-red-500/80 hover:bg-red-500 shadow-red-500/50' : 'bg-gradient-to-tr from-indigo-600 to-purple-500 hover:scale-105 hover:shadow-indigo-500/50'}`}
         >
           {isOpen ? (
@@ -124,88 +124,88 @@ export default function GravixCopilotWidget() {
             </svg>
           )}
         </button>
+      </div>
 
-        {/* The Glassmorphic Panel */}
-        <div
-          className={`absolute bottom-20 right-0 w-[400px] h-[600px] max-h-[80vh] flex flex-col rounded-2xl border border-white/10 shadow-2xl bg-[#0f111a]/80 backdrop-blur-xl transition-all duration-300 origin-bottom-right
-            ${isOpen ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-95 opacity-0 pointer-events-none'}`}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-white/5 rounded-t-2xl">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500">
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-white tracking-wide">Gravix Omni-Widget</h3>
-                <p className="text-[10px] text-emerald-400 font-mono tracking-widest uppercase">Gemma 4 // Active</p>
-              </div>
+      {/* The Glassmorphic Side Panel */}
+      <div
+        className={`fixed top-0 right-0 h-screen w-[340px] flex flex-col border-l border-white/10 shadow-2xl bg-[#0f111a]/80 backdrop-blur-2xl transition-transform duration-300 ease-in-out z-50
+          ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-6 border-b border-white/10 bg-white/5">
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500">
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white tracking-wide">Gravix Omni-Widget</h3>
+              <p className="text-[10px] text-emerald-400 font-mono tracking-widest uppercase">Gemma 4 // Active</p>
             </div>
           </div>
+        </div>
 
-          {/* Chat Messages Area */}
-          <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-4">
-            {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center space-y-3 opacity-60">
-                <svg className="w-12 h-12 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-                <p className="text-sm text-gray-300 font-medium">I am synced with {pathname}.</p>
-                <p className="text-xs text-gray-400">How can I assist you with this module?</p>
-              </div>
-            ) : (
-              messages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div 
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm
-                    ${msg.role === 'user' 
-                      ? 'bg-indigo-600 text-white rounded-tr-sm' 
-                      : msg.role === 'system'
-                        ? 'bg-red-500/20 text-red-200 border border-red-500/30'
-                        : 'bg-white/10 text-gray-200 border border-white/5 rounded-tl-sm'
-                    }`}
-                  >
-                    {msg.content}
-                  </div>
-                </div>
-              ))
-            )}
-            
-            {isTyping && (
-              <div className="flex justify-start">
-                <div className="bg-white/10 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3 flex space-x-1 items-center h-10">
-                  <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+        {/* Chat Messages Area */}
+        <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-4 pb-24">
+          {messages.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center space-y-3 opacity-60">
+              <svg className="w-12 h-12 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+              <p className="text-sm text-gray-300 font-medium">I am synced with {pathname}.</p>
+              <p className="text-xs text-gray-400">How can I assist you with this module?</p>
+            </div>
+          ) : (
+            messages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div 
+                  className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm
+                  ${msg.role === 'user' 
+                    ? 'bg-indigo-600 text-white rounded-tr-sm' 
+                    : msg.role === 'system'
+                      ? 'bg-red-500/20 text-red-200 border border-red-500/30'
+                      : 'bg-white/10 text-gray-200 border border-white/5 rounded-tl-sm'
+                  }`}
+                >
+                  {msg.content}
                 </div>
               </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+            ))
+          )}
+          
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="bg-white/10 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3 flex space-x-1 items-center h-10">
+                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
 
-          {/* Input Area */}
-          <div className="p-3 border-t border-white/10 bg-white/5 rounded-b-2xl">
-            <form onSubmit={handleSend} className="relative flex items-center">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Command the system..."
-                className="w-full bg-[#0a0c14] border border-white/10 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
-              />
-              <button
-                type="submit"
-                disabled={!input.trim() || isTyping}
-                className="absolute right-2 p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-              </button>
-            </form>
-          </div>
+        {/* Input Area */}
+        <div className="p-3 border-t border-white/10 bg-white/5 absolute bottom-0 left-0 w-full h-20">
+          <form onSubmit={handleSend} className="relative flex items-center h-full pb-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Command the system..."
+              className="w-full bg-[#0a0c14] border border-white/10 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || isTyping}
+              className="absolute right-2 top-1/2 -translate-y-[60%] p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+          </form>
         </div>
       </div>
     </>
