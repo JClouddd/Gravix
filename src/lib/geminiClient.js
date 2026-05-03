@@ -239,7 +239,15 @@ export async function generate({
   const duration = Date.now() - startTime;
   const response = result.response;
   
-  const functionCalls = response.functionCalls();
+  let functionCalls = [];
+  if (typeof response.functionCalls === "function") {
+    functionCalls = response.functionCalls();
+  } else if (response.candidates?.[0]?.content?.parts) {
+    functionCalls = response.candidates[0].content.parts
+      .filter(part => part.functionCall)
+      .map(part => part.functionCall);
+  }
+
   let text = "";
   try {
     text = response.text() || "";
