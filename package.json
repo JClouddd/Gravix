@@ -12,6 +12,7 @@
   "dependencies": {
     "@ai-sdk/google": "^3.0.67",
     "@e2b/code-interpreter": "^2.4.0",
+    "@genkit-ai/googleai": "^1.28.0",
     "@google-cloud/bigquery": "^7.9.0",
     "@google-cloud/bigquery-storage": "^5.1.0",
     "@google-cloud/discoveryengine": "^2.6.0",
@@ -23,6 +24,7 @@
     "date-fns": "^4.1.0",
     "firebase": "^12.12.0",
     "firebase-admin": "^12.7.0",
+    "genkit": "^1.33.0",
     "google-auth-library": "^9.15.1",
     "googleapis": "^171.4.0",
     "next": "16.2.4",

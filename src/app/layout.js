@@ -17,6 +17,7 @@ export const metadata = {
 };
 
 import { AuthProvider } from "@/lib/authProvider";
+import GravixCopilotWidget from "@/components/ui/GravixCopilotWidget";
 
 export default function RootLayout({ children }) {
   return (
@@ -31,6 +32,7 @@ export default function RootLayout({ children }) {
         <ServiceWorkerRegister />
         <AuthProvider>
           {children}
+          <GravixCopilotWidget />
         </AuthProvider>
       </body>
     </html>
