@@ -240,10 +240,10 @@ export default function AppShell() {
             </Suspense>
           </ErrorBoundary>
         </div>
-        
-        {/* Render Copilot Widget outside the header to avoid backdrop-filter trapping */}
-        <GravixCopilotWidget isOpen={copilotOpen} setIsOpen={setCopilotOpen} />
       </main>
+      
+      {/* Render Copilot Widget as a sibling side-column */}
+      <GravixCopilotWidget isOpen={copilotOpen} setIsOpen={setCopilotOpen} />
     </div>
   );
 }
