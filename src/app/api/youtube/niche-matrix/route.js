@@ -65,7 +65,10 @@ export async function POST(request) {
     const {
       focusArea = null,
       includeSubNiches = true,
-      depth = 'deep'
+      depth = 'deep',
+      optimizationWeights = {
+        cpm: 5, competition: 5, evergreen: 5, growth: 5, offPlatform: 5, crossPlatform: 5, aiViable: 5
+      }
     } = userParams;
 
     console.log('[NicheMatrix] Starting hybrid intelligence scan...');
@@ -134,7 +137,10 @@ export async function POST(request) {
       'YouTube sub-niche opportunities underserved audience 2026',
       'YouTube CPM rates by country 2026 US UK Germany Australia India Brazil',
       'YouTube CPM long form vs shorts vs tutorials vs listicles content format rates',
-      'Google Trends YouTube search volume data highest traffic topics 2026'
+      'Google Trends YouTube search volume data highest traffic topics 2026',
+      'TikTok fastest growing niches 2026 emerging hashtags',
+      'Fastest growing Reddit subcultures 2026 underserved communities',
+      'Skool and Patreon highest earning communities niches 2026'
     ];
     
     if (focusArea) {
@@ -228,7 +234,18 @@ CRITICAL RULES:
 - Incorporate Google/YouTube SEARCH TRENDS and volume metrics into the trend analysis where possible
 - For EACH niche, generate a highly specific \`targetAudienceVibe\` that outlines the exact pacing, tone, and demographic profile needed
 - For EACH niche, provide geographic CPM breakdowns by country tier (Tier 1: US/UK/CA/AU/DE, Tier 2: FR/JP/KR/NL, Tier 3: BR/MX/IN/PH)
-- For EACH niche, provide CPM/RPM rates broken down by content FORMAT (long-form 10+min, short-form <60s, tutorials, listicles, documentary, commentary)`;
+- For EACH niche, provide CPM/RPM rates broken down by content FORMAT (long-form 10+min, short-form <60s, tutorials, listicles, documentary, commentary)
+
+USER OPTIMIZATION STRATEGY WEIGHTS (0-10 Scale):
+- Maximize CPM: ${optimizationWeights.cpm}/10
+- Minimize Competition: ${optimizationWeights.competition}/10
+- Evergreen Lifespan: ${optimizationWeights.evergreen}/10
+- Fastest Growth (Viral Velocity): ${optimizationWeights.growth}/10
+- Off-Platform Monetization (Skool/Affiliates): ${optimizationWeights.offPlatform}/10
+- Cross-Platform Virality (TikTok/Reels): ${optimizationWeights.crossPlatform}/10
+- AI/Faceless Viability: ${optimizationWeights.aiViable}/10
+
+Use these exact weights to calculate the "priorityMatchScore" (1-100%) and justify it in "priorityMatchReason". Reorder the final results to prioritize niches that best match this math.`;
 
     const userPrompt = `Perform a HYBRID niche intelligence analysis using both our vault baseline and live research data.
 ${focusArea ? `\nFOCUS AREA: Prioritize "${focusArea}" but include other opportunities.\n` : ''}
@@ -295,6 +312,8 @@ Return STRICTLY valid JSON (no markdown) in this format:
         }
       ],
       "compositeScore": 8.5,
+      "priorityMatchScore": 94,
+      "priorityMatchReason": "Matches 10/10 AI viability and 9/10 CPM weights perfectly, despite lower evergreen score.",
       "quickWin": true,
       "reasoning": "Cite specific [VAULT] and [LIVE] data points"
     }
