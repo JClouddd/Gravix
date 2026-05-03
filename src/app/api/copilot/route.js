@@ -96,7 +96,9 @@ export async function POST(request) {
 
     return NextResponse.json({ response: responseText });
   } catch (error) {
-    console.error("Copilot Flow Error:", error);
-    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
+    console.error("Copilot Flow Error - Message:", error.message);
+    console.error("Copilot Flow Error - Stack:", error.stack);
+    if (error.status) console.error("Copilot Flow Error - Status:", error.status);
+    return NextResponse.json({ error: `Failed to process request: ${error.message}` }, { status: 500 });
   }
 }

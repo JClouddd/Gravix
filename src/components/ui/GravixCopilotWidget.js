@@ -139,11 +139,11 @@ export default function GravixCopilotWidget({ isOpen, setIsOpen }) {
         </div>
       )}
 
-      {/* The Glassmorphic Side Panel */}
+      {/* The Structural Side Panel */}
       <div
-        className={`fixed top-[64px] right-0 h-[calc(100vh-64px)] flex flex-col border-l border-t border-white/10 shadow-2xl bg-[#0f111a]/95 backdrop-blur-3xl transition-transform duration-300 ease-in-out z-[40]
-          ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
-        style={{ width: `${width}px` }}
+        className={`relative flex flex-col border-l border-white/10 shadow-2xl bg-[#0f111a]/95 transition-all duration-300 ease-in-out z-[40] overflow-hidden flex-shrink-0
+          ${isOpen ? 'opacity-100' : 'opacity-0'}`}
+        style={{ width: isOpen ? `${width}px` : '0px', height: '100%' }}
       >
         {/* Resize Handle */}
         <div 
