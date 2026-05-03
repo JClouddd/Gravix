@@ -40,6 +40,7 @@ const moduleComponents = {
 export default function AppShell() {
   const [activeModule, setActiveModule] = useState("home");
   const [collapsed, setCollapsed] = useState(false);
+  const [copilotOpen, setCopilotOpen] = useState(false);
 
   const [theme, setTheme] = useState("dark");
   const [isMobile, setIsMobile] = useState(false);
@@ -209,7 +210,18 @@ export default function AppShell() {
           top: 0,
           zIndex: 'var(--z-header)'
         }}>
-          <GravixCopilotWidget />
+          {/* Ask Gemini / Copilot Toggle Button */}
+          <button
+            onClick={() => setCopilotOpen(!copilotOpen)}
+            className={`btn btn-icon btn-ghost ${copilotOpen ? 'text-indigo-400 bg-white/5' : 'text-gray-400 hover:text-white'}`}
+            title="Ask Gemini"
+            aria-label="Toggle Copilot"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </button>
+          
           <NotificationCenter />
           <button
             className="btn btn-icon btn-ghost"
@@ -228,6 +240,9 @@ export default function AppShell() {
             </Suspense>
           </ErrorBoundary>
         </div>
+        
+        {/* Render Copilot Widget outside the header to avoid backdrop-filter trapping */}
+        <GravixCopilotWidget isOpen={copilotOpen} setIsOpen={setCopilotOpen} />
       </main>
     </div>
   );

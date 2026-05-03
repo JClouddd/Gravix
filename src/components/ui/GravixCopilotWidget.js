@@ -3,8 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
-export default function GravixCopilotWidget() {
-  const [isOpen, setIsOpen] = useState(false);
+export default function GravixCopilotWidget({ isOpen, setIsOpen }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -140,21 +139,9 @@ export default function GravixCopilotWidget() {
         </div>
       )}
 
-      {/* The Inline Header Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`btn btn-icon btn-ghost ${isOpen ? 'text-indigo-400 bg-white/5' : 'text-gray-400 hover:text-white'}`}
-        title="Toggle Copilot"
-        aria-label="Toggle Copilot"
-      >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      </button>
-
       {/* The Glassmorphic Side Panel */}
       <div
-        className={`fixed top-0 right-0 h-screen flex flex-col border-l border-white/10 shadow-2xl bg-[#0f111a]/95 backdrop-blur-3xl transition-transform duration-300 ease-in-out z-50
+        className={`fixed top-[64px] right-0 h-[calc(100vh-64px)] flex flex-col border-l border-t border-white/10 shadow-2xl bg-[#0f111a]/95 backdrop-blur-3xl transition-transform duration-300 ease-in-out z-[40]
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
         style={{ width: `${width}px` }}
       >
