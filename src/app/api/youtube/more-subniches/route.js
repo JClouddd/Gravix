@@ -68,7 +68,8 @@ Return valid JSON in this format:
       systemInstruction: systemPrompt,
       config: {
         thinkingConfig: { thinkingBudget },
-        temperature: 0.4
+        temperature: 0.4,
+        responseMimeType: "application/json"
       }
     });
 

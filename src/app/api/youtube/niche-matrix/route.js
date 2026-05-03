@@ -337,6 +337,7 @@ Generate at least 8 niches${includeSubNiches ? ', each with 2-4 sub-niches' : ''
       config: {
         thinkingConfig: { thinkingBudget },
         temperature: 0.2,
+        responseMimeType: "application/json",
         tools: [{ googleSearch: {} }]
       }
     });
