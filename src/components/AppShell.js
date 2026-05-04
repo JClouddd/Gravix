@@ -227,6 +227,7 @@ export default function AppShell() {
               <ActiveComponent setActiveModule={handleModuleChange} />
             </Suspense>
           </ErrorBoundary>
+        </div>
         </main>
         
         {/* Render Copilot Widget as a sibling side-column */}
