@@ -239,7 +239,7 @@ export async function generate({
   const duration = Date.now() - startTime;
   const response = result.response;
   
-  const functionCalls = response.functionCalls();
+  const functionCalls = response.functionCalls ? response.functionCalls() : [];
   let text = "";
   try {
     text = response.text() || "";
