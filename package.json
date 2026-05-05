@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint src/",
-    "test": "jest --watchAll=false"
+    "test": "vitest --run"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.67",
