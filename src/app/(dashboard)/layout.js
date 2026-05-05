@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useCallback, Suspense, lazy, useEffect, useRef } from "react";
+import { useState, useCallback, Suspense, useEffect, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
@@ -14,31 +16,29 @@ import GravixCopilotWidget from "@/components/ui/GravixCopilotWidget";
 
 /* ── Module Registry ─────────────────────────────────────────── */
 const MODULES = [
-  { id: "home", label: "Home", icon: "🏠", color: "var(--accent)" },
-  { id: "youtube", label: "YouTube", icon: "▶️", color: "#ef4444" },
-  { id: "agents", label: "Agents", icon: "🤖", color: "#a855f7" },
-  { id: "knowledge", label: "Vault", icon: "🧠", color: "#10b981" },
-  { id: "management", label: "Management", icon: "📋", color: "var(--accent)" },
-  { id: "finance", label: "Finance", icon: "💰", color: "var(--agent-finance)" },
-  { id: "architecture", label: "Ecosystem", icon: "🪐", color: "#00d4ff" },
-  { id: "settings",  label: "Settings",  icon: "⚙️",  color: "var(--text-secondary)" },
+  { id: "home", path: "/", label: "Home", icon: "🏠", color: "var(--accent)" },
+  { id: "youtube", path: "/youtube", label: "YouTube", icon: "▶️", color: "#ef4444" },
+  { id: "agents", path: "/agents", label: "Agents", icon: "🤖", color: "#a855f7" },
+  { id: "knowledge", path: "/knowledge", label: "Vault", icon: "🧠", color: "#10b981" },
+  { id: "management", path: "/management", label: "Management", icon: "📋", color: "var(--accent)" },
+  { id: "finance", path: "/finance", label: "Finance", icon: "💰", color: "var(--agent-finance)" },
+  { id: "architecture", path: "/architecture", label: "Ecosystem", icon: "🪐", color: "#00d4ff" },
+  { id: "settings", path: "/settings", label: "Settings",  icon: "⚙️",  color: "var(--text-secondary)" },
 ];
 
-/* ── Lazy Module Loading ─────────────────────────────────────── */
-const moduleComponents = {
-  home: lazy(() => import("@/components/modules/HomeModule")),
-  youtube: lazy(() => import("@/components/modules/YouTubeModule")),
-  agents: lazy(() => import("@/components/modules/AgentsModule")),
-  knowledge: lazy(() => import("@/components/modules/KnowledgeModule")),
-  management: lazy(() => import("@/components/modules/ManagementModule/ManagementDashboard")),
-  finance: lazy(() => import("@/components/modules/FinanceModule")),
-  architecture: lazy(() => import("@/components/modules/ArchitectureModule")),
-  settings:  lazy(() => import("@/components/modules/SettingsModule")),
-};
 
 /* ── AppShell Component ──────────────────────────────────────── */
-export default function AppShell() {
-  const [activeModule, setActiveModule] = useState("home");
+export default function AppShell({ children }) {
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const getActiveModule = () => {
+    if (pathname === "/") return "home";
+    const mod = pathname.split("/")[1];
+    return mod || "home";
+  };
+
+  const activeModule = getActiveModule();
   const [collapsed, setCollapsed] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
 
@@ -59,8 +59,11 @@ export default function AppShell() {
   }, []);
 
   const handleModuleChange = useCallback((id) => {
-    setActiveModule(id);
-  }, []);
+    const targetModule = MODULES.find((m) => m.id === id);
+    if (targetModule) {
+      router.push(targetModule.path);
+    }
+  }, [router]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -129,14 +132,13 @@ export default function AppShell() {
     }
   };
 
-  const ActiveComponent = moduleComponents[activeModule];
   const activeConfig = MODULES.find((m) => m.id === activeModule);
 
   return (
     <div className="app-shell flex flex-col h-screen bg-gradient-premium overflow-hidden">
       {dynamicCSS && <style dangerouslySetInnerHTML={{ __html: dynamicCSS }} />}
       <PipelineToasts />
-      <CommandPalette setActiveModule={handleModuleChange} />
+      <CommandPalette />
 
       {/* ── Global Top Navigation Bar ──────────────────────── */}
       <header className="card-glass" style={{
@@ -177,11 +179,11 @@ export default function AppShell() {
           {MODULES.map((mod) => {
             const isActive = activeModule === mod.id;
             return (
-              <button
+              <Link
                 key={mod.id}
+                href={mod.path}
                 id={`nav-${mod.id}`}
                 className={`nav-item ${isActive ? "active" : ""}`}
-                onClick={() => handleModuleChange(mod.id)}
                 title={mod.label}
                 aria-current={isActive ? "page" : undefined}
                 style={isActive ? {
@@ -192,7 +194,7 @@ export default function AppShell() {
               >
                 <span className="nav-icon" style={isActive ? { textShadow: `0 0 10px ${mod.color}` } : {}}>{mod.icon}</span>
                 {!isMobile && <span className="nav-label" style={isActive ? { fontWeight: 600 } : {}}>{mod.label}</span>}
-              </button>
+              </Link>
             );
           })}
         </nav>
@@ -219,12 +221,12 @@ export default function AppShell() {
           onTouchEnd={onTouchEndHandler}
         >
           <InstallPrompt />
-          <QuickActions activeModule={activeModule} setActiveModule={handleModuleChange} />
+          <QuickActions activeModule={activeModule} />
 
         <div className="module-container">
           <ErrorBoundary name={activeConfig?.label} key={activeModule}>
             <Suspense fallback={<LoadingSkeleton rows={4} cards={3} />}>
-              <ActiveComponent setActiveModule={handleModuleChange} />
+              {children}
             </Suspense>
           </ErrorBoundary>
         </div>

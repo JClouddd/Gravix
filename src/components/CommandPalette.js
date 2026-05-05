@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { SHORTCUTS } from "@/lib/keyboardShortcuts";
 
 const getShortcutLabel = (actionType, actionName) => {
@@ -33,11 +34,12 @@ const COMMANDS = [
   { id: "agt-sentinel", type: "Agent", label: "Ask Sentinel", icon: "🛡️", desc: "Check alerts and system security" },
 ];
 
-export default function CommandPalette({ setActiveModule }) {
+export default function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
+  const router = useRouter();
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -86,8 +88,8 @@ export default function CommandPalette({ setActiveModule }) {
   };
 
   const executeCommand = (cmd) => {
-    if (cmd.type === "Navigation" && setActiveModule) {
-      setActiveModule(cmd.action);
+    if (cmd.type === "Navigation") {
+      router.push(cmd.action === "home" ? "/" : `/${cmd.action}`);
     } else if (cmd.id === "act-shortcuts") {
       alert(
         "Keyboard Shortcuts:\n" +
@@ -95,17 +97,17 @@ export default function CommandPalette({ setActiveModule }) {
           .map(s => `${s.label}: ${s.desc}`)
           .join("\n")
       );
-    } else if (cmd.type === "Action" && setActiveModule) {
+    } else if (cmd.type === "Action") {
       // Map actions to their target modules
       const actionModuleMap = {
-        "act-health": "home",
-        "act-notebook": "knowledge",
-        "act-search": "knowledge",
+        "act-health": "/",
+        "act-notebook": "/knowledge",
+        "act-search": "/knowledge",
       };
       const targetModule = actionModuleMap[cmd.id];
-      if (targetModule) setActiveModule(targetModule);
-    } else if (cmd.type === "Agent" && setActiveModule) {
-      setActiveModule("agents");
+      if (targetModule) router.push(targetModule);
+    } else if (cmd.type === "Agent") {
+      router.push("/agents");
     }
     setIsOpen(false);
   };
