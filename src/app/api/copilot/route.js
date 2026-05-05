@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { ai } from '@/lib/genkit';
-import { gemini15Flash } from '@genkit-ai/googleai';
+import { gemini15Flash, gemini15Pro } from '@genkit-ai/googleai';
 import { queryVault } from '@/lib/ragService';
 
 // Define the Knowledge Bridge Tool
@@ -59,20 +59,34 @@ const copilotFlow = ai.defineFlow({
   inputSchema: z.object({
     prompt: z.string(),
     context: z.string().optional(),
+    model: z.string().optional(),
+    media: z.array(z.object({
+      base64: z.string(),
+      mimeType: z.string()
+    })).optional(),
   }),
   outputSchema: z.string(),
 }, async (input) => {
-  const { prompt, context } = input;
+  const { prompt, context, model, media } = input;
   
   // Construct the full prompt
   const fullPrompt = context 
     ? `System Context: ${context}\n\nUser Request: ${prompt}`
     : `User Request: ${prompt}`;
 
+  const selectedModel = model === 'pro' ? gemini15Pro : gemini15Flash;
+
+  let formattedPrompt = [fullPrompt];
+  if (media && media.length > 0) {
+    media.forEach(m => {
+      formattedPrompt.push({ media: { url: `data:${m.mimeType};base64,${m.base64}` } });
+    });
+  }
+
   // Call the model with tool access
   const { text } = await ai.generate({
-    model: gemini15Flash,
-    prompt: fullPrompt,
+    model: selectedModel,
+    prompt: formattedPrompt.length === 1 ? formattedPrompt[0] : formattedPrompt,
     tools: [queryVaultTool, triggerJulesTool],
     config: {
       temperature: 0.2, // Low temperature for factual, operational responses
@@ -85,14 +99,14 @@ const copilotFlow = ai.defineFlow({
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { prompt, context } = body;
+    const { prompt, context, model, media } = body;
 
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
     // Execute the Genkit flow
-    const responseText = await copilotFlow({ prompt, context });
+    const responseText = await copilotFlow({ prompt, context, model, media });
 
     return NextResponse.json({ response: responseText });
   } catch (error) {
