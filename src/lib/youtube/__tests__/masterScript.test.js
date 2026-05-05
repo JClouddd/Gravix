@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { generateMasterScript } from '@/lib/youtube/masterScript';
-import { generate } from '@/lib/geminiClient';
+import { generate, structuredGenerate } from '@/lib/geminiClient';
 
 vi.mock('@/lib/geminiClient', () => ({
   generate: vi.fn(),
+  structuredGenerate: vi.fn(),
 }));
 
 describe('generateMasterScript', () => {
@@ -17,11 +18,11 @@ describe('generateMasterScript', () => {
         estimatedLength: 'I'
       })
     };
-    generate.mockResolvedValue(mockResponse);
+    structuredGenerate.mockResolvedValue(mockResponse);
 
     const result = await generateMasterScript('Topic', 'Audience');
 
-    expect(generate).toHaveBeenCalled();
+    expect(structuredGenerate).toHaveBeenCalled();
     expect(result.titles[0]).toBe('A');
   });
 });

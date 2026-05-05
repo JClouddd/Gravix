@@ -5,6 +5,12 @@ vi.mock("@/lib/errorLogger", () => ({
   logRouteError: vi.fn(),
 }));
 
+vi.mock("@/lib/geminiClient", () => ({
+  structuredGenerate: vi.fn().mockResolvedValue({
+    text: JSON.stringify({ trends: ["AI Agents", "Next.js 15", "Quantum Computing"] })
+  }),
+}));
+
 describe("/api/youtube/trends", () => {
   it("should return a list of trends", async () => {
     const request = new Request("http://localhost/api/youtube/trends");
