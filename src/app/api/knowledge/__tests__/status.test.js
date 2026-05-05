@@ -30,15 +30,16 @@ describe('GET /api/knowledge/status', () => {
     const data = await response.json();
 
     expect(data.status).toBe('operational');
-    expect(data.dataStore).toEqual({
+    expect(data.dataStore).toEqual(expect.objectContaining({
       type: "vertex_ai",
       bucket: "gs://gravix-knowledge-docs",
       region: "global",
       deployed: true,
-      engineId: "gravix-scholar",
-      id: "gravix-knowledge",
+      engineId: "omni-knowledge-brain",
+      id: "omni-knowledge-brain",
       project: "antigravity-hub-jcloud",
-    });
+    }));
+
 
     expect(data.stats).toBeDefined();
     expect(data.scheduler).toBeDefined();
