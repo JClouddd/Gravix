@@ -6,8 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test": "jest --watchAll=false"
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.67",
@@ -44,6 +44,6 @@
     "husky": "^9.1.7",
     "jsdom": "^29.0.2",
     "lint-staged": "^16.4.0",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.5"
   }
 }

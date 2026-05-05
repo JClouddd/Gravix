@@ -35,8 +35,8 @@ describe('GET /api/knowledge/status', () => {
       bucket: "gs://gravix-knowledge-docs",
       region: "global",
       deployed: true,
-      engineId: "gravix-scholar",
-      id: "gravix-knowledge",
+      engineId: "omni-knowledge-brain",
+      id: "omni-knowledge-brain",
       project: "antigravity-hub-jcloud",
     });
 

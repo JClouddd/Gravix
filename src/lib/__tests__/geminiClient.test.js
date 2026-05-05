@@ -39,6 +39,7 @@ describe('geminiClient - generate', () => {
   it('calls generateContent and returns properly formatted result for base case', async () => {
     const mockResponse = {
       response: {
+        functionCalls: () => [],
         text: () => 'Hello there!',
         usageMetadata: {
           promptTokenCount: 10,
@@ -71,6 +72,7 @@ describe('geminiClient - generate', () => {
   it('passes temperature properly to generationConfig', async () => {
     const mockResponse = {
       response: {
+        functionCalls: () => [],
         text: () => 'Hot response',
         usageMetadata: {}
       }
@@ -87,6 +89,7 @@ describe('geminiClient - generate', () => {
   it('passes JSON schema and sets responseMimeType when jsonSchema is provided', async () => {
     const mockResponse = {
       response: {
+        functionCalls: () => [],
         text: () => '{"foo": "bar"}',
         usageMetadata: {}
       }
@@ -107,6 +110,7 @@ describe('geminiClient - generate', () => {
   it('adds googleSearchRetrieval tool when grounded is true', async () => {
     const mockResponse = {
       response: {
+        functionCalls: () => [],
         text: () => 'Grounded response',
         usageMetadata: {},
         candidates: [{
@@ -127,7 +131,7 @@ describe('geminiClient - generate', () => {
 
   it('sets thinkingConfig based on thinkingLevel', async () => {
     const mockResponse = {
-      response: { text: () => 'Thinking...', usageMetadata: {} }
+      response: { functionCalls: () => [], text: () => 'Thinking...', usageMetadata: {} }
     };
     mockGenerateContent.mockResolvedValueOnce(mockResponse);
 
@@ -142,7 +146,7 @@ describe('geminiClient - generate', () => {
 
   it('sets deep reasoning and thinkingConfig when model is deep', async () => {
     const mockResponse = {
-      response: { text: () => 'Deep research', usageMetadata: {} }
+      response: { functionCalls: () => [], text: () => 'Deep research', usageMetadata: {} }
     };
     mockGenerateContent.mockResolvedValueOnce(mockResponse);
 
@@ -158,7 +162,7 @@ describe('geminiClient - generate', () => {
 
   it('includes systemPrompt if provided', async () => {
     const mockResponse = {
-      response: { text: () => 'Yes sir', usageMetadata: {} }
+      response: { functionCalls: () => [], text: () => 'Yes sir', usageMetadata: {} }
     };
     mockGenerateContent.mockResolvedValueOnce(mockResponse);
 
@@ -171,7 +175,7 @@ describe('geminiClient - generate', () => {
 
   it('appends conversation history to contents array properly', async () => {
     const mockResponse = {
-      response: { text: () => 'History test', usageMetadata: {} }
+      response: { functionCalls: () => [], text: () => 'History test', usageMetadata: {} }
     };
     mockGenerateContent.mockResolvedValueOnce(mockResponse);
 
@@ -193,7 +197,7 @@ describe('geminiClient - generate', () => {
 
   it('retries when generateContent throws an error', async () => {
     const mockResponse = {
-      response: { text: () => 'Recovered', usageMetadata: {} }
+      response: { functionCalls: () => [], text: () => 'Recovered', usageMetadata: {} }
     };
 
     // First call rejects, second resolves
@@ -218,6 +222,7 @@ describe('geminiClient - generate', () => {
   it('estimates costs properly for high usage with pro tier', async () => {
     const mockResponse = {
       response: {
+        functionCalls: () => [],
         text: () => 'Costly response',
         usageMetadata: {
           promptTokenCount: 10000,

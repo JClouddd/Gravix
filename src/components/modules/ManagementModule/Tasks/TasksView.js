@@ -24,10 +24,12 @@ export default function TasksView() {
 
   // Fetch tasks when activeListId changes
   useEffect(() => {
-    setLoading(true);
+    let isMounted = true;
+
     fetch(`/api/management/tasks?taskListId=${activeListId}`)
       .then(res => res.json())
       .then(data => {
+        if (!isMounted) return;
         if (data.success && data.connected) {
           setTasks(data.tasks || []);
           setTaskLists(data.taskLists || []);
@@ -43,9 +45,11 @@ export default function TasksView() {
         setLoading(false);
       })
       .catch(err => {
+        if (!isMounted) return;
         setError(err.message);
         setLoading(false);
       });
+      return () => { isMounted = false; };
   }, [activeListId]);
 
   // Real-time Telemetry for AI metadata
