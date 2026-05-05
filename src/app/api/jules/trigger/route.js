@@ -123,11 +123,9 @@ Extract ONLY the specific rules, guidelines, and context from GEMINI.md that are
 
     // Add standard rules for Jules
     enrichedPrompt += `## Rules
-- ZERO REACT CODING. Do NOT write or modify .js/.jsx React components for UI features.
-- Instead of writing React code, you MUST output UI structures as JSON Schemas and push them to Firestore (collection: dynamic_ui).
-- The Hub uses a Headless DynamicRenderer to build the UI from your JSON schemas.
-- Only modify backend scripts, APIs, or configuration files.
-- Run \`npx next lint\` before committing to catch errors.
+- You are FULLY AUTHORIZED to write and modify React components (.js/.jsx) for UI features.
+- Do NOT use dynamic JSON Schema rendering for standard UI components unless explicitly asked. Write native Next.js 14+ React code.
+- Run \`npx next lint\` before committing to catch syntax and React errors.
 - Create a single-purpose PR with a clear title.
 - Write commit messages following conventional commits (feat:, fix:, chore:, docs:).
 - Never run \`npm run build\` — Firebase App Hosting handles builds.
@@ -135,11 +133,13 @@ Extract ONLY the specific rules, guidelines, and context from GEMINI.md that are
 ## CRITICAL: RE-ACT SANDBOX LOOP (VERIFICATION PHASE)
 Before you commit any code, you MUST verify it against the secure Cloud Run Sandbox.
 1. Write your code logic.
-2. Use \`curl\` to send your code to: https://gravix-sandbox-426017291723.us-east4.run.app/execute
-   Example payload: \`{"files": [{"path": "src/file.js", "content": "..."}], "command": "node src/file.js"}\`
+2. If your code is a standard Node.js script or API route, use \`curl\` to send your code to: https://gravix-sandbox-426017291723.us-east4.run.app/execute
+   Example payload: \`{"files": [{"path": "src/api/route.js", "content": "..."}], "command": "node src/api/route.js"}\`
    Header: \`Authorization: Bearer gravix-sandbox-secret-123\`
-3. If the sandbox returns an error (exitCode > 0), you must READ the error, REASON about why it failed, FIX the code, and TRY AGAIN.
-4. You may only push to GitHub once the Sandbox returns exitCode: 0.
+   If the sandbox returns an error (exitCode > 0), you must READ the error, FIX the code, and TRY AGAIN.
+3. IF YOU ARE MODIFYING REACT COMPONENTS (.jsx or UI files): Do NOT use the \`node\` command in the sandbox, because Node cannot parse JSX!
+   Instead, you must rely exclusively on \`npx next lint\` locally to verify React components. You may skip the Sandbox execution step ONLY for React components.
+4. You may only push to GitHub once verification is complete.
 `;
 
     // ── DEERFLOW AI EVALUATION ──────────────────────────────────
