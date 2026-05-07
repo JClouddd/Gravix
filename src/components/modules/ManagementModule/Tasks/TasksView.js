@@ -24,28 +24,38 @@ export default function TasksView() {
 
   // Fetch tasks when activeListId changes
   useEffect(() => {
-    setLoading(true);
-    fetch(`/api/management/tasks?taskListId=${activeListId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.connected) {
-          setTasks(data.tasks || []);
-          setTaskLists(data.taskLists || []);
-          // Only set activeListId if it was the default initialization
-          if (activeListId === "@default" && data.taskListId) {
-            setActiveListId(data.taskListId);
+    let ignore = false;
+
+    const fetchTasks = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/management/tasks?taskListId=${activeListId}`);
+        const data = await res.json();
+        if (!ignore) {
+          if (data.success && data.connected) {
+            setTasks(data.tasks || []);
+            setTaskLists(data.taskLists || []);
+            // Only set activeListId if it was the default initialization
+            if (activeListId === "@default" && data.taskListId) {
+              setActiveListId(data.taskListId);
+            }
+          } else if (!data.connected) {
+            setError("Google OAuth is not connected. Please connect your account in Settings.");
+          } else {
+            setError(data.error || "Failed to load tasks");
           }
-        } else if (!data.connected) {
-          setError("Google OAuth is not connected. Please connect your account in Settings.");
-        } else {
-          setError(data.error || "Failed to load tasks");
+          setLoading(false);
         }
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
-      });
+      } catch (err) {
+        if (!ignore) {
+          setError(err.message);
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchTasks();
+    return () => { ignore = true; };
   }, [activeListId]);
 
   // Real-time Telemetry for AI metadata

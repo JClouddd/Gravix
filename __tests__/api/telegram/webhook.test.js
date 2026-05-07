@@ -90,7 +90,9 @@ describe('Telegram Webhook Route', () => {
 
     fetch.mockResolvedValueOnce({
       ok: true,
+      json: async () => ({ response: { text: "Success" } })
     });
+    fetch.mockResolvedValueOnce({ ok: true });
 
     const response = await POST(req);
     const data = await response.json();
@@ -102,7 +104,10 @@ describe('Telegram Webhook Route', () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        message: 'Hello bot',
+        execute: true
+      })
     }));
   });
 
