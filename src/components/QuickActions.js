@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-export default function QuickActions({ activeModule, setActiveModule }) {
+export default function QuickActions({ activeModule }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const router = useRouter();
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
 
@@ -15,9 +17,7 @@ export default function QuickActions({ activeModule, setActiveModule }) {
   ];
 
   const handleAction = (action) => {
-    if (setActiveModule) {
-      setActiveModule(action);
-    }
+    router.push(action === "home" ? "/" : `/${action}`);
     setIsExpanded(false);
   };
 
