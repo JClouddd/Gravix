@@ -24,7 +24,10 @@ export default function TasksView() {
 
   // Fetch tasks when activeListId changes
   useEffect(() => {
+
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
     setLoading(true);
+
     fetch(`/api/management/tasks?taskListId=${activeListId}`)
       .then(res => res.json())
       .then(data => {

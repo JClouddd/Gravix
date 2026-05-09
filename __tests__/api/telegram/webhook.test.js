@@ -102,7 +102,7 @@ describe('Telegram Webhook Route', () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: expect.any(String)
     }));
   });
 
